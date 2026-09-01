@@ -20,11 +20,28 @@ export default function Home() {
           borderRadius: 8,
           textDecoration: 'none',
           fontWeight: 'bold',
+          marginRight: 15,
         }}
       >
         Search flights →
       </Link>
 
+      <Link
+        href="/anywhere"
+        style={{
+          display: 'inline-block',
+          padding: '14px 28px',
+          fontSize: 18,
+          backgroundColor: 'white',
+          color: '#0070f3',
+          border: '2px solid #0070f3',
+          borderRadius: 8,
+          textDecoration: 'none',
+          fontWeight: 'bold',
+        }}
+      >
+        Where can I fly cheaply? →
+      </Link>
       <div style={{ marginTop: 60, textAlign: 'left' }}>
         <h2 style={{ fontSize: 22, marginBottom: 15 }}>How it works</h2>
         <ol style={{ fontSize: 16, color: '#444', lineHeight: 1.8 }}>

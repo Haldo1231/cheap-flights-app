@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 
 export default function AnywherePage() {
   const [results, setResults] = useState<any[]>([])
@@ -32,16 +33,20 @@ export default function AnywherePage() {
             <li
               key={r.destination}
               style={{
-                padding: 15,
                 marginBottom: 10,
                 border: i === 0 ? '2px solid #0070f3' : '1px solid #ddd',
                 borderRadius: 8,
                 backgroundColor: i === 0 ? '#f0f7ff' : 'white',
               }}
             >
-              <strong>{i + 1}. {r.destinationName}</strong> — <strong>€{r.price}</strong>
-              <br />
-              <small>{r.origin} → {r.destination} · {r.departure_at?.split('T')[0]} → {r.return_at?.split('T')[0]}</small>
+              <Link
+                href={`/destinations/${r.destinationSlug}`}
+                style={{ display: 'block', padding: 15, textDecoration: 'none', color: 'inherit' }}
+              >
+                <strong>{i + 1}. {r.destinationName}</strong> — <strong>€{r.price}</strong>
+                <br />
+                <small>{r.origin} → {r.destination} · {r.departure_at?.split('T')[0]} → {r.return_at?.split('T')[0]}</small>
+              </Link>
             </li>
           ))}
         </ol>

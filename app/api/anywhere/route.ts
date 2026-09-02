@@ -3,18 +3,18 @@ import { NextResponse } from 'next/server'
 const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
 
 const DESTINATIONS = [
-  { code: 'ROM', name: 'Rome' },
-  { code: 'MIL', name: 'Milan' },
-  { code: 'BCN', name: 'Barcelona' },
-  { code: 'ATH', name: 'Athens' },
-  { code: 'PAR', name: 'Paris' },
-  { code: 'LON', name: 'London' },
-  { code: 'BER', name: 'Berlin' },
-  { code: 'AMS', name: 'Amsterdam' },
-  { code: 'LIS', name: 'Lisbon' },
-  { code: 'WAW', name: 'Warsaw' },
-  { code: 'KRK', name: 'Krakow' },
-  { code: 'MAD', name: 'Madrid' },
+  { code: 'ROM', name: 'Rome', slug: 'rome' },
+  { code: 'MIL', name: 'Milan', slug: 'milan' },
+  { code: 'BCN', name: 'Barcelona', slug: 'barcelona' },
+  { code: 'ATH', name: 'Athens', slug: 'athens' },
+  { code: 'PAR', name: 'Paris', slug: 'paris' },
+  { code: 'LON', name: 'London', slug: 'london' },
+  { code: 'BER', name: 'Berlin', slug: 'berlin' },
+  { code: 'AMS', name: 'Amsterdam', slug: 'amsterdam' },
+  { code: 'LIS', name: 'Lisbon', slug: 'lisbon' },
+  { code: 'WAW', name: 'Warsaw', slug: 'warsaw' },
+  { code: 'KRK', name: 'Krakow', slug: 'krakow' },
+  { code: 'MAD', name: 'Madrid', slug: 'madrid' },
 ]
 
 export async function GET() {
@@ -48,10 +48,10 @@ export async function GET() {
 
       valid.sort((a, b) => a.price - b.price)
       const best = valid[0]
-
       return {
         destination: dest.code,
         destinationName: dest.name,
+        destinationSlug: dest.slug,
         origin: best.origin,
         price: best.price,
         departure_at: best.departure_at,

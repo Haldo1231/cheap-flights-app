@@ -4,20 +4,19 @@ import { supabaseAdmin } from '@/app/supabaseAdmin'
 const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
 
 const DESTINATIONS = [
-  { code: 'ROM', name: 'Rome' },
-  { code: 'MIL', name: 'Milan' },
-  { code: 'BCN', name: 'Barcelona' },
-  { code: 'ATH', name: 'Athens' },
-  { code: 'PAR', name: 'Paris' },
-  { code: 'LON', name: 'London' },
-  { code: 'BER', name: 'Berlin' },
-  { code: 'AMS', name: 'Amsterdam' },
-  { code: 'LIS', name: 'Lisbon' },
-  { code: 'WAW', name: 'Warsaw' },
-  { code: 'KRK', name: 'Krakow' },
-  { code: 'MAD', name: 'Madrid' },
+  { code: 'ROM', name: 'Rome', slug: 'rome' },
+  { code: 'MIL', name: 'Milan', slug: 'milan' },
+  { code: 'BCN', name: 'Barcelona', slug: 'barcelona' },
+  { code: 'ATH', name: 'Athens', slug: 'athens' },
+  { code: 'PAR', name: 'Paris', slug: 'paris' },
+  { code: 'LON', name: 'London', slug: 'london' },
+  { code: 'BER', name: 'Berlin', slug: 'berlin' },
+  { code: 'AMS', name: 'Amsterdam', slug: 'amsterdam' },
+  { code: 'LIS', name: 'Lisbon', slug: 'lisbon' },
+  { code: 'WAW', name: 'Warsaw', slug: 'warsaw' },
+  { code: 'KRK', name: 'Krakow', slug: 'krakow' },
+  { code: 'MAD', name: 'Madrid', slug: 'madrid' },
 ]
-
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -54,11 +53,11 @@ export async function GET(request: Request) {
 
       valid.sort((a, b) => a.price - b.price)
       const best = valid[0]
-
       return {
         origin: best.origin,
         destination: dest.code,
         destination_city: dest.name,
+        destination_slug: dest.slug,
         price: best.price,
         departure_date: best.departure_at?.split('T')[0],
         return_date: best.return_at?.split('T')[0],

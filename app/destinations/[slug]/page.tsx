@@ -90,16 +90,21 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
         Accommodation + food + transport ({tripNights} days): €{dailyTotal * tripNights}<br />
         <strong>Estimated total: €{tripTotal}</strong>
       </p>
-
       <h2>Recommended hostels</h2>
       {(!hostels || hostels.length === 0) && <p>Hostel recommendations coming soon.</p>}
       {hostels && hostels.length > 0 && (
         <ul>
           {hostels.map((h) => (
-            <li key={h.id}>{h.name} — €{h.price_per_night}/night, rated {h.rating}</li>
+            <li key={h.id} style={{ marginBottom: 8 }}>
+              <a href={h.booking_url} target="_blank" rel="noopener noreferrer" style={{ color: '#0070f3' }}>
+                {h.name}
+              </a>{' '}
+              — €{h.price_per_night}/night, rated {h.rating}
+            </li>
           ))}
         </ul>
       )}
+
     </div>
   )
 }

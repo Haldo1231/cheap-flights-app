@@ -39,6 +39,29 @@ async function searchExactOrMonth(
   }
 }
 
+async function searchLeg(
+  origin: string,
+  destination: string,
+  token: string | undefined,
+  date: string | undefined
+) {
+  let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur&token=${token}`
+  if (date) url += `&depart_date=${date}`
+
+  const res = await fetch(url)
+  const json = await res.json()
+
+  const destData = json.data?.[destination]
+  if (!destData) return null
+  const firstEntry: any = Object.values(destData)[0]
+  if (!firstEntry) return null
+
+  return {
+    price: firstEntry.price,
+    departure_at: firstEntry.departure_at,
+  }
+}
+
 async function searchRange(
   origin: string,
   destination: string,
@@ -90,6 +113,42 @@ export async function GET(request: Request) {
     : DEFAULT_ORIGINS
 
   const token = process.env.TRAVELPAYOUTS_TOKEN
+
+  const openJaw = searchParams.get('openJaw') === 'true'
+
+  if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'month')) {
+    const outDate = dateMode === 'exact' ? searchParams.get('departDate') || undefined : searchParams.get('month') || undefined
+    const backDate = dateMode === 'exact' ? searchParams.get('returnDate') || undefined : searchParams.get('month') || undefined
+
+    const outLegs = await Promise.all(
+      origins.map(async (o) => ({ origin: o, leg: await searchLeg(o, destination, token, outDate) }))
+    )
+    const backLegs = await Promise.all(
+      origins.map(async (o) => ({ origin: o, leg: await searchLeg(destination, o, token, backDate) }))
+    )
+
+    const validOut = outLegs.filter((l) => l.leg !== null)
+    const validBack = backLegs.filter((l) => l.leg !== null)
+
+    const combos: any[] = []
+    for (const out of validOut) {
+      for (const back of validBack) {
+        combos.push({
+          outOrigin: out.origin,
+          backOrigin: back.origin,
+          outPrice: out.leg!.price,
+          backPrice: back.leg!.price,
+          outDeparture: out.leg!.departure_at,
+          backDeparture: back.leg!.departure_at,
+          total: out.leg!.price + back.leg!.price,
+        })
+      }
+    }
+
+    combos.sort((a, b) => a.total - b.total)
+
+    return NextResponse.json({ destination, openJaw: true, results: combos.slice(0, 8) })
+  }
 
   const results = await Promise.all(
     origins.map(async (origin) => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
 
 const RECOMMENDED_AIRPORTS = [
@@ -23,6 +24,8 @@ function getNext12Months() {
 }
 
 export default function SearchPage() {
+  const router = useRouter()
+
   const [selectedAirports, setSelectedAirports] = useState<string[]>(['BTS', 'VIE', 'BUD', 'KSC'])
   const [extraOrigins, setExtraOrigins] = useState<{ code: string; city: string }[]>([])
 
@@ -30,19 +33,17 @@ export default function SearchPage() {
   const [destinationCity, setDestinationCity] = useState('')
 
   const [oneWay, setOneWay] = useState(false)
+  const [openJaw, setOpenJaw] = useState(false)
   const [dateMode, setDateMode] = useState<'exact' | 'month' | 'range'>('exact')
 
   const [departDate, setDepartDate] = useState('')
   const [returnDate, setReturnDate] = useState('')
   const [month, setMonth] = useState('')
+  const [returnMonth, setReturnMonth] = useState('')
   const [rangeStart, setRangeStart] = useState('')
   const [rangeEnd, setRangeEnd] = useState('')
   const [minDays, setMinDays] = useState(2)
   const [maxDays, setMaxDays] = useState(8)
-
-  const [results, setResults] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
 
   const months = getNext12Months()
 
@@ -59,19 +60,17 @@ export default function SearchPage() {
     setExtraOrigins((prev) => prev.filter((o) => o.code !== code))
   }
 
-  async function handleSearch() {
+  function handleSearch() {
     if (!destinationCode) return
     const allOrigins = [...selectedAirports, ...extraOrigins.map((o) => o.code)]
     if (allOrigins.length === 0) return
-
-    setLoading(true)
-    setSearched(true)
 
     const params = new URLSearchParams({
       destination: destinationCode,
       origins: allOrigins.join(','),
       oneWay: String(oneWay),
       dateMode,
+      openJaw: String(openJaw),
     })
 
     if (dateMode === 'exact') {
@@ -79,6 +78,7 @@ export default function SearchPage() {
       if (returnDate) params.set('returnDate', returnDate)
     } else if (dateMode === 'month') {
       if (month) params.set('month', month)
+      if (!oneWay && returnMonth) params.set('returnMonth', returnMonth)
     } else if (dateMode === 'range') {
       if (rangeStart) params.set('rangeStart', rangeStart)
       if (rangeEnd) params.set('rangeEnd', rangeEnd)
@@ -86,10 +86,7 @@ export default function SearchPage() {
       params.set('maxDays', String(maxDays))
     }
 
-    const res = await fetch(`/api/compare?${params.toString()}`)
-    const data = await res.json()
-    setResults(data.results || [])
-    setLoading(false)
+    router.push(`/results?${params.toString()}`)
   }
 
   return (
@@ -146,10 +143,16 @@ export default function SearchPage() {
 
       <div className="mb-6">
         <label className="block font-medium mb-2">Trip type</label>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-3">
           <button type="button" onClick={() => setOneWay(false)} className={`px-4 py-2 rounded-sm border text-sm ${!oneWay ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>Round trip</button>
           <button type="button" onClick={() => setOneWay(true)} className={`px-4 py-2 rounded-sm border text-sm ${oneWay ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>One way</button>
         </div>
+        {!oneWay && (
+          <label className="flex items-center gap-2 text-sm text-[#5B6472]">
+            <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} />
+            Allow flying back to a different airport (only works with Exact dates or Whole month)
+          </label>
+        )}
       </div>
 
       <div className="mb-6">
@@ -174,21 +177,41 @@ export default function SearchPage() {
             )}
           </div>
         )}
-
         {dateMode === 'month' && (
-          <div className="grid grid-cols-4 gap-2">
-            {months.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => setMonth(m.value)}
-                className={`px-3 py-2 rounded-sm border text-sm ${month === m.value ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}
-              >
-                {m.label}
-              </button>
-            ))}
+          <div>
+            <label className="block text-xs text-[#5B6472] mb-1">{oneWay ? 'Month' : 'Departure month'}</label>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {months.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMonth(m.value)}
+                  className={`px-3 py-2 rounded-sm border text-sm ${month === m.value ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {!oneWay && (
+              <>
+                <label className="block text-xs text-[#5B6472] mb-1">Return month</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {months.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setReturnMonth(m.value)}
+                      className={`px-3 py-2 rounded-sm border text-sm ${returnMonth === m.value ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
+
 
         {dateMode === 'range' && (
           <div>
@@ -217,27 +240,9 @@ export default function SearchPage() {
         )}
       </div>
 
-      <button onClick={handleSearch} className="px-6 py-3 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm hover:bg-[#e8940a] transition-colors mb-10">
+      <button onClick={handleSearch} className="px-6 py-3 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm hover:bg-[#e8940a] transition-colors">
         Search
       </button>
-
-      {loading && <p className="text-[#5B6472]">Searching...</p>}
-      {!loading && searched && results.length === 0 && (
-        <p className="text-[#5B6472]">No cached prices found for this search. Try a more popular destination, or a different date mode.</p>
-      )}
-      {!loading && results.length > 0 && (
-        <ul className="space-y-3">
-          {results.map((r, i) => (
-            <li key={r.origin} className={`px-5 py-4 rounded-sm border ${i === 0 ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
-              {i === 0 && <p className="text-xs font-semibold text-[#FCA311] mb-1">CHEAPEST</p>}
-              <p className="font-mono text-lg">{r.origin} → {destinationCode} · <span className="font-semibold">€{r.price}</span></p>
-              <p className="text-sm text-[#5B6472] font-mono">
-                {r.departure_at?.split('T')[0]}{r.return_at ? ` → ${r.return_at.split('T')[0]}` : ' (one way)'}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }

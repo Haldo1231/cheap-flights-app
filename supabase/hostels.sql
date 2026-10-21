@@ -1,7 +1,13 @@
--- Replaces placeholder hostel data with real, researched listings.
--- Run this in Supabase Dashboard -> SQL Editor -> New query -> Run.
--- Prices are approximate (Hostelworld doesn't expose live per-night rates to search),
--- shown as "from €X/night" on the site. Ratings are out of 10.
+-- Real, verified hostel listings for all 12 destination cities (2 each, 24 total).
+-- Names and booking_url values are real, currently-listed Hostelworld properties.
+-- Run in Supabase Dashboard -> SQL Editor -> New query -> Run. Safe to re-run
+-- (deletes old rows for these 12 cities first, then inserts fresh ones).
+--
+-- Prices are approximate "from €X/night" figures, not live per-night rates
+-- (Hostelworld doesn't expose per-date pricing to search) -- shown as "from €X"
+-- on the site, same as flight prices. Ratings are out of 10.
+-- Berlin's Sandino is seasonal (open May-Sep only) -- kept alongside
+-- EastSeven (year-round) per owner's choice.
 
 delete from hostels where destination_slug in (
   'rome', 'milan', 'barcelona', 'athens',

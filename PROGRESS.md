@@ -15,7 +15,16 @@ Findings:
 - No raw/unwrapped Aviasales links found anywhere in the codebase.
 
 ## Task 2: Hostels — finish real, verified data for all 12 cities
-Status: not started
+Status: done (needs owner action — see below)
+
+Moved/organized the real hostel data (24 listings, 2 per city, all verified
+Hostelworld names/links) into `supabase/hostels.sql`. This is the same data
+already researched and run once before, now in its proper repo location with
+clearer documentation. Safe to re-run (delete-then-insert for these 12 cities).
+
+ACTION NEEDED FROM YOU: run `supabase/hostels.sql` in Supabase SQL Editor.
+If you already ran the old version of this script, this is a safe no-op
+(same data) — only needed if you haven't run it yet, or want to confirm.
 
 ## Task 3: Hostel affiliate — check if hostel links can earn commission
 Status: not started

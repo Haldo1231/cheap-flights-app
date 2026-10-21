@@ -9,11 +9,11 @@ export default async function DealsPage() {
     .order('price', { ascending: true })
 
   if (error) {
-    return <div style={{ padding: 40 }}>Error loading deals: {error.message}</div>
+    return <div style={{ padding: '24px 20px' }}>Error loading deals: {error.message}</div>
   }
 
   return (
-    <div style={{ padding: 40, fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ padding: '24px 20px', fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
       <h1>🔥 Top Cheap Flights This Week</h1>
       <p>Hand-picked cheap flight deals from Vienna, Bratislava, Budapest, and Košice.</p>
 

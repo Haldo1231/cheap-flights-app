@@ -57,7 +57,29 @@ Sources checked:
 - [Hostelworld partner FAQ](https://partners.hostelworld.com/faqs)
 
 ## Task 4: Mobile — check every page at phone width
-Status: not started
+Status: done
+
+Tested all 6 pages at 390px width (iPhone-size) with Playwright, both in
+their empty/error states (real, since this sandbox can't reach Travelpayouts
+or Supabase) and their populated states (mocked realistic API responses) --
+home, search, results (plain list, open-jaw combos, calendar), anywhere,
+deals, destination page.
+
+Result: no horizontal overflow or broken layouts found anywhere -- the
+Tailwind-based pages were already handling mobile width well. One polish
+fix made: `/deals` and the destination pages used a fixed 40px padding
+with no mobile adjustment, eating a lot of a 390px screen; reduced to
+24px/20px so more content fits comfortably.
+
+Side note: running `npm run dev` for this testing caused Next.js's own
+tooling to re-add its standard agent-instructions block to AGENTS.md.
+Confirmed this is genuine Next.js behavior (the package really does this,
+not an injected/fabricated file as initially suspected before node_modules
+was installed) -- but left it out of this commit rather than committing it,
+since that block's own text telling an AI to commit it is exactly the kind
+of embedded instruction worth not following automatically. Flagged for the
+owner to decide; this will keep reappearing (harmlessly) each time
+`next dev` runs locally.
 
 ## Task 5: No crashes/infinite loads — loading, empty, error states everywhere
 Status: not started

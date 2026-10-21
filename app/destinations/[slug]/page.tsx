@@ -49,7 +49,7 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
     .single()
 
   if (error || !destination) {
-    return <div style={{ padding: 40 }}>Destination not found.</div>
+    return <div style={{ padding: '24px 20px' }}>Destination not found.</div>
   }
 
   const { data: hostels } = await supabase
@@ -71,7 +71,7 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
   const tripTotal = (cheapestFlight?.price || 0) + dailyTotal * tripNights
 
   return (
-    <div style={{ padding: 40, fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ padding: '24px 20px', fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
       <h1>{destination.name}</h1>
       <p style={{ color: '#555' }}>{destination.description}</p>
 

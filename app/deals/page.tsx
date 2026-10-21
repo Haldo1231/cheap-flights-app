@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import Link from 'next/link'
+import { buildBookingLink } from '../aviasalesLink'
 
 export default async function DealsPage() {
   const { data: deals, error } = await supabase
@@ -34,12 +35,31 @@ export default async function DealsPage() {
             >
               <Link
                 href={`/destinations/${deal.destination_slug}`}
-                style={{ display: 'block', padding: 15, textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'block', padding: '15px 15px 0', textDecoration: 'none', color: 'inherit' }}
               >
                 <strong>🔥 {deal.destination_city}</strong> — <strong>€{deal.price}</strong>
                 <br />
                 <small>{deal.origin} → {deal.destination} · {deal.departure_date} → {deal.return_date}</small>
               </Link>
+              <div style={{ padding: 15 }}>
+                <a
+                  href={buildBookingLink(deal.origin, deal.destination, deal.departure_date, deal.return_date)}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  style={{
+                    display: 'inline-block',
+                    padding: '6px 14px',
+                    backgroundColor: '#FCA311',
+                    color: '#14213D',
+                    fontWeight: 600,
+                    borderRadius: 4,
+                    textDecoration: 'none',
+                    fontSize: 14,
+                  }}
+                >
+                  Book on Aviasales →
+                </a>
+              </div>
             </li>
           ))}
         </ul>

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { buildBookingLink } from '../aviasalesLink'
 
 function daysInMonth(monthStr: string) {
   const [y, m] = monthStr.split('-').map(Number)
@@ -209,7 +210,38 @@ function ResultsContent() {
                 </p>
               )}
               {total !== null && <p className="font-semibold mt-2">Total: €{total}</p>}
-              <p className="text-xs text-[#5B6472] mt-3">Booking link coming soon — for now, use these dates when searching directly with an airline or booking site.</p>
+              <div className="flex flex-wrap gap-3 mt-3">
+                {selectedOut && selectedBack && selectedOut.origin === selectedBack.origin && (
+                  <a
+                    href={buildBookingLink(selectedOut.origin, destination, selectedOut.date, selectedBack.date)}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
+                  >
+                    Book on Aviasales →
+                  </a>
+                )}
+                {selectedOut && !(selectedBack && selectedOut.origin === selectedBack.origin) && (
+                  <a
+                    href={buildBookingLink(selectedOut.origin, destination, selectedOut.date)}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
+                  >
+                    Book outbound →
+                  </a>
+                )}
+                {selectedBack && !(selectedOut && selectedOut.origin === selectedBack.origin) && (
+                  <a
+                    href={buildBookingLink(destination, selectedBack.origin, selectedBack.date)}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
+                  >
+                    Book return →
+                  </a>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -229,9 +261,27 @@ function ResultsContent() {
                 <p className="text-sm text-[#5B6472]">Tap to see both flights</p>
               </button>
               {expandedCombo === i && (
-                <div className="px-5 pb-4 text-sm font-mono text-[#5B6472] space-y-1 border-t border-[#E5E1D8] pt-3">
+                <div className="px-5 pb-4 text-sm font-mono text-[#5B6472] space-y-3 border-t border-[#E5E1D8] pt-3">
                   <p>{combo.outOrigin} → {destination}: €{combo.outPrice} · {combo.outDeparture?.split('T')[0]}</p>
                   <p>{destination} → {combo.backOrigin}: €{combo.backPrice} · {combo.backDeparture?.split('T')[0]}</p>
+                  <div className="flex flex-wrap gap-3 font-sans">
+                    <a
+                      href={buildBookingLink(combo.outOrigin, destination, combo.outDeparture)}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
+                    >
+                      Book outbound →
+                    </a>
+                    <a
+                      href={buildBookingLink(destination, combo.backOrigin, combo.backDeparture)}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
+                    >
+                      Book return →
+                    </a>
+                  </div>
                 </div>
               )}
             </li>
@@ -245,9 +295,17 @@ function ResultsContent() {
             <li key={r.origin} className={`px-5 py-4 rounded-sm border ${i === 0 ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
               {i === 0 && <p className="text-xs font-semibold text-[#FCA311] mb-1">CHEAPEST</p>}
               <p className="font-mono text-lg">{r.origin} → {destination} · <span className="font-semibold">€{r.price}</span></p>
-              <p className="text-sm text-[#5B6472] font-mono">
+              <p className="text-sm text-[#5B6472] font-mono mb-3">
                 {r.departure_at?.split('T')[0]}{r.return_at ? ` → ${r.return_at.split('T')[0]}` : ' (one way)'}
               </p>
+              <a
+                href={buildBookingLink(r.origin, destination, r.departure_at, r.return_at)}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
+              >
+                Book on Aviasales →
+              </a>
             </li>
           ))}
         </ul>

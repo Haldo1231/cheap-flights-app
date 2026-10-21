@@ -1,4 +1,5 @@
 import { supabase } from '../../supabase'
+import { buildBookingLink } from '../../aviasalesLink'
 
 const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
 
@@ -19,7 +20,12 @@ async function getCheapestFlight(destinationCode: string) {
         const firstEntry: any = Object.values(destData)[0]
         if (!firstEntry) return null
 
-        return { origin, price: firstEntry.price }
+        return {
+          origin,
+          price: firstEntry.price,
+          departure_at: firstEntry.departure_at,
+          return_at: firstEntry.return_at,
+        }
       } catch {
         return null
       }
@@ -74,6 +80,28 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
           <>
             <strong style={{ fontSize: 22 }}>Flight from €{cheapestFlight.price}</strong>
             <p style={{ margin: '5px 0 0' }}>Cheapest from {cheapestFlight.origin}</p>
+            <a
+              href={buildBookingLink(
+                cheapestFlight.origin,
+                destination.airport_code,
+                cheapestFlight.departure_at,
+                cheapestFlight.return_at
+              )}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              style={{
+                display: 'inline-block',
+                marginTop: 10,
+                padding: '8px 16px',
+                backgroundColor: '#FCA311',
+                color: '#14213D',
+                fontWeight: 600,
+                borderRadius: 4,
+                textDecoration: 'none',
+              }}
+            >
+              Book on Aviasales →
+            </a>
           </>
         ) : (
           <p>No current flight price found for this route — try the search page directly.</p>

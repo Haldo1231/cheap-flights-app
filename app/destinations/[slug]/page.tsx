@@ -7,17 +7,22 @@ async function getCheapestFlight(destinationCode: string) {
 
   const results = await Promise.all(
     AIRPORTS.map(async (origin) => {
-      const url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destinationCode}&currency=eur&token=${token}`
-      const res = await fetch(url, { next: { revalidate: 3600 } })
-      const json = await res.json()
+      try {
+        const url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destinationCode}&currency=eur&token=${token}`
+        const res = await fetch(url, { next: { revalidate: 3600 } })
+        if (!res.ok) return null
+        const json = await res.json()
 
-      const destData = json.data?.[destinationCode]
-      if (!destData) return null
+        const destData = json.data?.[destinationCode]
+        if (!destData) return null
 
-      const firstEntry: any = Object.values(destData)[0]
-      if (!firstEntry) return null
+        const firstEntry: any = Object.values(destData)[0]
+        if (!firstEntry) return null
 
-      return { origin, price: firstEntry.price }
+        return { origin, price: firstEntry.price }
+      } catch {
+        return null
+      }
     })
   )
 

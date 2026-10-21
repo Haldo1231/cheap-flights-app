@@ -24,21 +24,26 @@ export async function GET() {
     DESTINATIONS.map(async (dest) => {
       const originResults = await Promise.all(
         AIRPORTS.map(async (origin) => {
-          const url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${dest.code}&currency=eur&token=${token}`
-          const res = await fetch(url)
-          const json = await res.json()
+          try {
+            const url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${dest.code}&currency=eur&token=${token}`
+            const res = await fetch(url)
+            if (!res.ok) return null
+            const json = await res.json()
 
-          const destData = json.data?.[dest.code]
-          if (!destData) return null
+            const destData = json.data?.[dest.code]
+            if (!destData) return null
 
-          const firstEntry: any = Object.values(destData)[0]
-          if (!firstEntry) return null
+            const firstEntry: any = Object.values(destData)[0]
+            if (!firstEntry) return null
 
-          return {
-            origin,
-            price: firstEntry.price,
-            departure_at: firstEntry.departure_at,
-            return_at: firstEntry.return_at,
+            return {
+              origin,
+              price: firstEntry.price,
+              departure_at: firstEntry.departure_at,
+              return_at: firstEntry.return_at,
+            }
+          } catch {
+            return null
           }
         })
       )

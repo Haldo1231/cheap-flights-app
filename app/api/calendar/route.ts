@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 
 async function fetchLegCalendar(origin: string, destination: string, month: string, token: string | undefined) {
-  const url = `https://api.travelpayouts.com/v1/prices/calendar?origin=${origin}&destination=${destination}&depart_date=${month}&calendar_type=departure_date&currency=eur&token=${token}`
-  const res = await fetch(url)
-  const json = await res.json()
-  return json.data || {}
+  try {
+    const url = `https://api.travelpayouts.com/v1/prices/calendar?origin=${origin}&destination=${destination}&depart_date=${month}&calendar_type=departure_date&currency=eur&token=${token}`
+    const res = await fetch(url)
+    if (!res.ok) return {}
+    const json = await res.json()
+    return json.data || {}
+  } catch {
+    return {}
+  }
 }
 
 export async function GET(request: Request) {

@@ -23,19 +23,24 @@ async function searchExactOrMonth(
     if (!oneWay && month) url += `&return_date=${month}`
   }
 
-  const res = await fetch(url)
-  const json = await res.json()
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const json = await res.json()
 
-  const destData = json.data?.[destination]
-  if (!destData) return null
-  const firstEntry: any = Object.values(destData)[0]
-  if (!firstEntry) return null
+    const destData = json.data?.[destination]
+    if (!destData) return null
+    const firstEntry: any = Object.values(destData)[0]
+    if (!firstEntry) return null
 
-  return {
-    origin,
-    price: firstEntry.price,
-    departure_at: firstEntry.departure_at,
-    return_at: firstEntry.return_at,
+    return {
+      origin,
+      price: firstEntry.price,
+      departure_at: firstEntry.departure_at,
+      return_at: firstEntry.return_at,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -48,17 +53,22 @@ async function searchLeg(
   let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur&token=${token}`
   if (date) url += `&depart_date=${date}`
 
-  const res = await fetch(url)
-  const json = await res.json()
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const json = await res.json()
 
-  const destData = json.data?.[destination]
-  if (!destData) return null
-  const firstEntry: any = Object.values(destData)[0]
-  if (!firstEntry) return null
+    const destData = json.data?.[destination]
+    if (!destData) return null
+    const firstEntry: any = Object.values(destData)[0]
+    if (!firstEntry) return null
 
-  return {
-    price: firstEntry.price,
-    departure_at: firstEntry.departure_at,
+    return {
+      price: firstEntry.price,
+      departure_at: firstEntry.departure_at,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -75,25 +85,30 @@ async function searchRange(
 
   const url = `https://api.travelpayouts.com/v2/prices/latest?currency=eur&origin=${origin}&destination=${destination}&min_trip_duration=${minDuration}&max_trip_duration=${maxDuration}&sorting=price&limit=30&token=${token}`
 
-  const res = await fetch(url)
-  const json = await res.json()
-  let entries = json.data || []
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const json = await res.json()
+    let entries = json.data || []
 
-  if (rangeStart) {
-    entries = entries.filter(
-      (e: any) => e.depart_date >= rangeStart && (!rangeEnd || e.depart_date <= rangeEnd)
-    )
-  }
+    if (rangeStart) {
+      entries = entries.filter(
+        (e: any) => e.depart_date >= rangeStart && (!rangeEnd || e.depart_date <= rangeEnd)
+      )
+    }
 
-  if (!entries.length) return null
+    if (!entries.length) return null
 
-  const cheapest = entries.reduce((min: any, e: any) => (e.value < min.value ? e : min), entries[0])
+    const cheapest = entries.reduce((min: any, e: any) => (e.value < min.value ? e : min), entries[0])
 
-  return {
-    origin,
-    price: cheapest.value,
-    departure_at: cheapest.depart_date,
-    return_at: cheapest.return_date,
+    return {
+      origin,
+      price: cheapest.value,
+      departure_at: cheapest.depart_date,
+      return_at: cheapest.return_date,
+    }
+  } catch {
+    return null
   }
 }
 

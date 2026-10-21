@@ -82,4 +82,22 @@ owner to decide; this will keep reappearing (harmlessly) each time
 `next dev` runs locally.
 
 ## Task 5: No crashes/infinite loads — loading, empty, error states everywhere
-Status: not started
+Status: done
+
+Found and fixed the real bug class behind the "search stuck loading forever"
+problem we debugged live earlier: `/results` and `/anywhere` fetched their
+own API routes with `.then()` chains and no `.catch()`. If that fetch ever
+failed (network issue, bad response), `setLoading(false)` never ran and the
+page hung on "Searching..."/"Loading..." forever with no way out. Added
+`.catch()` handlers to both, with a visible error message + "Try again"
+button instead of a silent hang.
+
+Checked `/deals` and destination pages (Supabase direct calls) -- already
+safe, since Supabase-js returns `{data, error}` instead of throwing, and
+both pages already handle the error case with a message.
+
+Also added a safety net that didn't exist at all: `app/error.tsx` (catches
+any unexpected server-side crash with a branded "Something went wrong" page
++ retry button, instead of Next.js's generic crash screen -- the exact page
+we saw when debugging the Travelpayouts token issue) and `app/not-found.tsx`
+(branded 404 instead of the default one).

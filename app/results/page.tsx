@@ -109,6 +109,7 @@ function ResultsContent() {
   const returnMonth = searchParams.get('returnMonth') || departMonth
 
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [listResults, setListResults] = useState<any[]>([])
   const [outboundData, setOutboundData] = useState<DayData>({})
   const [inboundData, setInboundData] = useState<DayData>({})
@@ -119,6 +120,7 @@ function ResultsContent() {
 
   useEffect(() => {
     setLoading(true)
+    setError(null)
     setSelectedOut(null)
     setSelectedBack(null)
 
@@ -131,11 +133,16 @@ function ResultsContent() {
         requests.push(fetch(`/api/calendar?${inParams.toString()}`).then((r) => r.json()))
       }
 
-      Promise.all(requests).then((results) => {
-        setOutboundData(results[0].data || {})
-        setInboundData(results[1] ? results[1].data || {} : {})
-        setLoading(false)
-      })
+      Promise.all(requests)
+        .then((results) => {
+          setOutboundData(results[0].data || {})
+          setInboundData(results[1] ? results[1].data || {} : {})
+          setLoading(false)
+        })
+        .catch(() => {
+          setError('Something went wrong loading the calendar. Please try again.')
+          setLoading(false)
+        })
       return
     }
 
@@ -144,6 +151,10 @@ function ResultsContent() {
       .then((res) => res.json())
       .then((data) => {
         setListResults(data.results || [])
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Something went wrong loading results. Please try again.')
         setLoading(false)
       })
   }, [searchParams.toString()])
@@ -165,7 +176,20 @@ function ResultsContent() {
 
       {loading && <p className="text-[#5B6472]">Searching...</p>}
 
-      {!loading && dateMode === 'month' && (
+      {!loading && error && (
+        <div className="rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-5 py-4">
+          <p className="text-[#14213D] mb-2">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#14213D] text-white rounded-sm text-sm font-medium hover:bg-[#1c2d52] transition-colors"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && dateMode === 'month' && (
         <div>
           <div className="flex flex-col sm:flex-row gap-6 mb-6">
             <CalendarGrid
@@ -247,11 +271,11 @@ function ResultsContent() {
         </div>
       )}
 
-      {!loading && dateMode !== 'month' && listResults.length === 0 && (
+      {!loading && !error && dateMode !== 'month' && listResults.length === 0 && (
         <p className="text-[#5B6472]">No cached prices found for this search. Try a more popular destination, or a different date mode.</p>
       )}
 
-      {!loading && dateMode !== 'month' && listResults.length > 0 && openJaw && (
+      {!loading && !error && dateMode !== 'month' && listResults.length > 0 && openJaw && (
         <ul className="space-y-3">
           {listResults.map((combo, i) => (
             <li key={i} className={`rounded-sm border ${i === 0 ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
@@ -289,7 +313,7 @@ function ResultsContent() {
         </ul>
       )}
 
-      {!loading && dateMode !== 'month' && listResults.length > 0 && !openJaw && (
+      {!loading && !error && dateMode !== 'month' && listResults.length > 0 && !openJaw && (
         <ul className="space-y-3">
           {listResults.map((r, i) => (
             <li key={r.origin} className={`px-5 py-4 rounded-sm border ${i === 0 ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>

@@ -7,6 +7,7 @@ import { buildBookingLink } from '../aviasalesLink'
 export default function AnywherePage() {
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/anywhere')
@@ -15,20 +16,45 @@ export default function AnywherePage() {
         setResults(data.results || [])
         setLoading(false)
       })
+      .catch(() => {
+        setError('Something went wrong loading destinations. Please try again.')
+        setLoading(false)
+      })
   }, [])
 
   return (
-    <div style={{ padding: 40, fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ padding: '24px 20px', fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
       <h1>Where can I fly cheaply?</h1>
       <p>Cheapest destinations right now from Vienna, Bratislava, Budapest, and Košice — sorted by price.</p>
 
       {loading && <p>Loading cheap destinations...</p>}
 
-      {!loading && results.length === 0 && (
+      {!loading && error && (
+        <div style={{ border: '1px solid #F3B3AC', backgroundColor: '#FDECEA', borderRadius: 8, padding: 15 }}>
+          <p style={{ margin: '0 0 10px' }}>{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#14213D',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && results.length === 0 && (
         <p>No cached destination prices found right now. Try again later.</p>
       )}
 
-      {!loading && results.length > 0 && (
+      {!loading && !error && results.length > 0 && (
         <ol style={{ padding: 0, listStyle: 'none' }}>
           {results.map((r, i) => (
             <li

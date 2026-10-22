@@ -1,5 +1,6 @@
 import { supabase } from '../../supabase'
 import { buildBookingLink } from '../../aviasalesLink'
+import { getAirlineName } from '../../airlines'
 
 const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
 
@@ -25,6 +26,7 @@ async function getCheapestFlight(destinationCode: string) {
           price: firstEntry.price,
           departure_at: firstEntry.departure_at,
           return_at: firstEntry.return_at,
+          airlineCode: firstEntry.airline || null,
         }
       } catch {
         return null
@@ -36,7 +38,9 @@ async function getCheapestFlight(destinationCode: string) {
   if (valid.length === 0) return null
 
   valid.sort((a, b) => a.price - b.price)
-  return valid[0]
+  const cheapest = valid[0]
+  const airlineName = await getAirlineName(cheapest.airlineCode)
+  return { ...cheapest, airlineName }
 }
 
 export default async function DestinationPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -79,7 +83,10 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
         {cheapestFlight ? (
           <>
             <strong style={{ fontSize: 22 }}>Flight from €{cheapestFlight.price}</strong>
-            <p style={{ margin: '5px 0 0' }}>Cheapest from {cheapestFlight.origin}</p>
+            <p style={{ margin: '5px 0 0' }}>
+              Cheapest from {cheapestFlight.origin}
+              {cheapestFlight.airlineName ? ` · ${cheapestFlight.airlineName}` : ''}
+            </p>
             <a
               href={buildBookingLink(
                 cheapestFlight.origin,

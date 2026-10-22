@@ -11,7 +11,7 @@
 //   lot of near-duplicate filler entries (empty gate, 0 duration/distance,
 //   same price repeated across many nearby return dates) which we collapse.
 
-import { getAirlineName } from './airlines'
+import { getAirlineNames } from './airlines'
 import { buildBookingLink } from './aviasalesLink'
 
 export type Flight = {
@@ -138,12 +138,10 @@ function dedupe(flights: Flight[]): Flight[] {
 }
 
 async function resolveAirlineNames(flights: Flight[]): Promise<Flight[]> {
-  const codes = flights.map((f) => f.airlineCode).filter(Boolean) as string[]
-  if (codes.length === 0) return flights
-  const names = await Promise.all(codes.map((c) => getAirlineName(c)))
-  const map = new Map(codes.map((c, i) => [c, names[i]]))
+  const codes = flights.map((f) => f.airlineCode)
+  const names = await getAirlineNames(codes)
   return flights.map((f) =>
-    f.airlineCode ? { ...f, airlineName: map.get(f.airlineCode) || null } : f
+    f.airlineCode ? { ...f, airlineName: names.get(f.airlineCode) || null } : f
   )
 }
 

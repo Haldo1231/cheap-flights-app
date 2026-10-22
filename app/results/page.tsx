@@ -21,6 +21,56 @@ function shiftMonth(monthStr: string, delta: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+function nightsBetween(departDate: string, returnDate: string | null): number {
+  if (!returnDate) return 1
+  const start = new Date(departDate)
+  const end = new Date(returnDate)
+  const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  return Math.max(1, diffDays)
+}
+
+type DestInfo = {
+  name: string
+  hostel_avg_price: number | null
+  food_avg_price: number | null
+  transport_avg_price: number | null
+  other_avg_price: number | null
+}
+
+function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+  const perDay =
+    (destInfo.hostel_avg_price || 0) +
+    (destInfo.food_avg_price || 0) +
+    (destInfo.transport_avg_price || 0) +
+    (destInfo.other_avg_price || 0)
+  const stayTotal = perDay * days
+  const tripTotal = flightPrice !== null ? flightPrice + stayTotal : null
+
+  return (
+    <div className="border border-[#E5E1D8] rounded-sm p-4 bg-white lg:sticky lg:top-6">
+      <p className="font-semibold mb-3">Cost of stay in {destInfo.name}</p>
+      <ul className="text-sm text-[#5B6472] space-y-1 mb-3">
+        <li>Hostel: €{destInfo.hostel_avg_price ?? 0}/night</li>
+        <li>Food: €{destInfo.food_avg_price ?? 0}/day</li>
+        <li>Transport: €{destInfo.transport_avg_price ?? 0}/day</li>
+        <li>Other: €{destInfo.other_avg_price ?? 0}/day</li>
+      </ul>
+      <p className="text-sm mb-1">Per day: <span className="font-mono font-semibold">€{perDay}</span></p>
+      <p className="text-sm mb-3">{days} day{days === 1 ? '' : 's'}: <span className="font-mono font-semibold">€{stayTotal}</span></p>
+      <div className="border-t border-[#E5E1D8] pt-3">
+        {flightPrice !== null ? (
+          <>
+            <p className="text-sm text-[#5B6472]">Flight: €{flightPrice}</p>
+            <p className="font-semibold mt-1">Trip total: <span className="font-mono">€{tripTotal}</span></p>
+          </>
+        ) : (
+          <p className="text-sm text-[#5B6472]">Pick a flight to see the full trip total.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 type DayData = Record<string, { price: number; origin: string }>
 type Selected = { date: string; price: number; origin: string } | null
 
@@ -182,6 +232,22 @@ function ResultsContent() {
   const [loadingOutFlights, setLoadingOutFlights] = useState(false)
   const [loadingBackFlights, setLoadingBackFlights] = useState(false)
 
+  const [destInfo, setDestInfo] = useState<{
+    name: string
+    hostel_avg_price: number | null
+    food_avg_price: number | null
+    transport_avg_price: number | null
+    other_avg_price: number | null
+  } | null>(null)
+
+  useEffect(() => {
+    if (!destination) return
+    fetch(`/api/destination-info?code=${encodeURIComponent(destination)}`)
+      .then((res) => res.json())
+      .then((data) => setDestInfo(data.destination || null))
+      .catch(() => setDestInfo(null))
+  }, [destination])
+
   useEffect(() => {
     setLoading(true)
     setError(null)
@@ -283,8 +349,34 @@ function ResultsContent() {
       ? selectedOutFlight.price + selectedBackFlight.price
       : selectedOutFlight?.price ?? null
 
+  let activeFlightPrice: number | null = null
+  let activeDepartDate: string | null = null
+  let activeReturnDate: string | null = null
+
+  if (dateMode === 'month') {
+    activeFlightPrice = monthTotal
+    activeDepartDate = selectedOutFlight?.departure_at.split('T')[0] || null
+    activeReturnDate = selectedBackFlight?.departure_at.split('T')[0] || null
+  } else if (openJaw) {
+    const combo = listResults[0] as any
+    if (combo) {
+      activeFlightPrice = combo.total
+      activeDepartDate = combo.outDeparture?.split('T')[0] || null
+      activeReturnDate = combo.backDeparture?.split('T')[0] || null
+    }
+  } else {
+    const flight = listResults[selectedFlightIndex] as FlightOption | undefined
+    if (flight) {
+      activeFlightPrice = flight.price
+      activeDepartDate = flight.departure_at?.split('T')[0] || null
+      activeReturnDate = flight.return_at || null
+    }
+  }
+
+  const stayDays = activeDepartDate ? nightsBetween(activeDepartDate, activeReturnDate) : 1
+
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto px-6 py-12">
       <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
       <h1 className="text-2xl font-semibold mb-6">
         {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''} → {destination}
@@ -305,7 +397,11 @@ function ResultsContent() {
         </div>
       )}
 
-      {!loading && !error && dateMode === 'month' && (
+      {!loading && !error && (
+      <div className="flex flex-col lg:flex-row lg:items-start gap-8">
+      <div className="flex-1 min-w-0">
+
+      {dateMode === 'month' && (
         <div>
           <div className="flex flex-col sm:flex-row gap-6 mb-6">
             <CalendarGrid
@@ -423,11 +519,11 @@ function ResultsContent() {
         </div>
       )}
 
-      {!loading && !error && dateMode !== 'month' && listResults.length === 0 && (
+      {dateMode !== 'month' && listResults.length === 0 && (
         <p className="text-[#5B6472]">No cached prices found for this search. Try a more popular destination, or a different date mode.</p>
       )}
 
-      {!loading && !error && dateMode !== 'month' && listResults.length > 0 && openJaw && (
+      {dateMode !== 'month' && listResults.length > 0 && openJaw && (
         <ul className="space-y-3">
           {listResults.map((combo: any, i) => (
             <li key={i} className={`rounded-sm border ${i === 0 ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
@@ -465,7 +561,7 @@ function ResultsContent() {
         </ul>
       )}
 
-      {!loading && !error && dateMode !== 'month' && listResults.length > 0 && !openJaw && (
+      {dateMode !== 'month' && listResults.length > 0 && !openJaw && (
         <>
           {dateMode === 'range' && (
             <p className="text-xs text-[#5B6472] mb-3">
@@ -500,6 +596,17 @@ function ResultsContent() {
             ))}
           </ul>
         </>
+      )}
+
+      </div>
+
+      {destInfo && (
+        <div className="lg:w-72 flex-shrink-0">
+          <CostOfStayPanel destInfo={destInfo} flightPrice={activeFlightPrice} days={stayDays} />
+        </div>
+      )}
+
+      </div>
       )}
     </div>
   )

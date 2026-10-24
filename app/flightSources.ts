@@ -13,6 +13,7 @@
 
 import { getAirlineNames } from './airlines'
 import { buildBookingLink } from './aviasalesLink'
+import type { DayPriceMap } from './weekdays'
 
 export type Flight = {
   origin: string
@@ -199,4 +200,33 @@ export async function getRangeFlights(
   const withAirlines = await resolveAirlineNames(merged)
   withAirlines.sort((a, b) => a.price - b.price)
   return withAirlines
+}
+
+/** One day-per-price calendar for a single origin/destination/month, from
+ * /v1/prices/calendar. Shared by /api/calendar (which merges this across
+ * several origins) and the Anywhere-by-country search (which uses it to
+ * honestly check a candidate city against the weekday filter). */
+export async function fetchMonthCalendar(
+  origin: string,
+  destination: string,
+  month: string,
+  token: string | undefined
+): Promise<DayPriceMap> {
+  try {
+    const url = `https://api.travelpayouts.com/v1/prices/calendar?origin=${origin}&destination=${destination}&depart_date=${month}&calendar_type=departure_date&currency=eur&token=${token}`
+    const res = await fetch(url, { next: { revalidate: 3600 } })
+    if (!res.ok) return {}
+    const json = await res.json()
+    const data = json.data || {}
+
+    const result: DayPriceMap = {}
+    for (const [date, entry] of Object.entries<any>(data)) {
+      const price = entry?.price
+      if (typeof price !== 'number') continue
+      result[date] = { price, origin }
+    }
+    return result
+  } catch {
+    return {}
+  }
 }

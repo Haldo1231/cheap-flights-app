@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { buildBookingLink } from '../aviasalesLink'
-import { dayOfWeek, parseDays, serializeDays, ALL_WEEKDAYS, WEEKDAY_BUTTONS } from '../weekdays'
+import { dayOfWeek, parseDays, serializeDays, nightsBetween, findBestCombinations, ALL_WEEKDAYS, WEEKDAY_BUTTONS } from '../weekdays'
 
 function daysInMonth(monthStr: string) {
   const [y, m] = monthStr.split('-').map(Number)
@@ -20,14 +20,6 @@ function shiftMonth(monthStr: string, delta: number) {
   const [y, m] = monthStr.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function nightsBetween(departDate: string, returnDate: string | null): number {
-  if (!returnDate) return 1
-  const start = new Date(departDate)
-  const end = new Date(returnDate)
-  const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  return Math.max(1, diffDays)
 }
 
 type DestInfo = {
@@ -404,29 +396,7 @@ function ResultsContent() {
   // cross-month search.
   const bestCombinations = useMemo(() => {
     if (oneWay || dateMode !== 'month') return []
-    const combos: {
-      outDate: string; outPrice: number; outOrigin: string
-      backDate: string; backPrice: number; backOrigin: string
-      total: number; nights: number
-    }[] = []
-
-    for (const [outDate, outEntry] of Object.entries(outboundData)) {
-      if (!outDays.includes(dayOfWeek(outDate))) continue
-      for (const [backDate, backEntry] of Object.entries(inboundData)) {
-        if (!backDays.includes(dayOfWeek(backDate))) continue
-        if (backDate <= outDate) continue
-        const nights = nightsBetween(outDate, backDate)
-        if (nights < minNights || nights > maxNights) continue
-        combos.push({
-          outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,
-          backDate, backPrice: backEntry.price, backOrigin: backEntry.origin,
-          total: outEntry.price + backEntry.price, nights,
-        })
-      }
-    }
-
-    combos.sort((a, b) => a.total - b.total)
-    return combos.slice(0, 10)
+    return findBestCombinations(outboundData, inboundData, outDays, backDays, minNights, maxNights, 10)
   }, [oneWay, dateMode, outboundData, inboundData, outDays, backDays, minNights, maxNights])
 
   async function selectCombination(combo: (typeof bestCombinations)[number]) {

@@ -20,7 +20,7 @@ async function fetchCityDirections(origin: string, token: string | undefined): P
     const json = await res.json()
     const data = json.data || {}
     const results: RoughCandidate[] = []
-    for (const [cityCode, entry] of Object.entries<any>(data)) {
+    for (const [cityCode, entry] of Object.entries<{ price?: number }>(data)) {
       if (typeof entry?.price === 'number') {
         results.push({ cityCode, origin, roughPrice: entry.price })
       }
@@ -168,11 +168,18 @@ export async function GET(request: Request) {
     })
   )
 
-  const matched: any[] = []
-  const unmatched: any[] = []
+  type CandidateCityOut = { code: string; name: string; origin: string; roughPrice: number }
+  type UnmatchedCountryOut = { code: string; name: string; candidateCityCount: number; candidateCities: CandidateCityOut[] }
+  type MatchedCountryOut = UnmatchedCountryOut & {
+    price: number
+    verifiedCity: { code: string; name: string; origin: string; departDate: string; returnDate: string | null }
+  }
+
+  const matched: MatchedCountryOut[] = []
+  const unmatched: UnmatchedCountryOut[] = []
 
   for (const { country, cheapest, result } of checked) {
-    const base = {
+    const base: UnmatchedCountryOut = {
       code: country.code,
       name: country.name,
       candidateCityCount: country.candidates.length,

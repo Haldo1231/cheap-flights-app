@@ -22,7 +22,7 @@ async function loadGeoData(): Promise<void> {
     ])
 
     if (countriesRes.ok) {
-      const countries: any[] = await countriesRes.json()
+      const countries: { code?: string; name?: string }[] = await countriesRes.json()
       const map = new Map<string, string>()
       for (const c of countries) {
         if (c?.code && c?.name) map.set(c.code, c.name)
@@ -31,7 +31,7 @@ async function loadGeoData(): Promise<void> {
     }
 
     if (citiesRes.ok) {
-      const cities: any[] = await citiesRes.json()
+      const cities: { code?: string; country_code?: string; name?: string }[] = await citiesRes.json()
       const map = new Map<string, { name: string; countryCode: string }>()
       for (const c of cities) {
         if (c?.code && c?.country_code && c?.name) {

@@ -134,6 +134,106 @@ type FlightOption = {
   bookingUrl: string
 }
 
+type AnywhereCandidateCity = { code: string; name: string; origin: string; roughPrice: number }
+type AnywhereCountry = {
+  code: string
+  name: string
+  candidateCityCount: number
+  candidateCities: AnywhereCandidateCity[]
+  price: number
+  verifiedCity: { code: string; name: string; origin: string; departDate: string; returnDate: string | null }
+}
+type AnywhereUnmatchedCountry = {
+  code: string
+  name: string
+  candidateCityCount: number
+  candidateCities: AnywhereCandidateCity[]
+}
+
+/** Mon-Sun departure/return day toggles + min/max nights. Used by both the
+ * single-destination Whole Month view and the Anywhere+Whole Month view, so
+ * the filter UI (and what it means) stays identical in both places. */
+function WeekdayFilterPanel({
+  outDays,
+  backDays,
+  oneWay,
+  minNights,
+  maxNights,
+  onToggleOutDay,
+  onToggleBackDay,
+  onChangeMinNights,
+  onChangeMaxNights,
+}: {
+  outDays: number[]
+  backDays: number[]
+  oneWay: boolean
+  minNights: number
+  maxNights: number
+  onToggleOutDay: (day: number) => void
+  onToggleBackDay: (day: number) => void
+  onChangeMinNights: (value: string) => void
+  onChangeMaxNights: (value: string) => void
+}) {
+  return (
+    <div className="mb-6 border border-[#E5E1D8] rounded-sm p-4 bg-white">
+      <p className="font-semibold text-sm mb-2">Departure days</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {WEEKDAY_BUTTONS.map((d) => (
+          <button
+            key={d.value}
+            type="button"
+            onClick={() => onToggleOutDay(d.value)}
+            className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+      {!oneWay && (
+        <>
+          <p className="font-semibold text-sm mb-2">Return days</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {WEEKDAY_BUTTONS.map((d) => (
+              <button
+                key={d.value}
+                type="button"
+                onClick={() => onToggleBackDay(d.value)}
+                className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3 items-end flex-wrap">
+            <div>
+              <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={minNights}
+                onChange={(e) => onChangeMinNights(e.target.value)}
+                className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={maxNights}
+                onChange={(e) => onChangeMaxNights(e.target.value)}
+                className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function flightLabel(f: FlightOption) {
   const parts: string[] = []
   if (f.airlineName) parts.push(f.airlineName)
@@ -265,6 +365,7 @@ function ResultsContent() {
   const router = useRouter()
 
   const destination = searchParams.get('destination') || ''
+  const isAnywhere = searchParams.get('anywhere') === 'true'
   const origins = searchParams.get('origins') || ''
   const oneWay = searchParams.get('oneWay') === 'true'
   const dateMode = searchParams.get('dateMode') || 'exact'
@@ -308,12 +409,12 @@ function ResultsContent() {
   } | null>(null)
 
   useEffect(() => {
-    if (!destination) return
+    if (!destination || isAnywhere) return
     fetch(`/api/destination-info?code=${encodeURIComponent(destination)}`)
       .then((res) => res.json())
       .then((data) => setDestInfo(data.destination || null))
       .catch(() => setDestInfo(null))
-  }, [destination])
+  }, [destination, isAnywhere])
 
   const searchParamsString = searchParams.toString()
 
@@ -330,6 +431,8 @@ function ResultsContent() {
   }, [searchParamsString])
 
   useEffect(() => {
+    if (isAnywhere) return // handled by the Anywhere-specific effect below
+
     setLoading(true)
     setError(null)
     setSelectedOut(null)
@@ -372,6 +475,49 @@ function ResultsContent() {
         setLoading(false)
       })
   }, [fetchKey])
+
+  const [anywhereLoading, setAnywhereLoading] = useState(true)
+  const [anywhereError, setAnywhereError] = useState<string | null>(null)
+  const [anywhereCountries, setAnywhereCountries] = useState<AnywhereCountry[]>([])
+  const [anywhereUnmatched, setAnywhereUnmatched] = useState<AnywhereUnmatchedCountry[]>([])
+  const [anywhereCheckedCount, setAnywhereCheckedCount] = useState(0)
+  const [anywhereTotalCities, setAnywhereTotalCities] = useState(0)
+  const [anywhereTotalCountries, setAnywhereTotalCountries] = useState(0)
+  const [expandedCountry, setExpandedCountry] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAnywhere) return
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- same fetch-on-param-change shape as the single-destination effect above
+    setAnywhereLoading(true)
+    setAnywhereError(null)
+    setExpandedCountry(null)
+
+    // Unlike the single-destination month view, the weekday/nights filters
+    // here DO need a fresh request -- the honest per-country check happens
+    // server-side per request, there's no local calendar data to re-filter.
+    fetch(`/api/anywhere-by-country?${searchParamsString}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setAnywhereCountries(data.countries || [])
+        setAnywhereUnmatched(data.unmatchedCountries || [])
+        setAnywhereCheckedCount(data.checkedCount || 0)
+        setAnywhereTotalCities(data.totalCandidateCities || 0)
+        setAnywhereTotalCountries(data.totalCandidateCountries || 0)
+        setAnywhereLoading(false)
+      })
+      .catch(() => {
+        setAnywhereError('Something went wrong loading destinations. Please try again.')
+        setAnywhereLoading(false)
+      })
+  }, [isAnywhere, searchParamsString])
+
+  function goToCity(cityCode: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('anywhere')
+    params.set('destination', cityCode)
+    router.push(`/results?${params.toString()}`)
+  }
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -450,6 +596,127 @@ function ResultsContent() {
     }
   }
 
+  if (isAnywhere) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
+        <h1 className="text-2xl font-semibold mb-2">
+          Anywhere from {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''}
+        </h1>
+        <p className="text-sm text-[#5B6472] mb-6">Countries ranked by the cheapest price that matches your filters.</p>
+
+        {dateMode === 'month' && (
+          <WeekdayFilterPanel
+            outDays={outDays}
+            backDays={backDays}
+            oneWay={oneWay}
+            minNights={minNights}
+            maxNights={maxNights}
+            onToggleOutDay={toggleOutDay}
+            onToggleBackDay={toggleBackDay}
+            onChangeMinNights={(v) => updateParam('minNights', v)}
+            onChangeMaxNights={(v) => updateParam('maxNights', v)}
+          />
+        )}
+
+        {anywhereLoading && <p className="text-[#5B6472]">Searching every destination we have cached data for...</p>}
+
+        {!anywhereLoading && anywhereError && (
+          <div className="rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-5 py-4">
+            <p className="text-[#14213D] mb-2">{anywhereError}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-[#14213D] text-white rounded-sm text-sm font-medium hover:bg-[#1c2d52] transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!anywhereLoading && !anywhereError && anywhereCountries.length === 0 && anywhereUnmatched.length === 0 && (
+          <p className="text-[#5B6472]">
+            No cached destinations found from your selected airports right now. Try different airports, or a different date mode.
+          </p>
+        )}
+
+        {!anywhereLoading && !anywhereError && (anywhereCountries.length > 0 || anywhereUnmatched.length > 0) && (
+          <>
+            <p className="text-xs text-[#5B6472] mb-4">
+              Checked the {anywhereCheckedCount} cheapest-looking countries in detail (out of {anywhereTotalCountries} found, {anywhereTotalCities} destinations total) against your filters. Prices are cached and may change on the booking site.
+            </p>
+
+            <div className="space-y-3">
+              {anywhereCountries.map((country) => (
+                <div key={country.code} className="rounded-sm border border-[#E5E1D8] bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedCountry(expandedCountry === country.code ? null : country.code)}
+                    className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold">{country.name}</p>
+                      <p className="text-sm text-[#5B6472]">{country.candidateCityCount} destination{country.candidateCityCount === 1 ? '' : 's'} found</p>
+                    </div>
+                    <p className="font-mono font-semibold text-lg whitespace-nowrap">from €{country.price}</p>
+                  </button>
+                  {expandedCountry === country.code && (
+                    <div className="px-5 pb-4 space-y-2 border-t border-[#E5E1D8] pt-3">
+                      <button
+                        type="button"
+                        onClick={() => goToCity(country.verifiedCity.code)}
+                        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-[#FCA311] bg-[#FFF8EC] text-left"
+                      >
+                        <div>
+                          <p className="font-mono text-sm">{country.verifiedCity.name} ({country.verifiedCity.code}) · from {country.verifiedCity.origin}</p>
+                          <p className="text-xs text-[#5B6472]">Checked against your filters</p>
+                        </div>
+                        <p className="font-mono font-semibold whitespace-nowrap">€{country.price}</p>
+                      </button>
+                      {country.candidateCities
+                        .filter((c) => c.code !== country.verifiedCity.code)
+                        .map((c) => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => goToCity(c.code)}
+                            className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-[#E5E1D8] bg-white hover:bg-[#FBF9F4] text-left"
+                          >
+                            <div>
+                              <p className="font-mono text-sm">{c.name} ({c.code}) · from {c.origin}</p>
+                              <p className="text-xs text-[#5B6472]">Not checked against your filters yet — tap to see exact prices</p>
+                            </div>
+                            <p className="font-mono text-[#5B6472] whitespace-nowrap">~€{c.roughPrice}</p>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {anywhereUnmatched.length > 0 && (
+              <div className="mt-8">
+                <p className="font-semibold text-sm mb-2">No matching days found</p>
+                <p className="text-xs text-[#5B6472] mb-3">
+                  These countries have cheap flights, but not on your selected weekdays within the months shown. Try loosening your filters.
+                </p>
+                <div className="space-y-2">
+                  {anywhereUnmatched.map((c) => (
+                    <div key={c.code} className="px-4 py-2 rounded-sm border border-[#E5E1D8] bg-[#FBF9F4] text-sm text-[#5B6472] flex items-center justify-between">
+                      <span>{c.name}</span>
+                      <span>{c.candidateCityCount} destination{c.candidateCityCount === 1 ? '' : 's'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
   const selectedOutFlight = outDayFlights[selectedOutFlightIndex] || null
   const selectedBackFlight = backDayFlights[selectedBackFlightIndex] || null
   const monthTotal =
@@ -511,62 +778,17 @@ function ResultsContent() {
 
       {dateMode === 'month' && (
         <div>
-          <div className="mb-6 border border-[#E5E1D8] rounded-sm p-4 bg-white">
-            <p className="font-semibold text-sm mb-2">Departure days</p>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {WEEKDAY_BUTTONS.map((d) => (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => toggleOutDay(d.value)}
-                  className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            {!oneWay && (
-              <>
-                <p className="font-semibold text-sm mb-2">Return days</p>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {WEEKDAY_BUTTONS.map((d) => (
-                    <button
-                      key={d.value}
-                      type="button"
-                      onClick={() => toggleBackDay(d.value)}
-                      className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-3 items-end flex-wrap">
-                  <div>
-                    <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={minNights}
-                      onChange={(e) => updateParam('minNights', e.target.value)}
-                      className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={maxNights}
-                      onChange={(e) => updateParam('maxNights', e.target.value)}
-                      className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <WeekdayFilterPanel
+            outDays={outDays}
+            backDays={backDays}
+            oneWay={oneWay}
+            minNights={minNights}
+            maxNights={maxNights}
+            onToggleOutDay={toggleOutDay}
+            onToggleBackDay={toggleBackDay}
+            onChangeMinNights={(v) => updateParam('minNights', v)}
+            onChangeMaxNights={(v) => updateParam('maxNights', v)}
+          />
 
           {!oneWay && (
             <div className="mb-6">

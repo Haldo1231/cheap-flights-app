@@ -37,7 +37,7 @@ type DestInfo = {
   other_avg_price: number | null
 }
 
-function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+function costOfStayNumbers(destInfo: DestInfo, flightPrice: number | null, days: number) {
   const perDay =
     (destInfo.hostel_avg_price || 0) +
     (destInfo.food_avg_price || 0) +
@@ -45,9 +45,14 @@ function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; 
     (destInfo.other_avg_price || 0)
   const stayTotal = perDay * days
   const tripTotal = flightPrice !== null ? flightPrice + stayTotal : null
+  return { perDay, stayTotal, tripTotal }
+}
+
+function CostOfStayPanelContent({ destInfo, flightPrice, days }: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+  const { perDay, stayTotal, tripTotal } = costOfStayNumbers(destInfo, flightPrice, days)
 
   return (
-    <div className="border border-[#E5E1D8] rounded-sm p-4 bg-white lg:sticky lg:top-6">
+    <>
       <p className="font-semibold mb-3">Cost of stay in {destInfo.name}</p>
       <ul className="text-sm text-[#5B6472] space-y-1 mb-3">
         <li>Hostel: €{destInfo.hostel_avg_price ?? 0}/night</li>
@@ -67,6 +72,55 @@ function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; 
           <p className="text-sm text-[#5B6472]">Pick a flight to see the full trip total.</p>
         )}
       </div>
+    </>
+  )
+}
+
+/** Desktop: a card that sticks in place while the flight list scrolls past it. */
+function CostOfStayDesktopPanel(props: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+  return (
+    <div className="hidden lg:block border border-[#E5E1D8] rounded-sm p-4 bg-white lg:sticky lg:top-6">
+      <CostOfStayPanelContent {...props} />
+    </div>
+  )
+}
+
+/** Mobile: a compact bar pinned to the bottom of the screen showing just the
+ * trip total; tapping it expands the full breakdown above the bar. */
+function CostOfStayMobileBar({
+  destInfo,
+  flightPrice,
+  days,
+  expanded,
+  onToggle,
+}: {
+  destInfo: DestInfo
+  flightPrice: number | null
+  days: number
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const { tripTotal } = costOfStayNumbers(destInfo, flightPrice, days)
+
+  return (
+    <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#E5E1D8] shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+      {expanded && (
+        <div className="max-h-[60vh] overflow-y-auto px-4 pt-4 border-b border-[#E5E1D8]">
+          <CostOfStayPanelContent destInfo={destInfo} flightPrice={flightPrice} days={days} />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3"
+      >
+        <span className="text-sm text-[#5B6472]">
+          {expanded ? 'Hide breakdown ▾' : `Trip total · ${days} day${days === 1 ? '' : 's'} ▴`}
+        </span>
+        <span className="font-mono font-semibold">
+          {tripTotal !== null ? `€${tripTotal}` : 'Pick a flight'}
+        </span>
+      </button>
     </div>
   )
 }
@@ -231,6 +285,7 @@ function ResultsContent() {
   const [selectedBackFlightIndex, setSelectedBackFlightIndex] = useState(0)
   const [loadingOutFlights, setLoadingOutFlights] = useState(false)
   const [loadingBackFlights, setLoadingBackFlights] = useState(false)
+  const [mobileCostExpanded, setMobileCostExpanded] = useState(false)
 
   const [destInfo, setDestInfo] = useState<{
     name: string
@@ -376,7 +431,7 @@ function ResultsContent() {
   const stayDays = activeDepartDate ? nightsBetween(activeDepartDate, activeReturnDate) : 1
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto px-6 py-12 pb-24 lg:pb-12">
       <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
       <h1 className="text-2xl font-semibold mb-6">
         {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''} → {destination}
@@ -602,11 +657,21 @@ function ResultsContent() {
 
       {destInfo && (
         <div className="lg:w-72 flex-shrink-0">
-          <CostOfStayPanel destInfo={destInfo} flightPrice={activeFlightPrice} days={stayDays} />
+          <CostOfStayDesktopPanel destInfo={destInfo} flightPrice={activeFlightPrice} days={stayDays} />
         </div>
       )}
 
       </div>
+      )}
+
+      {destInfo && !loading && !error && (
+        <CostOfStayMobileBar
+          destInfo={destInfo}
+          flightPrice={activeFlightPrice}
+          days={stayDays}
+          expanded={mobileCostExpanded}
+          onToggle={() => setMobileCostExpanded((v) => !v)}
+        />
       )}
     </div>
   )

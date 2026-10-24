@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
+import { WEEKDAY_BUTTONS, ALL_WEEKDAYS, serializeDays } from '../weekdays'
 
 const RECOMMENDED_AIRPORTS = [
   { code: 'BTS', name: 'Bratislava' },
@@ -45,6 +46,19 @@ export default function SearchPage() {
   const [minDays, setMinDays] = useState(2)
   const [maxDays, setMaxDays] = useState(8)
 
+  const [outDays, setOutDays] = useState<number[]>(ALL_WEEKDAYS)
+  const [backDays, setBackDays] = useState<number[]>(ALL_WEEKDAYS)
+  const [minNights, setMinNights] = useState(1)
+  const [maxNights, setMaxNights] = useState(14)
+
+  function toggleOutDay(day: number) {
+    setOutDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
+  }
+
+  function toggleBackDay(day: number) {
+    setBackDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
+  }
+
   const months = getNext12Months()
 
   function toggleAirport(code: string) {
@@ -79,6 +93,12 @@ export default function SearchPage() {
     } else if (dateMode === 'month') {
       if (month) params.set('month', month)
       if (!oneWay && returnMonth) params.set('returnMonth', returnMonth)
+      params.set('outDays', serializeDays(outDays))
+      if (!oneWay) {
+        params.set('backDays', serializeDays(backDays))
+        params.set('minNights', String(minNights))
+        params.set('maxNights', String(maxNights))
+      }
     } else if (dateMode === 'range') {
       if (rangeStart) params.set('rangeStart', rangeStart)
       if (rangeEnd) params.set('rangeEnd', rangeEnd)
@@ -195,7 +215,7 @@ export default function SearchPage() {
             {!oneWay && (
               <>
                 <label className="block text-xs text-[#5B6472] mb-1">Return month</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-2 mb-4">
                   {months.map((m) => (
                     <button
                       key={m.value}
@@ -209,6 +229,51 @@ export default function SearchPage() {
                 </div>
               </>
             )}
+
+            <div className="mt-2">
+              <label className="block text-xs text-[#5B6472] mb-1">Departure days (optional)</label>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {WEEKDAY_BUTTONS.map((d) => (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => toggleOutDay(d.value)}
+                    className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {!oneWay && (
+                <>
+                  <label className="block text-xs text-[#5B6472] mb-1">Return days (optional)</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {WEEKDAY_BUTTONS.map((d) => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        onClick={() => toggleBackDay(d.value)}
+                        className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3 items-end">
+                    <div>
+                      <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
+                      <input type="number" min={1} max={60} value={minNights} onChange={(e) => setMinNights(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
+                      <input type="number" min={1} max={60} value={maxNights} onChange={(e) => setMaxNights(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 

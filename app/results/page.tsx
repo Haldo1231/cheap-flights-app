@@ -1,9 +1,10 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { buildBookingLink } from '../aviasalesLink'
+import { dayOfWeek, parseDays, serializeDays, ALL_WEEKDAYS, WEEKDAY_BUTTONS } from '../weekdays'
 
 function daysInMonth(monthStr: string) {
   const [y, m] = monthStr.split('-').map(Number)
@@ -193,6 +194,7 @@ function CalendarGrid({
   onNext,
   selectedDate,
   onSelectDay,
+  allowedDays = ALL_WEEKDAYS,
 }: {
   title: string
   data: DayData
@@ -201,6 +203,7 @@ function CalendarGrid({
   onNext: () => void
   selectedDate: string | undefined
   onSelectDay: (date: string, price: number, origin: string) => void
+  allowedDays?: number[]
 }) {
   const total = daysInMonth(month)
   const startWeekday = firstWeekday(month)
@@ -208,7 +211,11 @@ function CalendarGrid({
   for (let i = 0; i < startWeekday; i++) cells.push(null)
   for (let d = 1; d <= total; d++) cells.push(d)
 
-  const prices = Object.values(data).map((v) => v.price)
+  // Only allowed-weekday entries count toward the average/cheapest coloring,
+  // so a filter to e.g. "Thursdays only" compares Thursdays against each
+  // other, not against the whole month.
+  const allowedEntries = Object.entries(data).filter(([date]) => allowedDays.includes(dayOfWeek(date)))
+  const prices = allowedEntries.map(([, v]) => v.price)
   const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null
   const minPrice = prices.length ? Math.min(...prices) : null
 
@@ -227,7 +234,8 @@ function CalendarGrid({
           if (day === null) return <div key={i} />
           const dateStr = `${month}-${String(day).padStart(2, '0')}`
           const entry = data[dateStr]
-          const isCheapest = entry && entry.price === minPrice
+          const isAllowedDay = allowedDays.includes(dayOfWeek(dateStr))
+          const isCheapest = entry && isAllowedDay && entry.price === minPrice
           const isSelected = selectedDate === dateStr
           const isGood = entry && avg !== null && entry.price < avg
 
@@ -235,10 +243,13 @@ function CalendarGrid({
             <button
               key={i}
               type="button"
-              disabled={!entry}
-              onClick={() => entry && onSelectDay(dateStr, entry.price, entry.origin)}
+              disabled={!entry || !isAllowedDay}
+              onClick={() => entry && isAllowedDay && onSelectDay(dateStr, entry.price, entry.origin)}
+              title={!isAllowedDay ? 'Not one of your selected weekdays' : undefined}
               className={`aspect-square flex flex-col items-center justify-center rounded-sm text-xs border transition-colors ${
-                isSelected
+                !isAllowedDay
+                  ? 'bg-[#FBF9F4] border-transparent text-[#ddd] cursor-default opacity-40'
+                  : isSelected
                   ? 'ring-2 ring-[#14213D] border-[#14213D] bg-[#FFF8EC]'
                   : entry
                   ? isGood
@@ -248,7 +259,7 @@ function CalendarGrid({
               } ${isCheapest && !isSelected ? 'outline outline-2 outline-[#FCA311]' : ''}`}
             >
               <span>{day}</span>
-              {entry && <span className="font-mono">€{entry.price}</span>}
+              {entry && isAllowedDay && <span className="font-mono">€{entry.price}</span>}
             </button>
           )
         })}
@@ -268,6 +279,15 @@ function ResultsContent() {
   const openJaw = searchParams.get('openJaw') === 'true'
   const departMonth = searchParams.get('month') || ''
   const returnMonth = searchParams.get('returnMonth') || departMonth
+  const outDaysParam = searchParams.get('outDays')
+  const backDaysParam = searchParams.get('backDays')
+  // Memoized so these are stable array references across renders (not a new
+  // array every time), which bestCombinations below depends on for its own
+  // memoization to actually work.
+  const outDays = useMemo(() => parseDays(outDaysParam), [outDaysParam])
+  const backDays = useMemo(() => parseDays(backDaysParam), [backDaysParam])
+  const minNights = parseInt(searchParams.get('minNights') || '1', 10)
+  const maxNights = parseInt(searchParams.get('maxNights') || '14', 10)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -302,6 +322,20 @@ function ResultsContent() {
       .then((data) => setDestInfo(data.destination || null))
       .catch(() => setDestInfo(null))
   }, [destination])
+
+  const searchParamsString = searchParams.toString()
+
+  // Weekday/nights filters only affect client-side filtering of already-
+  // fetched calendar data, so they're excluded from the fetch key -- toggling
+  // them updates the (shareable, refresh-safe) URL without re-hitting the API.
+  const fetchKey = useMemo(() => {
+    const params = new URLSearchParams(searchParamsString)
+    params.delete('outDays')
+    params.delete('backDays')
+    params.delete('minNights')
+    params.delete('maxNights')
+    return params.toString()
+  }, [searchParamsString])
 
   useEffect(() => {
     setLoading(true)
@@ -345,12 +379,61 @@ function ResultsContent() {
         setError('Something went wrong loading results. Please try again.')
         setLoading(false)
       })
-  }, [searchParams.toString()])
+  }, [fetchKey])
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set(key, value)
     router.push(`/results?${params.toString()}`)
+  }
+
+  function toggleOutDay(day: number) {
+    const next = outDays.includes(day) ? outDays.filter((d) => d !== day) : [...outDays, day]
+    updateParam('outDays', serializeDays(next))
+  }
+
+  function toggleBackDay(day: number) {
+    const next = backDays.includes(day) ? backDays.filter((d) => d !== day) : [...backDays, day]
+    updateParam('backDays', serializeDays(next))
+  }
+
+  // Ranked outbound/return day pairs that fit the weekday + nights filters.
+  // Computed entirely from the two calendars' already-fetched months -- it
+  // only ever covers whichever months are currently shown (navigating a
+  // calendar with the arrows re-fetches and this recomputes), not a
+  // cross-month search.
+  const bestCombinations = useMemo(() => {
+    if (oneWay || dateMode !== 'month') return []
+    const combos: {
+      outDate: string; outPrice: number; outOrigin: string
+      backDate: string; backPrice: number; backOrigin: string
+      total: number; nights: number
+    }[] = []
+
+    for (const [outDate, outEntry] of Object.entries(outboundData)) {
+      if (!outDays.includes(dayOfWeek(outDate))) continue
+      for (const [backDate, backEntry] of Object.entries(inboundData)) {
+        if (!backDays.includes(dayOfWeek(backDate))) continue
+        if (backDate <= outDate) continue
+        const nights = nightsBetween(outDate, backDate)
+        if (nights < minNights || nights > maxNights) continue
+        combos.push({
+          outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,
+          backDate, backPrice: backEntry.price, backOrigin: backEntry.origin,
+          total: outEntry.price + backEntry.price, nights,
+        })
+      }
+    }
+
+    combos.sort((a, b) => a.total - b.total)
+    return combos.slice(0, 10)
+  }, [oneWay, dateMode, outboundData, inboundData, outDays, backDays, minNights, maxNights])
+
+  async function selectCombination(combo: (typeof bestCombinations)[number]) {
+    await Promise.all([
+      handleSelectOutDay(combo.outDate, combo.outPrice, combo.outOrigin),
+      handleSelectBackDay(combo.backDate, combo.backPrice, combo.backOrigin),
+    ])
   }
 
   async function fetchOneWayDayFlights(fromOrigins: string[], toDestination: string, date: string): Promise<FlightOption[]> {
@@ -458,6 +541,100 @@ function ResultsContent() {
 
       {dateMode === 'month' && (
         <div>
+          <div className="mb-6 border border-[#E5E1D8] rounded-sm p-4 bg-white">
+            <p className="font-semibold text-sm mb-2">Departure days</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {WEEKDAY_BUTTONS.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => toggleOutDay(d.value)}
+                  className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            {!oneWay && (
+              <>
+                <p className="font-semibold text-sm mb-2">Return days</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {WEEKDAY_BUTTONS.map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => toggleBackDay(d.value)}
+                      className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3 items-end flex-wrap">
+                  <div>
+                    <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={minNights}
+                      onChange={(e) => updateParam('minNights', e.target.value)}
+                      className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={maxNights}
+                      onChange={(e) => updateParam('maxNights', e.target.value)}
+                      className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {!oneWay && (
+            <div className="mb-6">
+              <p className="font-semibold text-sm mb-2">Best combinations</p>
+              {bestCombinations.length === 0 && (
+                <p className="text-sm text-[#5B6472]">
+                  {Object.keys(outboundData).length > 0 && Object.keys(inboundData).length > 0
+                    ? 'No combination fits your current weekday/nights filters in these months. Try loosening them, or browse further months with the arrows below.'
+                    : 'Waiting on calendar data to suggest combinations.'}
+                </p>
+              )}
+              {bestCombinations.length > 0 && (
+                <div className="space-y-2">
+                  {bestCombinations.map((combo, i) => (
+                    <button
+                      key={`${combo.outDate}-${combo.backDate}`}
+                      type="button"
+                      onClick={() => selectCombination(combo)}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border text-left transition-colors ${
+                        selectedOut?.date === combo.outDate && selectedBack?.date === combo.backDate
+                          ? 'border-[#14213D] bg-[#FFF8EC]'
+                          : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
+                      }`}
+                    >
+                      <div>
+                        {i === 0 && <span className="text-[10px] font-semibold text-[#FCA311] block">CHEAPEST</span>}
+                        <p className="font-mono text-sm">
+                          {combo.outDate} → {combo.backDate} · {combo.nights} night{combo.nights === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <p className="font-mono font-semibold whitespace-nowrap">€{combo.total}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-6 mb-6">
             <CalendarGrid
               title="Departing"
@@ -467,6 +644,7 @@ function ResultsContent() {
               onNext={() => updateParam('month', shiftMonth(departMonth, 1))}
               selectedDate={selectedOut?.date}
               onSelectDay={handleSelectOutDay}
+              allowedDays={outDays}
             />
             {!oneWay && (
               <CalendarGrid
@@ -477,6 +655,7 @@ function ResultsContent() {
                 onNext={() => updateParam('returnMonth', shiftMonth(returnMonth, 1))}
                 selectedDate={selectedBack?.date}
                 onSelectDay={handleSelectBackDay}
+                allowedDays={backDays}
               />
             )}
           </div>

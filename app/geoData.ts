@@ -4,9 +4,10 @@
 // need to hit them on every request.
 
 export type CountryInfo = { code: string; name: string }
+export type CityInfo = { code: string; name: string; country: CountryInfo }
 
 let countriesCache: Map<string, string> | null = null // country code -> name
-let citiesCache: Map<string, string> | null = null // city/destination code -> country code
+let citiesCache: Map<string, { name: string; countryCode: string }> | null = null // city code -> info
 let cacheTime = 0
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -31,9 +32,11 @@ async function loadGeoData(): Promise<void> {
 
     if (citiesRes.ok) {
       const cities: any[] = await citiesRes.json()
-      const map = new Map<string, string>()
+      const map = new Map<string, { name: string; countryCode: string }>()
       for (const c of cities) {
-        if (c?.code && c?.country_code) map.set(c.code, c.country_code)
+        if (c?.code && c?.country_code && c?.name) {
+          map.set(c.code, { name: c.name, countryCode: c.country_code })
+        }
       }
       citiesCache = map
     }
@@ -44,27 +47,27 @@ async function loadGeoData(): Promise<void> {
   }
 }
 
-/** Resolves a destination/city code (e.g. "ROM") to its country. Returns
- * null if the code isn't in Travelpayouts' reference data. */
-export async function getCountryForCity(cityCode: string): Promise<CountryInfo | null> {
+/** Resolves a destination/city code (e.g. "ROM") to its name and country.
+ * Returns null if the code isn't in Travelpayouts' reference data. */
+export async function getCityInfo(cityCode: string): Promise<CityInfo | null> {
   await loadGeoData()
-  const countryCode = citiesCache?.get(cityCode)
-  if (!countryCode) return null
-  const name = countriesCache?.get(countryCode)
-  if (!name) return null
-  return { code: countryCode, name }
+  const city = citiesCache?.get(cityCode)
+  if (!city) return null
+  const countryName = countriesCache?.get(city.countryCode)
+  if (!countryName) return null
+  return { code: cityCode, name: city.name, country: { code: city.countryCode, name: countryName } }
 }
 
 /** Batch version -- resolves many codes at once against the same cached data. */
-export async function getCountriesForCities(cityCodes: string[]): Promise<Map<string, CountryInfo>> {
+export async function getCityInfoForCodes(cityCodes: string[]): Promise<Map<string, CityInfo>> {
   await loadGeoData()
-  const result = new Map<string, CountryInfo>()
+  const result = new Map<string, CityInfo>()
   for (const code of cityCodes) {
-    const countryCode = citiesCache?.get(code)
-    if (!countryCode) continue
-    const name = countriesCache?.get(countryCode)
-    if (!name) continue
-    result.set(code, { code: countryCode, name })
+    const city = citiesCache?.get(code)
+    if (!city) continue
+    const countryName = countriesCache?.get(city.countryCode)
+    if (!countryName) continue
+    result.set(code, { code, name: city.name, country: { code: city.countryCode, name: countryName } })
   }
   return result
 }

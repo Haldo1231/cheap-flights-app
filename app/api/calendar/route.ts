@@ -1,16 +1,5 @@
 import { NextResponse } from 'next/server'
-
-async function fetchLegCalendar(origin: string, destination: string, month: string, token: string | undefined) {
-  try {
-    const url = `https://api.travelpayouts.com/v1/prices/calendar?origin=${origin}&destination=${destination}&depart_date=${month}&calendar_type=departure_date&currency=eur&token=${token}`
-    const res = await fetch(url)
-    if (!res.ok) return {}
-    const json = await res.json()
-    return json.data || {}
-  } catch {
-    return {}
-  }
-}
+import { fetchMonthCalendar } from '../../flightSources'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -30,16 +19,18 @@ export async function GET(request: Request) {
 
   await Promise.all(
     origins.map(async (origin) => {
+      // Inbound leg: flying FROM the destination city BACK TO this origin
+      // airport, so the API call direction is reversed -- but the result's
+      // "origin" should still mean "this home airport", not the destination
+      // city, so it's set explicitly below rather than trusted from the call.
       const data =
         leg === 'inbound'
-          ? await fetchLegCalendar(destination, origin, month, token)
-          : await fetchLegCalendar(origin, destination, month, token)
+          ? await fetchMonthCalendar(destination, origin, month, token)
+          : await fetchMonthCalendar(origin, destination, month, token)
 
-      for (const [date, entry] of Object.entries<any>(data)) {
-        const price = entry?.price
-        if (typeof price !== 'number') continue
-        if (!result[date] || price < result[date].price) {
-          result[date] = { price, origin }
+      for (const [date, entry] of Object.entries(data)) {
+        if (!result[date] || entry.price < result[date].price) {
+          result[date] = { price: entry.price, origin }
         }
       }
     })

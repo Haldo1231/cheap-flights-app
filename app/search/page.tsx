@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
+import { WEEKDAY_BUTTONS, ALL_WEEKDAYS, serializeDays } from '../weekdays'
 
 const RECOMMENDED_AIRPORTS = [
   { code: 'BTS', name: 'Bratislava' },
@@ -45,6 +46,19 @@ export default function SearchPage() {
   const [minDays, setMinDays] = useState(2)
   const [maxDays, setMaxDays] = useState(8)
 
+  const [outDays, setOutDays] = useState<number[]>(ALL_WEEKDAYS)
+  const [backDays, setBackDays] = useState<number[]>(ALL_WEEKDAYS)
+  const [minNights, setMinNights] = useState(1)
+  const [maxNights, setMaxNights] = useState(14)
+
+  function toggleOutDay(day: number) {
+    setOutDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
+  }
+
+  function toggleBackDay(day: number) {
+    setBackDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
+  }
+
   const months = getNext12Months()
 
   function toggleAirport(code: string) {
@@ -65,13 +79,20 @@ export default function SearchPage() {
     const allOrigins = [...selectedAirports, ...extraOrigins.map((o) => o.code)]
     if (allOrigins.length === 0) return
 
+    const isAnywhere = destinationCode === 'ANYWHERE'
+
     const params = new URLSearchParams({
-      destination: destinationCode,
       origins: allOrigins.join(','),
       oneWay: String(oneWay),
       dateMode,
-      openJaw: String(openJaw),
+      openJaw: String(isAnywhere ? false : openJaw),
     })
+
+    if (isAnywhere) {
+      params.set('anywhere', 'true')
+    } else {
+      params.set('destination', destinationCode)
+    }
 
     if (dateMode === 'exact') {
       if (departDate) params.set('departDate', departDate)
@@ -79,6 +100,12 @@ export default function SearchPage() {
     } else if (dateMode === 'month') {
       if (month) params.set('month', month)
       if (!oneWay && returnMonth) params.set('returnMonth', returnMonth)
+      params.set('outDays', serializeDays(outDays))
+      if (!oneWay) {
+        params.set('backDays', serializeDays(backDays))
+        params.set('minNights', String(minNights))
+        params.set('maxNights', String(maxNights))
+      }
     } else if (dateMode === 'range') {
       if (rangeStart) params.set('rangeStart', rangeStart)
       if (rangeEnd) params.set('rangeEnd', rangeEnd)
@@ -131,14 +158,20 @@ export default function SearchPage() {
             onClick={() => { setDestinationCode(''); setDestinationCity('') }}
             className="px-3 py-2 rounded-sm border text-sm font-mono bg-[#FFF8EC] border-[#FCA311] text-[#14213D]"
           >
-            {destinationCode} · {destinationCity} ✕
+            {destinationCode === 'ANYWHERE' ? '✈️ Anywhere' : `${destinationCode} · ${destinationCity}`} ✕
           </button>
         ) : (
-          <AirportPicker placeholder="Type a city, e.g. Rome" onSelect={(code, city) => { setDestinationCode(code); setDestinationCity(city) }} />
+          <AirportPicker
+            placeholder="Type a city, e.g. Rome"
+            onSelect={(code, city) => { setDestinationCode(code); setDestinationCity(city) }}
+            onSelectAnywhere={() => { setDestinationCode('ANYWHERE'); setDestinationCity('Anywhere') }}
+          />
         )}
-        <p className="text-xs text-[#5B6472] mt-1">
-          Don&apos;t know where yet? Try the <a href="/anywhere" className="text-[#14213D] underline">Anywhere search</a> instead.
-        </p>
+        {destinationCode === 'ANYWHERE' && (
+          <p className="text-xs text-[#5B6472] mt-1">
+            Searches every destination we have cached flight data for, grouped by country, cheapest first.
+          </p>
+        )}
       </div>
 
       <div className="mb-6">
@@ -147,7 +180,7 @@ export default function SearchPage() {
           <button type="button" onClick={() => setOneWay(false)} className={`px-4 py-2 rounded-sm border text-sm ${!oneWay ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>Round trip</button>
           <button type="button" onClick={() => setOneWay(true)} className={`px-4 py-2 rounded-sm border text-sm ${oneWay ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>One way</button>
         </div>
-        {!oneWay && (
+        {!oneWay && destinationCode !== 'ANYWHERE' && (
           <label className="flex items-center gap-2 text-sm text-[#5B6472]">
             <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} />
             Allow flying back to a different airport (only works with Exact dates or Whole month)
@@ -195,7 +228,7 @@ export default function SearchPage() {
             {!oneWay && (
               <>
                 <label className="block text-xs text-[#5B6472] mb-1">Return month</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-2 mb-4">
                   {months.map((m) => (
                     <button
                       key={m.value}
@@ -209,6 +242,51 @@ export default function SearchPage() {
                 </div>
               </>
             )}
+
+            <div className="mt-2">
+              <label className="block text-xs text-[#5B6472] mb-1">Departure days (optional)</label>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {WEEKDAY_BUTTONS.map((d) => (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => toggleOutDay(d.value)}
+                    className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {!oneWay && (
+                <>
+                  <label className="block text-xs text-[#5B6472] mb-1">Return days (optional)</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {WEEKDAY_BUTTONS.map((d) => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        onClick={() => toggleBackDay(d.value)}
+                        className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3 items-end">
+                    <div>
+                      <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
+                      <input type="number" min={1} max={60} value={minNights} onChange={(e) => setMinNights(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
+                      <input type="number" min={1} max={60} value={maxNights} onChange={(e) => setMaxNights(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 

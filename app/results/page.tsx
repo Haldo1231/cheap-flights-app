@@ -1,9 +1,10 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { buildBookingLink } from '../aviasalesLink'
+import { dayOfWeek, parseDays, serializeDays, nightsBetween, findBestCombinations, ALL_WEEKDAYS, WEEKDAY_BUTTONS } from '../weekdays'
 
 function daysInMonth(monthStr: string) {
   const [y, m] = monthStr.split('-').map(Number)
@@ -21,14 +22,6 @@ function shiftMonth(monthStr: string, delta: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-function nightsBetween(departDate: string, returnDate: string | null): number {
-  if (!returnDate) return 1
-  const start = new Date(departDate)
-  const end = new Date(returnDate)
-  const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  return Math.max(1, diffDays)
-}
-
 type DestInfo = {
   name: string
   hostel_avg_price: number | null
@@ -37,7 +30,7 @@ type DestInfo = {
   other_avg_price: number | null
 }
 
-function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+function costOfStayNumbers(destInfo: DestInfo, flightPrice: number | null, days: number) {
   const perDay =
     (destInfo.hostel_avg_price || 0) +
     (destInfo.food_avg_price || 0) +
@@ -45,9 +38,14 @@ function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; 
     (destInfo.other_avg_price || 0)
   const stayTotal = perDay * days
   const tripTotal = flightPrice !== null ? flightPrice + stayTotal : null
+  return { perDay, stayTotal, tripTotal }
+}
+
+function CostOfStayPanelContent({ destInfo, flightPrice, days }: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+  const { perDay, stayTotal, tripTotal } = costOfStayNumbers(destInfo, flightPrice, days)
 
   return (
-    <div className="border border-[#E5E1D8] rounded-sm p-4 bg-white lg:sticky lg:top-6">
+    <>
       <p className="font-semibold mb-3">Cost of stay in {destInfo.name}</p>
       <ul className="text-sm text-[#5B6472] space-y-1 mb-3">
         <li>Hostel: €{destInfo.hostel_avg_price ?? 0}/night</li>
@@ -67,6 +65,55 @@ function CostOfStayPanel({ destInfo, flightPrice, days }: { destInfo: DestInfo; 
           <p className="text-sm text-[#5B6472]">Pick a flight to see the full trip total.</p>
         )}
       </div>
+    </>
+  )
+}
+
+/** Desktop: a card that sticks in place while the flight list scrolls past it. */
+function CostOfStayDesktopPanel(props: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
+  return (
+    <div className="hidden lg:block border border-[#E5E1D8] rounded-sm p-4 bg-white lg:sticky lg:top-6">
+      <CostOfStayPanelContent {...props} />
+    </div>
+  )
+}
+
+/** Mobile: a compact bar pinned to the bottom of the screen showing just the
+ * trip total; tapping it expands the full breakdown above the bar. */
+function CostOfStayMobileBar({
+  destInfo,
+  flightPrice,
+  days,
+  expanded,
+  onToggle,
+}: {
+  destInfo: DestInfo
+  flightPrice: number | null
+  days: number
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const { tripTotal } = costOfStayNumbers(destInfo, flightPrice, days)
+
+  return (
+    <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#E5E1D8] shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+      {expanded && (
+        <div className="max-h-[60vh] overflow-y-auto px-4 pt-4 border-b border-[#E5E1D8]">
+          <CostOfStayPanelContent destInfo={destInfo} flightPrice={flightPrice} days={days} />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3"
+      >
+        <span className="text-sm text-[#5B6472]">
+          {expanded ? 'Hide breakdown ▾' : `Trip total · ${days} day${days === 1 ? '' : 's'} ▴`}
+        </span>
+        <span className="font-mono font-semibold">
+          {tripTotal !== null ? `€${tripTotal}` : 'Pick a flight'}
+        </span>
+      </button>
     </div>
   )
 }
@@ -85,6 +132,106 @@ type FlightOption = {
   airlineName: string | null
   gate: string | null
   bookingUrl: string
+}
+
+type AnywhereCandidateCity = { code: string; name: string; origin: string; roughPrice: number }
+type AnywhereCountry = {
+  code: string
+  name: string
+  candidateCityCount: number
+  candidateCities: AnywhereCandidateCity[]
+  price: number
+  verifiedCity: { code: string; name: string; origin: string; departDate: string; returnDate: string | null }
+}
+type AnywhereUnmatchedCountry = {
+  code: string
+  name: string
+  candidateCityCount: number
+  candidateCities: AnywhereCandidateCity[]
+}
+
+/** Mon-Sun departure/return day toggles + min/max nights. Used by both the
+ * single-destination Whole Month view and the Anywhere+Whole Month view, so
+ * the filter UI (and what it means) stays identical in both places. */
+function WeekdayFilterPanel({
+  outDays,
+  backDays,
+  oneWay,
+  minNights,
+  maxNights,
+  onToggleOutDay,
+  onToggleBackDay,
+  onChangeMinNights,
+  onChangeMaxNights,
+}: {
+  outDays: number[]
+  backDays: number[]
+  oneWay: boolean
+  minNights: number
+  maxNights: number
+  onToggleOutDay: (day: number) => void
+  onToggleBackDay: (day: number) => void
+  onChangeMinNights: (value: string) => void
+  onChangeMaxNights: (value: string) => void
+}) {
+  return (
+    <div className="mb-6 border border-[#E5E1D8] rounded-sm p-4 bg-white">
+      <p className="font-semibold text-sm mb-2">Departure days</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {WEEKDAY_BUTTONS.map((d) => (
+          <button
+            key={d.value}
+            type="button"
+            onClick={() => onToggleOutDay(d.value)}
+            className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+      {!oneWay && (
+        <>
+          <p className="font-semibold text-sm mb-2">Return days</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {WEEKDAY_BUTTONS.map((d) => (
+              <button
+                key={d.value}
+                type="button"
+                onClick={() => onToggleBackDay(d.value)}
+                className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3 items-end flex-wrap">
+            <div>
+              <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={minNights}
+                onChange={(e) => onChangeMinNights(e.target.value)}
+                className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={maxNights}
+                onChange={(e) => onChangeMaxNights(e.target.value)}
+                className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm"
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 function flightLabel(f: FlightOption) {
@@ -139,6 +286,7 @@ function CalendarGrid({
   onNext,
   selectedDate,
   onSelectDay,
+  allowedDays = ALL_WEEKDAYS,
 }: {
   title: string
   data: DayData
@@ -147,6 +295,7 @@ function CalendarGrid({
   onNext: () => void
   selectedDate: string | undefined
   onSelectDay: (date: string, price: number, origin: string) => void
+  allowedDays?: number[]
 }) {
   const total = daysInMonth(month)
   const startWeekday = firstWeekday(month)
@@ -154,7 +303,11 @@ function CalendarGrid({
   for (let i = 0; i < startWeekday; i++) cells.push(null)
   for (let d = 1; d <= total; d++) cells.push(d)
 
-  const prices = Object.values(data).map((v) => v.price)
+  // Only allowed-weekday entries count toward the average/cheapest coloring,
+  // so a filter to e.g. "Thursdays only" compares Thursdays against each
+  // other, not against the whole month.
+  const allowedEntries = Object.entries(data).filter(([date]) => allowedDays.includes(dayOfWeek(date)))
+  const prices = allowedEntries.map(([, v]) => v.price)
   const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null
   const minPrice = prices.length ? Math.min(...prices) : null
 
@@ -173,7 +326,8 @@ function CalendarGrid({
           if (day === null) return <div key={i} />
           const dateStr = `${month}-${String(day).padStart(2, '0')}`
           const entry = data[dateStr]
-          const isCheapest = entry && entry.price === minPrice
+          const isAllowedDay = allowedDays.includes(dayOfWeek(dateStr))
+          const isCheapest = entry && isAllowedDay && entry.price === minPrice
           const isSelected = selectedDate === dateStr
           const isGood = entry && avg !== null && entry.price < avg
 
@@ -181,10 +335,13 @@ function CalendarGrid({
             <button
               key={i}
               type="button"
-              disabled={!entry}
-              onClick={() => entry && onSelectDay(dateStr, entry.price, entry.origin)}
+              disabled={!entry || !isAllowedDay}
+              onClick={() => entry && isAllowedDay && onSelectDay(dateStr, entry.price, entry.origin)}
+              title={!isAllowedDay ? 'Not one of your selected weekdays' : undefined}
               className={`aspect-square flex flex-col items-center justify-center rounded-sm text-xs border transition-colors ${
-                isSelected
+                !isAllowedDay
+                  ? 'bg-[#FBF9F4] border-transparent text-[#ddd] cursor-default opacity-40'
+                  : isSelected
                   ? 'ring-2 ring-[#14213D] border-[#14213D] bg-[#FFF8EC]'
                   : entry
                   ? isGood
@@ -194,7 +351,7 @@ function CalendarGrid({
               } ${isCheapest && !isSelected ? 'outline outline-2 outline-[#FCA311]' : ''}`}
             >
               <span>{day}</span>
-              {entry && <span className="font-mono">€{entry.price}</span>}
+              {entry && isAllowedDay && <span className="font-mono">€{entry.price}</span>}
             </button>
           )
         })}
@@ -208,12 +365,22 @@ function ResultsContent() {
   const router = useRouter()
 
   const destination = searchParams.get('destination') || ''
+  const isAnywhere = searchParams.get('anywhere') === 'true'
   const origins = searchParams.get('origins') || ''
   const oneWay = searchParams.get('oneWay') === 'true'
   const dateMode = searchParams.get('dateMode') || 'exact'
   const openJaw = searchParams.get('openJaw') === 'true'
   const departMonth = searchParams.get('month') || ''
   const returnMonth = searchParams.get('returnMonth') || departMonth
+  const outDaysParam = searchParams.get('outDays')
+  const backDaysParam = searchParams.get('backDays')
+  // Memoized so these are stable array references across renders (not a new
+  // array every time), which bestCombinations below depends on for its own
+  // memoization to actually work.
+  const outDays = useMemo(() => parseDays(outDaysParam), [outDaysParam])
+  const backDays = useMemo(() => parseDays(backDaysParam), [backDaysParam])
+  const minNights = parseInt(searchParams.get('minNights') || '1', 10)
+  const maxNights = parseInt(searchParams.get('maxNights') || '14', 10)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -231,6 +398,7 @@ function ResultsContent() {
   const [selectedBackFlightIndex, setSelectedBackFlightIndex] = useState(0)
   const [loadingOutFlights, setLoadingOutFlights] = useState(false)
   const [loadingBackFlights, setLoadingBackFlights] = useState(false)
+  const [mobileCostExpanded, setMobileCostExpanded] = useState(false)
 
   const [destInfo, setDestInfo] = useState<{
     name: string
@@ -241,14 +409,30 @@ function ResultsContent() {
   } | null>(null)
 
   useEffect(() => {
-    if (!destination) return
+    if (!destination || isAnywhere) return
     fetch(`/api/destination-info?code=${encodeURIComponent(destination)}`)
       .then((res) => res.json())
       .then((data) => setDestInfo(data.destination || null))
       .catch(() => setDestInfo(null))
-  }, [destination])
+  }, [destination, isAnywhere])
+
+  const searchParamsString = searchParams.toString()
+
+  // Weekday/nights filters only affect client-side filtering of already-
+  // fetched calendar data, so they're excluded from the fetch key -- toggling
+  // them updates the (shareable, refresh-safe) URL without re-hitting the API.
+  const fetchKey = useMemo(() => {
+    const params = new URLSearchParams(searchParamsString)
+    params.delete('outDays')
+    params.delete('backDays')
+    params.delete('minNights')
+    params.delete('maxNights')
+    return params.toString()
+  }, [searchParamsString])
 
   useEffect(() => {
+    if (isAnywhere) return // handled by the Anywhere-specific effect below
+
     setLoading(true)
     setError(null)
     setSelectedOut(null)
@@ -290,12 +474,82 @@ function ResultsContent() {
         setError('Something went wrong loading results. Please try again.')
         setLoading(false)
       })
-  }, [searchParams.toString()])
+  }, [fetchKey])
+
+  const [anywhereLoading, setAnywhereLoading] = useState(true)
+  const [anywhereError, setAnywhereError] = useState<string | null>(null)
+  const [anywhereCountries, setAnywhereCountries] = useState<AnywhereCountry[]>([])
+  const [anywhereUnmatched, setAnywhereUnmatched] = useState<AnywhereUnmatchedCountry[]>([])
+  const [anywhereCheckedCount, setAnywhereCheckedCount] = useState(0)
+  const [anywhereTotalCities, setAnywhereTotalCities] = useState(0)
+  const [anywhereTotalCountries, setAnywhereTotalCountries] = useState(0)
+  const [expandedCountry, setExpandedCountry] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAnywhere) return
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- same fetch-on-param-change shape as the single-destination effect above
+    setAnywhereLoading(true)
+    setAnywhereError(null)
+    setExpandedCountry(null)
+
+    // Unlike the single-destination month view, the weekday/nights filters
+    // here DO need a fresh request -- the honest per-country check happens
+    // server-side per request, there's no local calendar data to re-filter.
+    fetch(`/api/anywhere-by-country?${searchParamsString}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setAnywhereCountries(data.countries || [])
+        setAnywhereUnmatched(data.unmatchedCountries || [])
+        setAnywhereCheckedCount(data.checkedCount || 0)
+        setAnywhereTotalCities(data.totalCandidateCities || 0)
+        setAnywhereTotalCountries(data.totalCandidateCountries || 0)
+        setAnywhereLoading(false)
+      })
+      .catch(() => {
+        setAnywhereError('Something went wrong loading destinations. Please try again.')
+        setAnywhereLoading(false)
+      })
+  }, [isAnywhere, searchParamsString])
+
+  function goToCity(cityCode: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('anywhere')
+    params.set('destination', cityCode)
+    router.push(`/results?${params.toString()}`)
+  }
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set(key, value)
     router.push(`/results?${params.toString()}`)
+  }
+
+  function toggleOutDay(day: number) {
+    const next = outDays.includes(day) ? outDays.filter((d) => d !== day) : [...outDays, day]
+    updateParam('outDays', serializeDays(next))
+  }
+
+  function toggleBackDay(day: number) {
+    const next = backDays.includes(day) ? backDays.filter((d) => d !== day) : [...backDays, day]
+    updateParam('backDays', serializeDays(next))
+  }
+
+  // Ranked outbound/return day pairs that fit the weekday + nights filters.
+  // Computed entirely from the two calendars' already-fetched months -- it
+  // only ever covers whichever months are currently shown (navigating a
+  // calendar with the arrows re-fetches and this recomputes), not a
+  // cross-month search.
+  const bestCombinations = useMemo(() => {
+    if (oneWay || dateMode !== 'month') return []
+    return findBestCombinations(outboundData, inboundData, outDays, backDays, minNights, maxNights, 10)
+  }, [oneWay, dateMode, outboundData, inboundData, outDays, backDays, minNights, maxNights])
+
+  async function selectCombination(combo: (typeof bestCombinations)[number]) {
+    await Promise.all([
+      handleSelectOutDay(combo.outDate, combo.outPrice, combo.outOrigin),
+      handleSelectBackDay(combo.backDate, combo.backPrice, combo.backOrigin),
+    ])
   }
 
   async function fetchOneWayDayFlights(fromOrigins: string[], toDestination: string, date: string): Promise<FlightOption[]> {
@@ -342,6 +596,127 @@ function ResultsContent() {
     }
   }
 
+  if (isAnywhere) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
+        <h1 className="text-2xl font-semibold mb-2">
+          Anywhere from {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''}
+        </h1>
+        <p className="text-sm text-[#5B6472] mb-6">Countries ranked by the cheapest price that matches your filters.</p>
+
+        {dateMode === 'month' && (
+          <WeekdayFilterPanel
+            outDays={outDays}
+            backDays={backDays}
+            oneWay={oneWay}
+            minNights={minNights}
+            maxNights={maxNights}
+            onToggleOutDay={toggleOutDay}
+            onToggleBackDay={toggleBackDay}
+            onChangeMinNights={(v) => updateParam('minNights', v)}
+            onChangeMaxNights={(v) => updateParam('maxNights', v)}
+          />
+        )}
+
+        {anywhereLoading && <p className="text-[#5B6472]">Searching every destination we have cached data for...</p>}
+
+        {!anywhereLoading && anywhereError && (
+          <div className="rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-5 py-4">
+            <p className="text-[#14213D] mb-2">{anywhereError}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-[#14213D] text-white rounded-sm text-sm font-medium hover:bg-[#1c2d52] transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!anywhereLoading && !anywhereError && anywhereCountries.length === 0 && anywhereUnmatched.length === 0 && (
+          <p className="text-[#5B6472]">
+            No cached destinations found from your selected airports right now. Try different airports, or a different date mode.
+          </p>
+        )}
+
+        {!anywhereLoading && !anywhereError && (anywhereCountries.length > 0 || anywhereUnmatched.length > 0) && (
+          <>
+            <p className="text-xs text-[#5B6472] mb-4">
+              Checked the {anywhereCheckedCount} cheapest-looking countries in detail (out of {anywhereTotalCountries} found, {anywhereTotalCities} destinations total) against your filters. Prices are cached and may change on the booking site.
+            </p>
+
+            <div className="space-y-3">
+              {anywhereCountries.map((country) => (
+                <div key={country.code} className="rounded-sm border border-[#E5E1D8] bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedCountry(expandedCountry === country.code ? null : country.code)}
+                    className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold">{country.name}</p>
+                      <p className="text-sm text-[#5B6472]">{country.candidateCityCount} destination{country.candidateCityCount === 1 ? '' : 's'} found</p>
+                    </div>
+                    <p className="font-mono font-semibold text-lg whitespace-nowrap">from €{country.price}</p>
+                  </button>
+                  {expandedCountry === country.code && (
+                    <div className="px-5 pb-4 space-y-2 border-t border-[#E5E1D8] pt-3">
+                      <button
+                        type="button"
+                        onClick={() => goToCity(country.verifiedCity.code)}
+                        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-[#FCA311] bg-[#FFF8EC] text-left"
+                      >
+                        <div>
+                          <p className="font-mono text-sm">{country.verifiedCity.name} ({country.verifiedCity.code}) · from {country.verifiedCity.origin}</p>
+                          <p className="text-xs text-[#5B6472]">Checked against your filters</p>
+                        </div>
+                        <p className="font-mono font-semibold whitespace-nowrap">€{country.price}</p>
+                      </button>
+                      {country.candidateCities
+                        .filter((c) => c.code !== country.verifiedCity.code)
+                        .map((c) => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => goToCity(c.code)}
+                            className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-[#E5E1D8] bg-white hover:bg-[#FBF9F4] text-left"
+                          >
+                            <div>
+                              <p className="font-mono text-sm">{c.name} ({c.code}) · from {c.origin}</p>
+                              <p className="text-xs text-[#5B6472]">Not checked against your filters yet — tap to see exact prices</p>
+                            </div>
+                            <p className="font-mono text-[#5B6472] whitespace-nowrap">~€{c.roughPrice}</p>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {anywhereUnmatched.length > 0 && (
+              <div className="mt-8">
+                <p className="font-semibold text-sm mb-2">No matching days found</p>
+                <p className="text-xs text-[#5B6472] mb-3">
+                  These countries have cheap flights, but not on your selected weekdays within the months shown. Try loosening your filters.
+                </p>
+                <div className="space-y-2">
+                  {anywhereUnmatched.map((c) => (
+                    <div key={c.code} className="px-4 py-2 rounded-sm border border-[#E5E1D8] bg-[#FBF9F4] text-sm text-[#5B6472] flex items-center justify-between">
+                      <span>{c.name}</span>
+                      <span>{c.candidateCityCount} destination{c.candidateCityCount === 1 ? '' : 's'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
   const selectedOutFlight = outDayFlights[selectedOutFlightIndex] || null
   const selectedBackFlight = backDayFlights[selectedBackFlightIndex] || null
   const monthTotal =
@@ -376,7 +751,7 @@ function ResultsContent() {
   const stayDays = activeDepartDate ? nightsBetween(activeDepartDate, activeReturnDate) : 1
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto px-6 py-12 pb-24 lg:pb-12">
       <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
       <h1 className="text-2xl font-semibold mb-6">
         {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''} → {destination}
@@ -403,6 +778,55 @@ function ResultsContent() {
 
       {dateMode === 'month' && (
         <div>
+          <WeekdayFilterPanel
+            outDays={outDays}
+            backDays={backDays}
+            oneWay={oneWay}
+            minNights={minNights}
+            maxNights={maxNights}
+            onToggleOutDay={toggleOutDay}
+            onToggleBackDay={toggleBackDay}
+            onChangeMinNights={(v) => updateParam('minNights', v)}
+            onChangeMaxNights={(v) => updateParam('maxNights', v)}
+          />
+
+          {!oneWay && (
+            <div className="mb-6">
+              <p className="font-semibold text-sm mb-2">Best combinations</p>
+              {bestCombinations.length === 0 && (
+                <p className="text-sm text-[#5B6472]">
+                  {Object.keys(outboundData).length > 0 && Object.keys(inboundData).length > 0
+                    ? 'No combination fits your current weekday/nights filters in these months. Try loosening them, or browse further months with the arrows below.'
+                    : 'Waiting on calendar data to suggest combinations.'}
+                </p>
+              )}
+              {bestCombinations.length > 0 && (
+                <div className="space-y-2">
+                  {bestCombinations.map((combo, i) => (
+                    <button
+                      key={`${combo.outDate}-${combo.backDate}`}
+                      type="button"
+                      onClick={() => selectCombination(combo)}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border text-left transition-colors ${
+                        selectedOut?.date === combo.outDate && selectedBack?.date === combo.backDate
+                          ? 'border-[#14213D] bg-[#FFF8EC]'
+                          : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
+                      }`}
+                    >
+                      <div>
+                        {i === 0 && <span className="text-[10px] font-semibold text-[#FCA311] block">CHEAPEST</span>}
+                        <p className="font-mono text-sm">
+                          {combo.outDate} → {combo.backDate} · {combo.nights} night{combo.nights === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <p className="font-mono font-semibold whitespace-nowrap">€{combo.total}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-6 mb-6">
             <CalendarGrid
               title="Departing"
@@ -412,6 +836,7 @@ function ResultsContent() {
               onNext={() => updateParam('month', shiftMonth(departMonth, 1))}
               selectedDate={selectedOut?.date}
               onSelectDay={handleSelectOutDay}
+              allowedDays={outDays}
             />
             {!oneWay && (
               <CalendarGrid
@@ -422,6 +847,7 @@ function ResultsContent() {
                 onNext={() => updateParam('returnMonth', shiftMonth(returnMonth, 1))}
                 selectedDate={selectedBack?.date}
                 onSelectDay={handleSelectBackDay}
+                allowedDays={backDays}
               />
             )}
           </div>
@@ -602,11 +1028,21 @@ function ResultsContent() {
 
       {destInfo && (
         <div className="lg:w-72 flex-shrink-0">
-          <CostOfStayPanel destInfo={destInfo} flightPrice={activeFlightPrice} days={stayDays} />
+          <CostOfStayDesktopPanel destInfo={destInfo} flightPrice={activeFlightPrice} days={stayDays} />
         </div>
       )}
 
       </div>
+      )}
+
+      {destInfo && !loading && !error && (
+        <CostOfStayMobileBar
+          destInfo={destInfo}
+          flightPrice={activeFlightPrice}
+          days={stayDays}
+          expanded={mobileCostExpanded}
+          onToggle={() => setMobileCostExpanded((v) => !v)}
+        />
       )}
     </div>
   )

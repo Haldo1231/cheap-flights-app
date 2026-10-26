@@ -3,13 +3,13 @@ import Link from 'next/link'
 export default function Home() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-20">
-      <p className="font-mono text-sm text-[#5B6472] mb-4">BTS · VIE · BUD · KSC</p>
+      <p className="font-mono text-sm text-[#5B6472] mb-4">BTS · VIE · BUD · KSC · PRG</p>
       <h1 className="text-5xl font-semibold leading-tight max-w-xl mb-6">
         Find the cheapest way to fly
       </h1>
       <p className="text-lg text-[#5B6472] max-w-lg mb-10 leading-relaxed">
-        One search compares Vienna, Bratislava, Budapest, and Košice —
-        so you stop checking four sites separately.
+        One search compares Vienna, Bratislava, Budapest, Košice, and Prague —
+        so you stop checking five sites separately.
       </p>
 
       <div className="flex flex-wrap gap-4 mb-20">

@@ -10,6 +10,7 @@ const RECOMMENDED_AIRPORTS = [
   { code: 'VIE', name: 'Vienna' },
   { code: 'BUD', name: 'Budapest' },
   { code: 'KSC', name: 'Košice' },
+  { code: 'PRG', name: 'Prague' },
 ]
 
 function getNext12Months() {
@@ -27,7 +28,7 @@ function getNext12Months() {
 export default function SearchPage() {
   const router = useRouter()
 
-  const [selectedAirports, setSelectedAirports] = useState<string[]>(['BTS', 'VIE', 'BUD', 'KSC'])
+  const [selectedAirports, setSelectedAirports] = useState<string[]>(['BTS', 'VIE', 'BUD', 'KSC', 'PRG'])
   const [extraOrigins, setExtraOrigins] = useState<{ code: string; city: string }[]>([])
 
   const [destinationCode, setDestinationCode] = useState('')

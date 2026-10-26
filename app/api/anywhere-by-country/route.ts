@@ -102,7 +102,7 @@ export async function GET(request: Request) {
   const token = process.env.TRAVELPAYOUTS_TOKEN
 
   const originsParam = searchParams.get('origins')
-  const origins = (originsParam ? originsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : ['BTS', 'VIE', 'BUD', 'KSC']).slice(0, MAX_ORIGINS)
+  const origins = (originsParam ? originsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']).slice(0, MAX_ORIGINS)
 
   const params = {
     dateMode: searchParams.get('dateMode') || 'exact',

@@ -1,6 +1,6 @@
 # cheap-flights-app
 
-Flight comparison site for Central European travelers. Compares prices from 4 departure airports: Bratislava (BTS), Vienna (VIE), Budapest (BUD), Košice (KSC).
+Flight comparison site for Central European travelers. Compares prices from 5 departure airports: Bratislava (BTS), Vienna (VIE), Budapest (BUD), Košice (KSC), Prague (PRG).
 Solo project by Lukas. Monetization: affiliate links via Travelpayouts / Aviasales.
 
 Live: https://cheap-flights-app.vercel.app

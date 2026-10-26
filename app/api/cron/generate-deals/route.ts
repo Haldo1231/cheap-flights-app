@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/app/supabaseAdmin'
 
-const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
+const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
 
 const DESTINATIONS = [
   { code: 'ROM', name: 'Rome', slug: 'rome' },

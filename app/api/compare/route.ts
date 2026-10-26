@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getDayFlights, getRangeFlights } from '../../flightSources'
 
-const DEFAULT_ORIGINS = ['BTS', 'VIE', 'BUD', 'KSC']
+const DEFAULT_ORIGINS = ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
 
 async function searchLeg(
   origin: string,

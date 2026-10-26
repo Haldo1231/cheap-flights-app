@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
+const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
 
 const DESTINATIONS = [
   { code: 'ROM', name: 'Rome', slug: 'rome' },

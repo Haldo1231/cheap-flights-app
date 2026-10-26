@@ -2,7 +2,7 @@ import { supabase } from '../../supabase'
 import { buildBookingLink } from '../../aviasalesLink'
 import { getAirlineName } from '../../airlines'
 
-const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC']
+const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
 
 async function getCheapestFlight(destinationCode: string) {
   const token = process.env.TRAVELPAYOUTS_TOKEN

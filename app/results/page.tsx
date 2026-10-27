@@ -7,6 +7,7 @@ import { dayOfWeek, parseDays, serializeDays, nightsBetween, findBestCombination
 import type { CalendarDay, CalendarDayMap, Fare, OpenJawCombo, PricedLeg } from '../tripTypes'
 import FareCard from '../components/FareCard'
 import FlightLeg from '../components/FlightLeg'
+import { CostSidebar, CostMobileBar, type DestInfo } from '../components/CostOfStay'
 import { calendarDayToFare, withCalendarFare } from '../lib/trip'
 import { formatDay, formatNights, formatShortDate } from '../lib/format'
 
@@ -24,102 +25,6 @@ function shiftMonth(monthStr: string, delta: number) {
   const [y, m] = monthStr.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-type DestInfo = {
-  name: string
-  hostel_avg_price: number | null
-  food_avg_price: number | null
-  transport_avg_price: number | null
-  other_avg_price: number | null
-}
-
-function costOfStayNumbers(destInfo: DestInfo, flightPrice: number | null, days: number) {
-  const perDay =
-    (destInfo.hostel_avg_price || 0) +
-    (destInfo.food_avg_price || 0) +
-    (destInfo.transport_avg_price || 0) +
-    (destInfo.other_avg_price || 0)
-  const stayTotal = perDay * days
-  const tripTotal = flightPrice !== null ? flightPrice + stayTotal : null
-  return { perDay, stayTotal, tripTotal }
-}
-
-function CostOfStayPanelContent({ destInfo, flightPrice, days }: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
-  const { perDay, stayTotal, tripTotal } = costOfStayNumbers(destInfo, flightPrice, days)
-
-  return (
-    <>
-      <p className="font-semibold mb-3">Cost of stay in {destInfo.name}</p>
-      <ul className="text-sm text-[#5B6472] space-y-1 mb-3">
-        <li>Hostel: €{destInfo.hostel_avg_price ?? 0}/night</li>
-        <li>Food: €{destInfo.food_avg_price ?? 0}/day</li>
-        <li>Transport: €{destInfo.transport_avg_price ?? 0}/day</li>
-        <li>Other: €{destInfo.other_avg_price ?? 0}/day</li>
-      </ul>
-      <p className="text-sm mb-1">Per day: <span className="font-mono font-semibold">€{perDay}</span></p>
-      <p className="text-sm mb-3">{days} day{days === 1 ? '' : 's'}: <span className="font-mono font-semibold">€{stayTotal}</span></p>
-      <div className="border-t border-[#E5E1D8] pt-3">
-        {flightPrice !== null ? (
-          <>
-            <p className="text-sm text-[#5B6472]">Flight: €{flightPrice}</p>
-            <p className="font-semibold mt-1">Trip total: <span className="font-mono">€{tripTotal}</span></p>
-          </>
-        ) : (
-          <p className="text-sm text-[#5B6472]">Pick a flight to see the full trip total.</p>
-        )}
-      </div>
-    </>
-  )
-}
-
-/** Desktop: a card that sticks in place while the flight list scrolls past it. */
-function CostOfStayDesktopPanel(props: { destInfo: DestInfo; flightPrice: number | null; days: number }) {
-  return (
-    <div className="hidden lg:block border border-[#E5E1D8] rounded-sm p-4 bg-white lg:sticky lg:top-6">
-      <CostOfStayPanelContent {...props} />
-    </div>
-  )
-}
-
-/** Mobile: a compact bar pinned to the bottom of the screen showing just the
- * trip total; tapping it expands the full breakdown above the bar. */
-function CostOfStayMobileBar({
-  destInfo,
-  flightPrice,
-  days,
-  expanded,
-  onToggle,
-}: {
-  destInfo: DestInfo
-  flightPrice: number | null
-  days: number
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const { tripTotal } = costOfStayNumbers(destInfo, flightPrice, days)
-
-  return (
-    <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#E5E1D8] shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
-      {expanded && (
-        <div className="max-h-[60vh] overflow-y-auto px-4 pt-4 border-b border-[#E5E1D8]">
-          <CostOfStayPanelContent destInfo={destInfo} flightPrice={flightPrice} days={days} />
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3"
-      >
-        <span className="text-sm text-[#5B6472]">
-          {expanded ? 'Hide breakdown ▾' : `Trip total · ${days} day${days === 1 ? '' : 's'} ▴`}
-        </span>
-        <span className="font-mono font-semibold">
-          {tripTotal !== null ? `€${tripTotal}` : 'Pick a flight'}
-        </span>
-      </button>
-    </div>
-  )
 }
 
 type Selected = { date: string; day: CalendarDay } | null
@@ -401,16 +306,19 @@ function ResultsContent() {
   const [selectedBackFlightIndex, setSelectedBackFlightIndex] = useState(0)
   const [loadingOutFlights, setLoadingOutFlights] = useState(false)
   const [loadingBackFlights, setLoadingBackFlights] = useState(false)
-  const [mobileCostExpanded, setMobileCostExpanded] = useState(false)
 
-  const [destInfo, setDestInfo] = useState<DestInfo | null>(null)
+  // Cost-of-stay numbers, remembered together with the airport code they were
+  // fetched for so a previous destination's numbers are never shown for a new one.
+  const [destInfoState, setDestInfoState] = useState<{ code: string; info: DestInfo | null } | null>(null)
+  const destInfoReady = destInfoState?.code === destination
+  const destInfo = destInfoReady ? destInfoState.info : null
 
   useEffect(() => {
     if (!destination || isAnywhere) return
     fetch(`/api/destination-info?code=${encodeURIComponent(destination)}`)
       .then((res) => res.json())
-      .then((data) => setDestInfo(data.destination || null))
-      .catch(() => setDestInfo(null))
+      .then((data) => setDestInfoState({ code: destination, info: data.destination || null }))
+      .catch(() => setDestInfoState({ code: destination, info: null }))
   }, [destination, isAnywhere])
 
   const searchParamsString = searchParams.toString()
@@ -778,6 +686,23 @@ function ResultsContent() {
   }
 
   const stayDays = activeDepartDate ? nightsBetween(activeDepartDate, activeReturnDate) : 1
+  const costProps = {
+    destinationName: destInfo?.name || destination,
+    info: destInfo,
+    flightPrice: activeFlightPrice,
+    flightNote:
+      dateMode === 'month' || openJaw
+        ? oneWay
+          ? 'one way'
+          : 'outbound + return'
+        : activeFare?.kind === 'round-trip'
+        ? 'round trip, both flights'
+        : 'one way',
+    days: stayDays,
+    dates: activeDepartDate
+      ? `${formatShortDate(activeDepartDate)}${activeReturnDate ? ` → ${formatShortDate(activeReturnDate)}` : ''}`
+      : null,
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 pb-24 lg:pb-12">
@@ -802,7 +727,7 @@ function ResultsContent() {
       )}
 
       {!loading && !error && (
-      <div className="flex flex-col lg:flex-row lg:items-start gap-8">
+      <div className="flex flex-col lg:flex-row gap-8">
       <div className="flex-1 min-w-0">
 
       {dateMode === 'month' && (
@@ -1136,24 +1061,18 @@ function ResultsContent() {
 
       </div>
 
-      {destInfo && (
-        <div className="lg:w-72 flex-shrink-0">
-          <CostOfStayDesktopPanel destInfo={destInfo} flightPrice={activeFlightPrice} days={stayDays} />
+      {/* No items-start on the row above: this column must stretch to the full
+          height of the results so the sticky card has room to travel. */}
+      {destInfoReady && (
+        <div className="hidden lg:block lg:w-72 lg:flex-shrink-0">
+          <CostSidebar {...costProps} />
         </div>
       )}
 
       </div>
       )}
 
-      {destInfo && !loading && !error && (
-        <CostOfStayMobileBar
-          destInfo={destInfo}
-          flightPrice={activeFlightPrice}
-          days={stayDays}
-          expanded={mobileCostExpanded}
-          onToggle={() => setMobileCostExpanded((v) => !v)}
-        />
-      )}
+      {destInfoReady && !loading && !error && <CostMobileBar {...costProps} />}
     </div>
   )
 }

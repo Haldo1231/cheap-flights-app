@@ -58,3 +58,42 @@ export type CalendarDay = {
   returnTime: string | null
 }
 export type CalendarDayMap = Record<string, CalendarDay>
+
+/** A leg inside a trip summary. `price` is null when the whole fare has one price. */
+export type TripLeg = Leg & { price: number | null }
+
+/**
+ * One concrete trip found for an Anywhere city. kind "fare" = a single cached
+ * fare (a round-trip fare has one price for both legs); kind "legs" = an
+ * outbound and a return flight that each have their own cached price.
+ */
+export type AnywhereTrip = {
+  price: number
+  kind: 'fare' | 'legs'
+  outbound: TripLeg
+  inbound: TripLeg | null
+}
+
+export type AnywhereCity = {
+  code: string
+  name: string
+  /** Home airport this city was checked from. */
+  origin: string
+  /** Price from the quick ranking -- rough, NOT checked against the filters. */
+  roughPrice: number
+  /** A real cached fare from the quick ranking (dates/airline), not filtered. */
+  example: { price: number; outbound: Leg; inbound: Leg | null } | null
+  /** Trip that honors every filter. null = checked, nothing matches. undefined = not checked. */
+  trip?: AnywhereTrip | null
+}
+
+export type AnywhereCountry = {
+  code: string
+  name: string
+  candidateCityCount: number
+  /** Cheapest price among the cities that match the filters (null if none do). */
+  price: number | null
+  verifiedCity: AnywhereCity | null
+  /** The other cities in this country (quick ranking only). */
+  candidateCities: AnywhereCity[]
+}

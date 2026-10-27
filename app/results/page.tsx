@@ -4,12 +4,14 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { dayOfWeek, parseDays, serializeDays, nightsBetween, findBestCombinations, ALL_WEEKDAYS, WEEKDAY_BUTTONS } from '../weekdays'
-import type { CalendarDay, CalendarDayMap, Fare, OpenJawCombo, PricedLeg } from '../tripTypes'
+import type { AnywhereCountry, CalendarDay, CalendarDayMap, Fare, OpenJawCombo, PricedLeg } from '../tripTypes'
 import FareCard from '../components/FareCard'
 import FlightLeg from '../components/FlightLeg'
+import AnywhereCityRow from '../components/AnywhereCityRow'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../components/CostOfStay'
 import { calendarDayToFare, withCalendarFare } from '../lib/trip'
 import { formatDay, formatNights, formatShortDate } from '../lib/format'
+import { isLowCostCarrier } from '../lib/lowCost'
 
 function daysInMonth(monthStr: string) {
   const [y, m] = monthStr.split('-').map(Number)
@@ -28,22 +30,6 @@ function shiftMonth(monthStr: string, delta: number) {
 }
 
 type Selected = { date: string; day: CalendarDay } | null
-
-type AnywhereCandidateCity = { code: string; name: string; origin: string; roughPrice: number }
-type AnywhereCountry = {
-  code: string
-  name: string
-  candidateCityCount: number
-  candidateCities: AnywhereCandidateCity[]
-  price: number
-  verifiedCity: { code: string; name: string; origin: string; departDate: string; returnDate: string | null }
-}
-type AnywhereUnmatchedCountry = {
-  code: string
-  name: string
-  candidateCityCount: number
-  candidateCities: AnywhereCandidateCity[]
-}
 
 type OpenJawResponse = {
   results: OpenJawCombo[]
@@ -167,6 +153,7 @@ function DayFlightRow({
         </p>
         <p className="text-xs text-[#5B6472]">
           {airline ?? 'airline not in cached data'}
+          {isLowCostCarrier(leg.airlineCode) ? ' · Low-cost' : ''}
           {leg.time ? '' : ' · time not in cached data'}
           {leg.stops === 0 ? ' · Direct' : leg.stops ? ` · ${leg.stops} stop${leg.stops === 1 ? '' : 's'}` : ''}
           {fare.inbound ? ` · priced with a return on ${formatShortDate(fare.inbound.date)}` : ''}
@@ -398,7 +385,7 @@ function ResultsContent() {
   const [anywhereLoading, setAnywhereLoading] = useState(true)
   const [anywhereError, setAnywhereError] = useState<string | null>(null)
   const [anywhereCountries, setAnywhereCountries] = useState<AnywhereCountry[]>([])
-  const [anywhereUnmatched, setAnywhereUnmatched] = useState<AnywhereUnmatchedCountry[]>([])
+  const [anywhereUnmatched, setAnywhereUnmatched] = useState<AnywhereCountry[]>([])
   const [anywhereCheckedCount, setAnywhereCheckedCount] = useState(0)
   const [anywhereTotalCities, setAnywhereTotalCities] = useState(0)
   const [anywhereTotalCountries, setAnywhereTotalCountries] = useState(0)
@@ -584,37 +571,12 @@ function ResultsContent() {
                   </button>
                   {expandedCountry === country.code && (
                     <div className="px-5 pb-4 space-y-2 border-t border-[#E5E1D8] pt-3">
-                      <button
-                        type="button"
-                        onClick={() => goToCity(country.verifiedCity.code)}
-                        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-[#FCA311] bg-[#FFF8EC] text-left"
-                      >
-                        <div>
-                          <p className="font-mono text-sm">{country.verifiedCity.name} ({country.verifiedCity.code}) · from {country.verifiedCity.origin}</p>
-                          <p className="text-xs text-[#5B6472]">
-                            Checked against your filters ·{' '}
-                            {formatShortDate(country.verifiedCity.departDate)}
-                            {country.verifiedCity.returnDate ? ` → ${formatShortDate(country.verifiedCity.returnDate)}` : ' (one way)'}
-                          </p>
-                        </div>
-                        <p className="font-mono font-semibold whitespace-nowrap">€{country.price}</p>
-                      </button>
-                      {country.candidateCities
-                        .filter((c) => c.code !== country.verifiedCity.code)
-                        .map((c) => (
-                          <button
-                            key={c.code}
-                            type="button"
-                            onClick={() => goToCity(c.code)}
-                            className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border border-[#E5E1D8] bg-white hover:bg-[#FBF9F4] text-left"
-                          >
-                            <div>
-                              <p className="font-mono text-sm">{c.name} ({c.code}) · from {c.origin}</p>
-                              <p className="text-xs text-[#5B6472]">Not checked against your filters yet — tap to see exact prices</p>
-                            </div>
-                            <p className="font-mono text-[#5B6472] whitespace-nowrap">~€{c.roughPrice}</p>
-                          </button>
-                        ))}
+                      {country.verifiedCity && (
+                        <AnywhereCityRow highlight city={country.verifiedCity} onOpen={() => goToCity(country.verifiedCity!.code)} />
+                      )}
+                      {country.candidateCities.map((c) => (
+                        <AnywhereCityRow key={c.code} city={c} onOpen={() => goToCity(c.code)} />
+                      ))}
                     </div>
                   )}
                 </div>

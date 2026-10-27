@@ -38,7 +38,7 @@ export type Flight = {
   bookingUrl: string
 }
 
-type CheapEntry = {
+export type CheapEntry = {
   price?: number
   airline?: string
   departure_at?: string
@@ -126,7 +126,9 @@ async function fetchLatest(
   }
 }
 
-function normalizeFromCheap(entry: CheapEntry, origin: string, destination: string): Flight | null {
+/** Turns a /v1/prices/cheap-style entry (also the shape /v1/city-directions
+ * uses) into a Flight; null when it has no price or departure. */
+export function normalizeFromCheap(entry: CheapEntry, origin: string, destination: string): Flight | null {
   if (typeof entry?.price !== 'number') return null
   const depDate = dateOnly(entry.departure_at)
   if (!depDate) return null
@@ -293,6 +295,13 @@ async function enrichFromCalendar(flights: Flight[], token: string | undefined):
   })
 }
 
+/** Fills in airline/times (via the calendar) and airline names for just these
+ * flights -- used for a single winning fare, so it costs at most one calendar call. */
+export async function completeFlights(flights: Flight[], token: string | undefined): Promise<Flight[]> {
+  const enriched = await enrichFromCalendar(flights, token)
+  return resolveAirlineNames(enriched)
+}
+
 async function finish(
   flights: Flight[],
   token: string | undefined,
@@ -381,6 +390,18 @@ export async function getCheapestLeg(
     }
   }
   return null
+}
+
+/** The single cheapest cached round-trip/one-way fare to a destination across
+ * several home airports (no particular date), or null when none is cached. */
+export async function getCheapestFare(
+  origins: string[],
+  destination: string,
+  token: string | undefined
+): Promise<Fare | null> {
+  const flights = await Promise.all(origins.map((o) => getCheapestLeg(o, destination, undefined, token)))
+  const valid = flights.filter((f): f is Flight => f !== null).sort((a, b) => a.price - b.price)
+  return valid.length > 0 ? flightToFare(valid[0]) : null
 }
 
 /** Turns one cached flight into the shape the pages use: an outbound leg and,

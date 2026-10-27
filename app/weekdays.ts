@@ -51,27 +51,32 @@ export function nightsBetween(departDate: string, returnDate: string | null): nu
 export type DayPrice = { price: number; origin: string }
 export type DayPriceMap = Record<string, DayPrice>
 
-export type Combination = {
+export type Combination<T extends DayPrice = DayPrice> = {
   outDate: string; outPrice: number; outOrigin: string
   backDate: string; backPrice: number; backOrigin: string
   total: number; nights: number
+  /** The full calendar entries the combo was built from (airline, time, ...). */
+  out: T
+  back: T
 }
 
 /** Pairs up outbound/return days that match the weekday + nights filters,
  * sorted cheapest-total-first. Shared by the results page (client-side, on
  * already-fetched calendar data) and the Anywhere-by-country search
  * (server-side, on calendar data fetched per candidate city) so the exact
- * same "what counts as a valid combo" logic is used everywhere. */
-export function findBestCombinations(
-  outboundData: DayPriceMap,
-  inboundData: DayPriceMap,
+ * same "what counts as a valid combo" logic is used everywhere. A pair only
+ * exists when BOTH days have a cached price -- a day with no price on one
+ * side never produces a (half) trip. */
+export function findBestCombinations<T extends DayPrice>(
+  outboundData: Record<string, T>,
+  inboundData: Record<string, T>,
   outDays: number[],
   backDays: number[],
   minNights: number,
   maxNights: number,
   limit = 10
-): Combination[] {
-  const combos: Combination[] = []
+): Combination<T>[] {
+  const combos: Combination<T>[] = []
 
   for (const [outDate, outEntry] of Object.entries(outboundData)) {
     if (!outDays.includes(dayOfWeek(outDate))) continue
@@ -84,6 +89,7 @@ export function findBestCombinations(
         outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,
         backDate, backPrice: backEntry.price, backOrigin: backEntry.origin,
         total: outEntry.price + backEntry.price, nights,
+        out: outEntry, back: backEntry,
       })
     }
   }

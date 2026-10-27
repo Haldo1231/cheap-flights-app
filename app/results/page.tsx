@@ -3,8 +3,12 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { buildBookingLink } from '../aviasalesLink'
 import { dayOfWeek, parseDays, serializeDays, nightsBetween, findBestCombinations, ALL_WEEKDAYS, WEEKDAY_BUTTONS } from '../weekdays'
+import type { CalendarDay, CalendarDayMap, Fare, OpenJawCombo, PricedLeg } from '../tripTypes'
+import FareCard from '../components/FareCard'
+import FlightLeg from '../components/FlightLeg'
+import { calendarDayToFare, withCalendarFare } from '../lib/trip'
+import { formatDay, formatNights, formatShortDate } from '../lib/format'
 
 function daysInMonth(monthStr: string) {
   const [y, m] = monthStr.split('-').map(Number)
@@ -118,21 +122,7 @@ function CostOfStayMobileBar({
   )
 }
 
-type DayData = Record<string, { price: number; origin: string }>
-type Selected = { date: string; price: number; origin: string } | null
-
-type FlightOption = {
-  origin: string
-  destination?: string
-  price: number
-  departure_at: string
-  return_at: string | null
-  stops: number | null
-  airlineCode: string | null
-  airlineName: string | null
-  gate: string | null
-  bookingUrl: string
-}
+type Selected = { date: string; day: CalendarDay } | null
 
 type AnywhereCandidateCity = { code: string; name: string; origin: string; roughPrice: number }
 type AnywhereCountry = {
@@ -148,6 +138,13 @@ type AnywhereUnmatchedCountry = {
   name: string
   candidateCityCount: number
   candidateCities: AnywhereCandidateCity[]
+}
+
+type OpenJawResponse = {
+  results: OpenJawCombo[]
+  missingOutbound: boolean
+  missingReturn: boolean
+  outboundOnly: PricedLeg[]
 }
 
 /** Mon-Sun departure/return day toggles + min/max nights. Used by both the
@@ -234,46 +231,43 @@ function WeekdayFilterPanel({
   )
 }
 
-function flightLabel(f: FlightOption) {
-  const parts: string[] = []
-  if (f.airlineName) parts.push(f.airlineName)
-  else if (f.airlineCode) parts.push(f.airlineCode)
-  else if (f.gate) parts.push(`via ${f.gate}`)
-  if (f.stops !== null) parts.push(f.stops === 0 ? 'Direct' : f.stops === 1 ? '1 stop' : `${f.stops} stops`)
-  return parts.join(' · ')
-}
-
-function FlightOptionRow({
-  flight,
+/** One flight of a chosen calendar day (outbound or return), as a pickable row. */
+function DayFlightRow({
+  fare,
   isSelected,
   onSelect,
   rank,
 }: {
-  flight: FlightOption
+  fare: Fare
   isSelected: boolean
   onSelect: () => void
   rank: number
 }) {
-  const label = flightLabel(flight)
-  const [datePart, timePart] = flight.departure_at.split('T')
+  const leg = fare.outbound
+  const airline = leg.airlineName || leg.airlineCode
   return (
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={isSelected}
       className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border text-left transition-colors ${
         isSelected ? 'border-[#14213D] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
       }`}
     >
-      <div>
+      <div className="min-w-0">
         {rank === 0 && <span className="text-[10px] font-semibold text-[#FCA311] block">CHEAPEST</span>}
         <p className="font-mono text-sm">
-          {flight.origin} · {datePart}
-          {timePart ? ` · ${timePart.slice(0, 5)}` : ''}
-          {flight.return_at ? ` → ${flight.return_at}` : ''}
+          {leg.origin} → {leg.destination} · {formatDay(leg.date)}
+          {leg.time ? ` · ${leg.time}` : ''}
         </p>
-        {label && <p className="text-xs text-[#5B6472]">{label}</p>}
+        <p className="text-xs text-[#5B6472]">
+          {airline ?? 'airline not in cached data'}
+          {leg.time ? '' : ' · time not in cached data'}
+          {leg.stops === 0 ? ' · Direct' : leg.stops ? ` · ${leg.stops} stop${leg.stops === 1 ? '' : 's'}` : ''}
+          {fare.inbound ? ` · priced with a return on ${formatShortDate(fare.inbound.date)}` : ''}
+        </p>
       </div>
-      <p className="font-mono font-semibold whitespace-nowrap">€{flight.price}</p>
+      <p className="font-mono font-semibold whitespace-nowrap">€{fare.price}</p>
     </button>
   )
 }
@@ -289,12 +283,12 @@ function CalendarGrid({
   allowedDays = ALL_WEEKDAYS,
 }: {
   title: string
-  data: DayData
+  data: CalendarDayMap
   month: string
   onPrev: () => void
   onNext: () => void
   selectedDate: string | undefined
-  onSelectDay: (date: string, price: number, origin: string) => void
+  onSelectDay: (date: string, day: CalendarDay) => void
   allowedDays?: number[]
 }) {
   const total = daysInMonth(month)
@@ -314,9 +308,9 @@ function CalendarGrid({
   return (
     <div className="flex-1">
       <div className="flex items-center justify-between mb-2">
-        <button onClick={onPrev} className="px-2 py-1 border border-[#E5E1D8] rounded-sm text-xs">←</button>
+        <button onClick={onPrev} aria-label="Previous month" className="px-2 py-1 border border-[#E5E1D8] rounded-sm text-xs">←</button>
         <h3 className="font-semibold text-sm">{title} · {month}</h3>
-        <button onClick={onNext} className="px-2 py-1 border border-[#E5E1D8] rounded-sm text-xs">→</button>
+        <button onClick={onNext} aria-label="Next month" className="px-2 py-1 border border-[#E5E1D8] rounded-sm text-xs">→</button>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center text-xs text-[#5B6472] mb-1">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}
@@ -330,14 +324,17 @@ function CalendarGrid({
           const isCheapest = entry && isAllowedDay && entry.price === minPrice
           const isSelected = selectedDate === dateStr
           const isGood = entry && avg !== null && entry.price < avg
+          const detail = entry
+            ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${entry.airlineName || entry.airlineCode ? ` · ${entry.airlineName || entry.airlineCode}` : ''}`
+            : undefined
 
           return (
             <button
               key={i}
               type="button"
               disabled={!entry || !isAllowedDay}
-              onClick={() => entry && isAllowedDay && onSelectDay(dateStr, entry.price, entry.origin)}
-              title={!isAllowedDay ? 'Not one of your selected weekdays' : undefined}
+              onClick={() => entry && isAllowedDay && onSelectDay(dateStr, entry)}
+              title={!isAllowedDay ? 'Not one of your selected weekdays' : detail}
               className={`aspect-square flex flex-col items-center justify-center rounded-sm text-xs border transition-colors ${
                 !isAllowedDay
                   ? 'bg-[#FBF9F4] border-transparent text-[#ddd] cursor-default opacity-40'
@@ -360,6 +357,9 @@ function CalendarGrid({
   )
 }
 
+const PRIMARY_BUTTON =
+  'inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors'
+
 function ResultsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -367,6 +367,7 @@ function ResultsContent() {
   const destination = searchParams.get('destination') || ''
   const isAnywhere = searchParams.get('anywhere') === 'true'
   const origins = searchParams.get('origins') || ''
+  const originList = useMemo(() => origins.split(',').filter(Boolean), [origins])
   const oneWay = searchParams.get('oneWay') === 'true'
   const dateMode = searchParams.get('dateMode') || 'exact'
   const openJaw = searchParams.get('openJaw') === 'true'
@@ -384,29 +385,25 @@ function ResultsContent() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [listResults, setListResults] = useState<FlightOption[]>([])
-  const [selectedFlightIndex, setSelectedFlightIndex] = useState(0)
-  const [outboundData, setOutboundData] = useState<DayData>({})
-  const [inboundData, setInboundData] = useState<DayData>({})
-  const [expandedCombo, setExpandedCombo] = useState<number | null>(null)
+  const [fares, setFares] = useState<Fare[]>([])
+  const [totalFares, setTotalFares] = useState(0)
+  const [openJawData, setOpenJawData] = useState<OpenJawResponse | null>(null)
+  const [selectedFareId, setSelectedFareId] = useState<string | null>(null)
+  const [selectedComboIndex, setSelectedComboIndex] = useState(0)
+  const [outboundData, setOutboundData] = useState<CalendarDayMap>({})
+  const [inboundData, setInboundData] = useState<CalendarDayMap>({})
 
   const [selectedOut, setSelectedOut] = useState<Selected>(null)
   const [selectedBack, setSelectedBack] = useState<Selected>(null)
-  const [outDayFlights, setOutDayFlights] = useState<FlightOption[]>([])
-  const [backDayFlights, setBackDayFlights] = useState<FlightOption[]>([])
+  const [outDayFlights, setOutDayFlights] = useState<Fare[]>([])
+  const [backDayFlights, setBackDayFlights] = useState<Fare[]>([])
   const [selectedOutFlightIndex, setSelectedOutFlightIndex] = useState(0)
   const [selectedBackFlightIndex, setSelectedBackFlightIndex] = useState(0)
   const [loadingOutFlights, setLoadingOutFlights] = useState(false)
   const [loadingBackFlights, setLoadingBackFlights] = useState(false)
   const [mobileCostExpanded, setMobileCostExpanded] = useState(false)
 
-  const [destInfo, setDestInfo] = useState<{
-    name: string
-    hostel_avg_price: number | null
-    food_avg_price: number | null
-    transport_avg_price: number | null
-    other_avg_price: number | null
-  } | null>(null)
+  const [destInfo, setDestInfo] = useState<DestInfo | null>(null)
 
   useEffect(() => {
     if (!destination || isAnywhere) return
@@ -439,7 +436,9 @@ function ResultsContent() {
     setSelectedBack(null)
     setOutDayFlights([])
     setBackDayFlights([])
-    setSelectedFlightIndex(0)
+    setSelectedFareId(null)
+    setSelectedComboIndex(0)
+    setOpenJawData(null)
 
     if (dateMode === 'month') {
       const outParams = new URLSearchParams({ destination, origins, month: departMonth, leg: 'outbound' })
@@ -467,7 +466,19 @@ function ResultsContent() {
     fetch(`/api/compare?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
-        setListResults(data.results || [])
+        if (data.openJaw) {
+          setOpenJawData({
+            results: data.results || [],
+            missingOutbound: !!data.missingOutbound,
+            missingReturn: !!data.missingReturn,
+            outboundOnly: data.outboundOnly || [],
+          })
+          setFares([])
+          setTotalFares(0)
+        } else {
+          setFares(data.results || [])
+          setTotalFares(data.total || 0)
+        }
         setLoading(false)
       })
       .catch(() => {
@@ -522,7 +533,8 @@ function ResultsContent() {
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set(key, value)
-    router.push(`/results?${params.toString()}`)
+    // Changing a filter should not throw the page back to the top.
+    router.push(`/results?${params.toString()}`, { scroll: false })
   }
 
   function toggleOutDay(day: number) {
@@ -539,7 +551,7 @@ function ResultsContent() {
   // Computed entirely from the two calendars' already-fetched months -- it
   // only ever covers whichever months are currently shown (navigating a
   // calendar with the arrows re-fetches and this recomputes), not a
-  // cross-month search.
+  // cross-month search. A pair needs a cached price on BOTH days.
   const bestCombinations = useMemo(() => {
     if (oneWay || dateMode !== 'month') return []
     return findBestCombinations(outboundData, inboundData, outDays, backDays, minNights, maxNights, 10)
@@ -547,12 +559,12 @@ function ResultsContent() {
 
   async function selectCombination(combo: (typeof bestCombinations)[number]) {
     await Promise.all([
-      handleSelectOutDay(combo.outDate, combo.outPrice, combo.outOrigin),
-      handleSelectBackDay(combo.backDate, combo.backPrice, combo.backOrigin),
+      handleSelectOutDay(combo.outDate, combo.out),
+      handleSelectBackDay(combo.backDate, combo.back),
     ])
   }
 
-  async function fetchOneWayDayFlights(fromOrigins: string[], toDestination: string, date: string): Promise<FlightOption[]> {
+  async function fetchOneWayDayFlights(fromOrigins: string[], toDestination: string, date: string): Promise<Fare[]> {
     const params = new URLSearchParams({
       destination: toDestination,
       origins: fromOrigins.join(','),
@@ -562,35 +574,37 @@ function ResultsContent() {
     })
     const res = await fetch(`/api/compare?${params.toString()}`)
     const data = await res.json()
-    return (data.results || []) as FlightOption[]
+    return (data.results || []) as Fare[]
   }
 
-  async function handleSelectOutDay(date: string, price: number, origin: string) {
-    setSelectedOut({ date, price, origin })
+  async function handleSelectOutDay(date: string, day: CalendarDay) {
+    setSelectedOut({ date, day })
     setSelectedOutFlightIndex(0)
     setLoadingOutFlights(true)
+    const fromCalendar = calendarDayToFare(day, date, day.origin, destination)
     try {
-      const flights = await fetchOneWayDayFlights(origins.split(','), destination, date)
-      setOutDayFlights(flights)
+      const flights = await fetchOneWayDayFlights(originList, destination, date)
+      setOutDayFlights(withCalendarFare(flights, fromCalendar))
+    } catch {
+      setOutDayFlights([fromCalendar])
     } finally {
       setLoadingOutFlights(false)
     }
   }
 
-  async function handleSelectBackDay(date: string, price: number, origin: string) {
-    setSelectedBack({ date, price, origin })
+  async function handleSelectBackDay(date: string, day: CalendarDay) {
+    setSelectedBack({ date, day })
     setSelectedBackFlightIndex(0)
     setLoadingBackFlights(true)
+    const fromCalendar = calendarDayToFare(day, date, destination, day.origin)
     try {
-      const homeAirports = origins.split(',')
       const perAirport = await Promise.all(
-        homeAirports.map(async (airport) => {
-          const flights = await fetchOneWayDayFlights([destination], airport, date)
-          return flights.map((f) => ({ ...f, destination: airport }))
-        })
+        originList.map((airport) => fetchOneWayDayFlights([destination], airport, date))
       )
       const merged = perAirport.flat().sort((a, b) => a.price - b.price)
-      setBackDayFlights(merged)
+      setBackDayFlights(withCalendarFare(merged, fromCalendar))
+    } catch {
+      setBackDayFlights([fromCalendar])
     } finally {
       setLoadingBackFlights(false)
     }
@@ -601,7 +615,7 @@ function ResultsContent() {
       <div className="max-w-5xl mx-auto px-6 py-12">
         <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
         <h1 className="text-2xl font-semibold mb-2">
-          Anywhere from {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''}
+          Anywhere from {originList[0]}{originList.length > 1 ? ` +${originList.length - 1}` : ''}
         </h1>
         <p className="text-sm text-[#5B6472] mb-6">Countries ranked by the cheapest price that matches your filters.</p>
 
@@ -669,7 +683,11 @@ function ResultsContent() {
                       >
                         <div>
                           <p className="font-mono text-sm">{country.verifiedCity.name} ({country.verifiedCity.code}) · from {country.verifiedCity.origin}</p>
-                          <p className="text-xs text-[#5B6472]">Checked against your filters</p>
+                          <p className="text-xs text-[#5B6472]">
+                            Checked against your filters ·{' '}
+                            {formatShortDate(country.verifiedCity.departDate)}
+                            {country.verifiedCity.returnDate ? ` → ${formatShortDate(country.verifiedCity.returnDate)}` : ' (one way)'}
+                          </p>
                         </div>
                         <p className="font-mono font-semibold whitespace-nowrap">€{country.price}</p>
                       </button>
@@ -717,12 +735,26 @@ function ResultsContent() {
     )
   }
 
-  const selectedOutFlight = outDayFlights[selectedOutFlightIndex] || null
-  const selectedBackFlight = backDayFlights[selectedBackFlightIndex] || null
-  const monthTotal =
-    selectedOutFlight && selectedBackFlight
-      ? selectedOutFlight.price + selectedBackFlight.price
-      : selectedOutFlight?.price ?? null
+  // ---- Which flight(s) the cost panel and trip summary are about ----------
+  const selectedOutFare = outDayFlights[selectedOutFlightIndex] || null
+  const selectedBackFare = backDayFlights[selectedBackFlightIndex] || null
+  const monthTotal = oneWay
+    ? selectedOutFare?.price ?? null
+    : selectedOutFare && selectedBackFare
+    ? selectedOutFare.price + selectedBackFare.price
+    : null
+
+  // Lists that are not month mode: split fares into "what you asked for" and
+  // "other return dates / round-trip-only" so nothing is silently mislabeled.
+  const primaryFares = oneWay
+    ? fares.filter((f) => f.kind === 'one-way')
+    : fares.filter((f) => f.returnMatchesRequest !== false)
+  const secondaryFares = oneWay
+    ? fares.filter((f) => f.kind === 'round-trip')
+    : fares.filter((f) => f.returnMatchesRequest === false)
+  const activeFare =
+    fares.find((f) => f.id === selectedFareId) || primaryFares[0] || secondaryFares[0] || null
+  const requestedReturn = searchParams.get('returnDate')
 
   let activeFlightPrice: number | null = null
   let activeDepartDate: string | null = null
@@ -730,22 +762,19 @@ function ResultsContent() {
 
   if (dateMode === 'month') {
     activeFlightPrice = monthTotal
-    activeDepartDate = selectedOutFlight?.departure_at.split('T')[0] || null
-    activeReturnDate = selectedBackFlight?.departure_at.split('T')[0] || null
+    activeDepartDate = selectedOutFare?.outbound.date || null
+    activeReturnDate = oneWay ? null : selectedBackFare?.outbound.date || null
   } else if (openJaw) {
-    const combo = listResults[0] as any
+    const combo = openJawData?.results[selectedComboIndex] || openJawData?.results[0]
     if (combo) {
       activeFlightPrice = combo.total
-      activeDepartDate = combo.outDeparture?.split('T')[0] || null
-      activeReturnDate = combo.backDeparture?.split('T')[0] || null
+      activeDepartDate = combo.outbound.date
+      activeReturnDate = combo.inbound.date
     }
-  } else {
-    const flight = listResults[selectedFlightIndex] as FlightOption | undefined
-    if (flight) {
-      activeFlightPrice = flight.price
-      activeDepartDate = flight.departure_at?.split('T')[0] || null
-      activeReturnDate = flight.return_at || null
-    }
+  } else if (activeFare) {
+    activeFlightPrice = activeFare.price
+    activeDepartDate = activeFare.outbound.date
+    activeReturnDate = activeFare.inbound?.date || null
   }
 
   const stayDays = activeDepartDate ? nightsBetween(activeDepartDate, activeReturnDate) : 1
@@ -754,7 +783,7 @@ function ResultsContent() {
     <div className="max-w-5xl mx-auto px-6 py-12 pb-24 lg:pb-12">
       <Link href="/search" className="text-sm text-[#5B6472] hover:text-[#14213D] mb-6 inline-block">← New search</Link>
       <h1 className="text-2xl font-semibold mb-6">
-        {origins.split(',')[0]}{origins.split(',').length > 1 ? ` +${origins.split(',').length - 1}` : ''} → {destination}
+        {originList[0]}{originList.length > 1 ? ` +${originList.length - 1}` : ''} → {destination}
       </h1>
 
       {loading && <p className="text-[#5B6472]">Searching...</p>}
@@ -796,32 +825,40 @@ function ResultsContent() {
               {bestCombinations.length === 0 && (
                 <p className="text-sm text-[#5B6472]">
                   {Object.keys(outboundData).length > 0 && Object.keys(inboundData).length > 0
-                    ? 'No combination fits your current weekday/nights filters in these months. Try loosening them, or browse further months with the arrows below.'
-                    : 'Waiting on calendar data to suggest combinations.'}
+                    ? 'No combination fits your current weekday/nights filters in these months. A trip needs a cached price on both the outbound and the return day. Try loosening the filters, or browse further months with the arrows below.'
+                    : 'No complete round trip to suggest: ' +
+                      (Object.keys(outboundData).length === 0 ? 'no cached outbound prices in this month' : 'no cached return prices in the return month') +
+                      '.'}
                 </p>
               )}
               {bestCombinations.length > 0 && (
                 <div className="space-y-2">
-                  {bestCombinations.map((combo, i) => (
-                    <button
-                      key={`${combo.outDate}-${combo.backDate}`}
-                      type="button"
-                      onClick={() => selectCombination(combo)}
-                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-sm border text-left transition-colors ${
-                        selectedOut?.date === combo.outDate && selectedBack?.date === combo.backDate
-                          ? 'border-[#14213D] bg-[#FFF8EC]'
-                          : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
-                      }`}
-                    >
-                      <div>
-                        {i === 0 && <span className="text-[10px] font-semibold text-[#FCA311] block">CHEAPEST</span>}
-                        <p className="font-mono text-sm">
-                          {combo.outDate} → {combo.backDate} · {combo.nights} night{combo.nights === 1 ? '' : 's'}
-                        </p>
-                      </div>
-                      <p className="font-mono font-semibold whitespace-nowrap">€{combo.total}</p>
-                    </button>
-                  ))}
+                  {bestCombinations.map((combo, i) => {
+                    const outLeg = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination).outbound
+                    const backLeg = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin).outbound
+                    return (
+                      <button
+                        key={`${combo.outDate}-${combo.backDate}`}
+                        type="button"
+                        onClick={() => selectCombination(combo)}
+                        className={`w-full flex items-start justify-between gap-3 px-3 py-2 rounded-sm border text-left transition-colors ${
+                          selectedOut?.date === combo.outDate && selectedBack?.date === combo.backDate
+                            ? 'border-[#14213D] bg-[#FFF8EC]'
+                            : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            {i === 0 && <span className="text-[10px] font-semibold text-[#FCA311]">CHEAPEST</span>}
+                            <span className="font-mono text-xs text-[#5B6472]">{formatNights(combo.nights)}</span>
+                          </div>
+                          <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
+                          <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
+                        </div>
+                        <p className="font-mono font-semibold text-lg whitespace-nowrap">€{combo.total}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -860,17 +897,17 @@ function ResultsContent() {
 
           {selectedOut && (
             <div className="mb-4">
-              <p className="font-semibold text-sm mb-2">Flights on {selectedOut.date}</p>
+              <p className="font-semibold text-sm mb-2">Flights on {formatDay(selectedOut.date)}</p>
               {loadingOutFlights && <p className="text-sm text-[#5B6472]">Loading flights for this day...</p>}
               {!loadingOutFlights && outDayFlights.length === 0 && (
-                <p className="text-sm text-[#5B6472]">No individual cached flights found for this exact day — prices shown on the calendar are the cheapest found nearby. Try a different day for more options.</p>
+                <p className="text-sm text-[#5B6472]">No cached flight details found for this day.</p>
               )}
               {!loadingOutFlights && outDayFlights.length > 0 && (
                 <div className="space-y-2">
                   {outDayFlights.map((f, i) => (
-                    <FlightOptionRow
-                      key={`${f.origin}-${f.price}-${i}`}
-                      flight={f}
+                    <DayFlightRow
+                      key={f.id}
+                      fare={f}
                       rank={i}
                       isSelected={i === selectedOutFlightIndex}
                       onSelect={() => setSelectedOutFlightIndex(i)}
@@ -883,17 +920,17 @@ function ResultsContent() {
 
           {!oneWay && selectedBack && (
             <div className="mb-4">
-              <p className="font-semibold text-sm mb-2">Return flights on {selectedBack.date}</p>
+              <p className="font-semibold text-sm mb-2">Return flights on {formatDay(selectedBack.date)}</p>
               {loadingBackFlights && <p className="text-sm text-[#5B6472]">Loading flights for this day...</p>}
               {!loadingBackFlights && backDayFlights.length === 0 && (
-                <p className="text-sm text-[#5B6472]">No individual cached flights found for this exact day — prices shown on the calendar are the cheapest found nearby. Try a different day for more options.</p>
+                <p className="text-sm text-[#5B6472]">No cached return flight found for {formatDay(selectedBack.date)}.</p>
               )}
               {!loadingBackFlights && backDayFlights.length > 0 && (
                 <div className="space-y-2">
                   {backDayFlights.map((f, i) => (
-                    <FlightOptionRow
-                      key={`${f.destination}-${f.price}-${i}`}
-                      flight={{ ...f, origin: `${destination} → ${f.destination}` }}
+                    <DayFlightRow
+                      key={f.id}
+                      fare={f}
                       rank={i}
                       isSelected={i === selectedBackFlightIndex}
                       onSelect={() => setSelectedBackFlightIndex(i)}
@@ -904,38 +941,54 @@ function ResultsContent() {
             </div>
           )}
 
-          {(selectedOutFlight || selectedBackFlight) && (
+          {(selectedOutFare || selectedBackFare || (!oneWay && selectedOut) || (!oneWay && selectedBack)) && (
             <div className="border-2 border-[#14213D] rounded-sm p-4 bg-white">
-              <p className="font-semibold mb-2">Your trip</p>
-              {selectedOutFlight && (
-                <p className="font-mono text-sm">
-                  {selectedOutFlight.origin} → {destination} · {selectedOutFlight.departure_at.split('T')[0]} · €{selectedOutFlight.price}
-                </p>
+              <p className="font-semibold mb-1">Your trip</p>
+              <div className="divide-y divide-[#E5E1D8]">
+                {selectedOutFare ? (
+                  <FlightLeg
+                    label="Outbound"
+                    leg={selectedOutFare.outbound}
+                    price={selectedOutFare.price}
+                    searchLinkLabel="Book outbound →"
+                  />
+                ) : (
+                  !oneWay && (
+                    <p className="py-2 text-sm text-[#5B6472]">Outbound: pick a departure day in the left calendar.</p>
+                  )
+                )}
+                {!oneWay &&
+                  (selectedBackFare ? (
+                    <FlightLeg
+                      label="Return"
+                      leg={selectedBackFare.outbound}
+                      price={selectedBackFare.price}
+                      searchLinkLabel="Book return →"
+                    />
+                  ) : selectedBack && !loadingBackFlights ? (
+                    <p className="py-2 text-sm text-[#8a2f22]">
+                      No cached return price for {formatDay(selectedBack.date)} — this is not a complete round trip.
+                    </p>
+                  ) : (
+                    <p className="py-2 text-sm text-[#5B6472]">Return: pick a return day in the right calendar.</p>
+                  ))}
+              </div>
+              {monthTotal !== null ? (
+                <p className="font-semibold mt-2">Flights total: <span className="font-mono">€{monthTotal}</span></p>
+              ) : (
+                !oneWay && <p className="mt-2 text-sm text-[#5B6472]">Flights total appears once both a cached outbound and return price are chosen.</p>
               )}
-              {selectedBackFlight && (
-                <p className="font-mono text-sm">
-                  {destination} → {selectedBackFlight.destination} · {selectedBackFlight.departure_at.split('T')[0]} · €{selectedBackFlight.price}
-                </p>
-              )}
-              {monthTotal !== null && <p className="font-semibold mt-2">Total: €{monthTotal}</p>}
+              <p className="mt-2 text-xs text-[#5B6472]">
+                Each price is the cheapest cached fare for that day; some are priced together with a return, so confirm the final price on Aviasales.
+              </p>
               <div className="flex flex-wrap gap-3 mt-3">
-                {selectedOutFlight && (
-                  <a
-                    href={selectedOutFlight.bookingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
-                  >
-                    {selectedBackFlight ? 'Book outbound →' : 'Book on Aviasales →'}
+                {selectedOutFare && (
+                  <a href={selectedOutFare.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={PRIMARY_BUTTON}>
+                    {selectedBackFare ? 'Book outbound →' : 'Book on Aviasales →'}
                   </a>
                 )}
-                {selectedBackFlight && (
-                  <a
-                    href={selectedBackFlight.bookingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
-                  >
+                {!oneWay && selectedBackFare && (
+                  <a href={selectedBackFare.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={PRIMARY_BUTTON}>
                     Book return →
                   </a>
                 )}
@@ -945,82 +998,139 @@ function ResultsContent() {
         </div>
       )}
 
-      {dateMode !== 'month' && listResults.length === 0 && (
+      {dateMode !== 'month' && !openJaw && fares.length === 0 && (
         <p className="text-[#5B6472]">No cached prices found for this search. Try a more popular destination, or a different date mode.</p>
       )}
 
-      {dateMode !== 'month' && listResults.length > 0 && openJaw && (
-        <ul className="space-y-3">
-          {listResults.map((combo: any, i) => (
-            <li key={i} className={`rounded-sm border ${i === 0 ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
-              <button type="button" onClick={() => setExpandedCombo(expandedCombo === i ? null : i)} className="w-full text-left px-5 py-4">
-                {i === 0 && <p className="text-xs font-semibold text-[#FCA311] mb-1">CHEAPEST COMBO</p>}
-                <p className="font-mono text-lg">{combo.outOrigin} → {destination} → {combo.backOrigin} · <span className="font-semibold">€{combo.total}</span></p>
-                <p className="text-sm text-[#5B6472]">Tap to see both flights</p>
-              </button>
-              {expandedCombo === i && (
-                <div className="px-5 pb-4 text-sm font-mono text-[#5B6472] space-y-3 border-t border-[#E5E1D8] pt-3">
-                  <p>{combo.outOrigin} → {destination}: €{combo.outPrice} · {combo.outDeparture?.split('T')[0]}</p>
-                  <p>{destination} → {combo.backOrigin}: €{combo.backPrice} · {combo.backDeparture?.split('T')[0]}</p>
-                  <div className="flex flex-wrap gap-3 font-sans">
-                    <a
-                      href={buildBookingLink(combo.outOrigin, destination, combo.outDeparture)}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
-                      className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
-                    >
-                      Book outbound →
-                    </a>
-                    <a
-                      href={buildBookingLink(destination, combo.backOrigin, combo.backDeparture)}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
-                      className="inline-block px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
-                    >
-                      Book return →
-                    </a>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+      {dateMode !== 'month' && openJaw && openJawData && (
+        <div>
+          {openJawData.results.length === 0 && !openJawData.missingOutbound && !openJawData.missingReturn && (
+            <p className="text-[#5B6472]">No cached prices found for this search.</p>
+          )}
+          {openJawData.missingOutbound && (
+            <p className="mb-3 rounded-sm border border-[#E5E1D8] bg-white px-4 py-3 text-sm text-[#5B6472]">
+              No cached outbound price found from your airports to {destination}, so no complete trip can be built.
+            </p>
+          )}
+          {openJawData.missingReturn && !openJawData.missingOutbound && (
+            <div className="mb-3 rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-4 py-3 text-sm text-[#14213D]">
+              No cached return price found from {destination} to your airports — these are NOT complete round trips.
+              Outbound flights we did find:
+            </div>
+          )}
+
+          {openJawData.outboundOnly.length > 0 && (
+            <ul className="space-y-3 mb-4">
+              {openJawData.outboundOnly.map((leg) => (
+                <li key={`${leg.origin}-${leg.date}-${leg.price}`} className="rounded-sm border border-[#E5E1D8] bg-white px-4 py-2">
+                  <FlightLeg label="Outbound" leg={leg} price={leg.price} />
+                  <a href={leg.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={`${PRIMARY_BUTTON} mb-2`}>
+                    Book outbound →
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {openJawData.results.length > 0 && (
+            <ul className="space-y-3">
+              {openJawData.results.map((combo, i) => {
+                const isSelected = i === selectedComboIndex
+                return (
+                  <li key={`${combo.outbound.origin}-${combo.inbound.destination}-${combo.total}-${i}`} className={`rounded-sm border ${isSelected ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
+                    <button type="button" onClick={() => setSelectedComboIndex(i)} aria-pressed={isSelected} className="w-full text-left px-4 pt-4 pb-1 sm:px-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          {i === 0 && <p className="text-xs font-semibold text-[#FCA311] mb-1">CHEAPEST COMBO</p>}
+                          <p className="font-mono text-sm text-[#5B6472]">{combo.outbound.origin} → {destination} → {combo.inbound.destination}</p>
+                        </div>
+                        <p className="font-mono text-2xl font-semibold tabular-nums">€{combo.total}</p>
+                      </div>
+                      <div className="mt-2 divide-y divide-[#E5E1D8]">
+                        <FlightLeg label="Outbound" leg={combo.outbound} price={combo.outbound.price} />
+                        <FlightLeg label="Return" leg={combo.inbound} price={combo.inbound.price} />
+                      </div>
+                    </button>
+                    <div className="flex flex-wrap gap-3 px-4 pb-4 pt-2 sm:px-5">
+                      <a href={combo.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={PRIMARY_BUTTON}>
+                        Book outbound →
+                      </a>
+                      <a href={combo.inbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={PRIMARY_BUTTON}>
+                        Book return →
+                      </a>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       )}
 
-      {dateMode !== 'month' && listResults.length > 0 && !openJaw && (
+      {dateMode !== 'month' && !openJaw && fares.length > 0 && (
         <>
-          {dateMode === 'range' && (
-            <p className="text-xs text-[#5B6472] mb-3">
-              All cached flights found in your date range, cheapest first. Prices are cached and may change — always confirm on the booking site.
+          {primaryFares.length === 0 && oneWay && (
+            <p className="mb-3 rounded-sm border border-[#E5E1D8] bg-white px-4 py-3 text-sm text-[#5B6472]">
+              No one-way fare is cached for this search. Only round-trip fares (which include a return flight) were found, shown below.
             </p>
           )}
-          {dateMode === 'exact' && listResults.length > 1 && (
-            <p className="text-xs text-[#5B6472] mb-3">
-              All cached flights found for this day across your chosen airports, cheapest first.
+          {primaryFares.length === 0 && !oneWay && requestedReturn && (
+            <p className="mb-3 rounded-sm border border-[#E5E1D8] bg-white px-4 py-3 text-sm text-[#5B6472]">
+              No cached fare found for your exact return date ({formatDay(requestedReturn)}). These fares leave on your departure day with a different return date:
             </p>
           )}
-          <ul className="space-y-3">
-            {listResults.map((r, i) => (
-              <li key={`${r.origin}-${r.price}-${i}`} className={`px-5 py-4 rounded-sm border ${i === selectedFlightIndex ? 'border-2 border-[#FCA311] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white'}`}>
-                <button type="button" onClick={() => setSelectedFlightIndex(i)} className="w-full text-left">
-                  {i === 0 && <p className="text-xs font-semibold text-[#FCA311] mb-1">CHEAPEST</p>}
-                  <p className="font-mono text-lg">{r.origin} → {destination} · <span className="font-semibold">€{r.price}</span></p>
-                  <p className="text-sm text-[#5B6472] font-mono mb-1">
-                    {r.departure_at?.split('T')[0]}{r.return_at ? ` → ${r.return_at}` : ' (one way)'}
+          {dateMode === 'range' && primaryFares.length > 0 && (
+            <p className="text-xs text-[#5B6472] mb-3">
+              Cached fares found in your date range, cheapest first
+              {totalFares > fares.length ? ` (cheapest ${fares.length} of ${totalFares})` : ''}. Prices are cached and may change — always confirm on the booking site.
+            </p>
+          )}
+          {dateMode === 'exact' && primaryFares.length > 1 && (
+            <p className="text-xs text-[#5B6472] mb-3">
+              All cached fares found for this day across your chosen airports, cheapest first.
+            </p>
+          )}
+          {primaryFares.length > 0 && (
+            <ul className="space-y-3">
+              {primaryFares.map((f, i) => (
+                <FareCard
+                  key={f.id}
+                  fare={f}
+                  isCheapest={i === 0}
+                  isSelected={f.id === activeFare?.id}
+                  onSelect={() => setSelectedFareId(f.id)}
+                />
+              ))}
+            </ul>
+          )}
+
+          {secondaryFares.length > 0 && (
+            <div className={primaryFares.length > 0 ? 'mt-8' : ''}>
+              {primaryFares.length > 0 && (
+                <>
+                  <p className="font-semibold text-sm mb-1">
+                    {oneWay ? 'Round-trip fares (include a return flight)' : 'Other return dates'}
                   </p>
-                  {flightLabel(r) && <p className="text-sm text-[#5B6472]">{flightLabel(r)}</p>}
-                </button>
-                <a
-                  href={r.bookingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
-                  className="inline-block mt-3 px-4 py-2 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm text-sm hover:bg-[#e8940a] transition-colors"
-                >
-                  Book on Aviasales →
-                </a>
-              </li>
-            ))}
-          </ul>
+                  <p className="text-xs text-[#5B6472] mb-3">
+                    {oneWay
+                      ? 'No one-way price for these — the price covers a return flight too.'
+                      : `No cached fare for ${requestedReturn ? formatDay(requestedReturn) : 'your return date'} — these leave on your departure day with another return date.`}
+                  </p>
+                </>
+              )}
+              <ul className="space-y-3">
+                {secondaryFares.map((f, i) => (
+                  <FareCard
+                    key={f.id}
+                    fare={f}
+                    isCheapest={primaryFares.length === 0 && i === 0}
+                    isSelected={f.id === activeFare?.id}
+                    onSelect={() => setSelectedFareId(f.id)}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
 

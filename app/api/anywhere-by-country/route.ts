@@ -59,7 +59,7 @@ async function checkCityPrecisely(
   if (params.dateMode === 'range') {
     const flights = await getRangeFlights(
       origin, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
-      params.minDays, params.maxDays, token
+      params.minDays, params.maxDays, token, { enrich: false, oneWay: params.oneWay }
     )
     if (flights.length === 0) return null
     const cheapest = flights[0]
@@ -91,7 +91,11 @@ async function checkCityPrecisely(
 
   // exact
   if (!params.departDate) return null
-  const flights = await getDayFlights(origin, cityCode, params.departDate, token)
+  const flights = await getDayFlights(origin, cityCode, params.departDate, token, {
+    enrich: false,
+    oneWay: params.oneWay,
+    returnDate: params.oneWay ? null : params.returnDate,
+  })
   if (flights.length === 0) return null
   const cheapest = flights[0]
   return { price: cheapest.price, departDate: cheapest.departureDate, returnDate: cheapest.returnDate }

@@ -16,3 +16,34 @@ body {
 .font-mono-data {
   font-variant-numeric: tabular-nums;
 }
+
+/* Screen transitions: short and gentle, and off for people who ask for less motion. */
+/* Opacity only: a transform on a screen container would make it the reference
+   box for position:fixed children (the drawer and the mobile cost bar). */
+@keyframes view-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drawer-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes drawer-in-right {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+.view-in { animation: view-in 180ms ease-out; }
+.fade-in { animation: fade-in 160ms ease-out both; }
+.drawer-panel { animation: drawer-in-bottom 220ms ease-out both; }
+@media (min-width: 640px) {
+  .drawer-panel { animation-name: drawer-in-right; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-in, .fade-in, .drawer-panel { animation: none; }
+}

@@ -40,6 +40,9 @@ export async function GET(request: Request) {
   const token = process.env.TRAVELPAYOUTS_TOKEN
 
   const openJaw = searchParams.get('openJaw') === 'true'
+  // leg=inbound: `destination` is the city you fly FROM and `origins` are the
+  // home airports you fly BACK TO (used for the return day of a Whole Month trip).
+  const inboundLeg = searchParams.get('leg') === 'inbound'
 
   if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'month')) {
     const outDate = dateMode === 'exact' ? searchParams.get('departDate') || undefined : searchParams.get('month') || undefined
@@ -92,7 +95,9 @@ export async function GET(request: Request) {
     if (departDate) {
       const perOrigin = await Promise.all(
         origins.map((origin) =>
-          getDayFlights(origin, destination, departDate, token, { oneWay, returnDate: requestedReturn })
+          inboundLeg
+            ? getDayFlights(destination, origin, departDate, token, { oneWay, returnDate: requestedReturn })
+            : getDayFlights(origin, destination, departDate, token, { oneWay, returnDate: requestedReturn })
         )
       )
       allFlights = perOrigin.flat()

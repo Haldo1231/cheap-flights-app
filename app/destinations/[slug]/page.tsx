@@ -6,6 +6,7 @@ import { getCheapestFare } from '../../flightSources'
 import { HOME_AIRPORTS } from '../../homeAirports'
 import FareCard from '../../components/FareCard'
 import Breadcrumbs from '../../components/Breadcrumbs'
+import HostelList, { type Hostel } from '../../components/HostelList'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/CostOfStay'
 
 const TRIP_DAYS = 3
@@ -14,14 +15,6 @@ type Destination = DestInfo & {
   slug: string
   airport_code: string | null
   description: string | null
-}
-
-type Hostel = {
-  id: number
-  name: string
-  booking_url: string
-  price_per_night: number | null
-  rating: number | null
 }
 
 const getDestination = cache(async (slug: string): Promise<Destination | null> => {
@@ -104,38 +97,7 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
 
           <section>
             <h2 className="mb-3 text-lg font-semibold">Recommended hostels</h2>
-            {hostels.length === 0 ? (
-              <p className="text-sm text-[#5B6472]">Hostel recommendations coming soon.</p>
-            ) : (
-              <ul className="space-y-3">
-                {hostels.map((h) => (
-                  <li key={h.id} className="flex items-center justify-between gap-4 rounded-sm border border-[#E5E1D8] bg-white p-4">
-                    <div className="min-w-0">
-                      <p className="font-semibold">{h.name}</p>
-                      <p className="text-sm text-[#5B6472]">
-                        {h.price_per_night !== null ? (
-                          <>
-                            from <span className="font-mono tabular-nums text-[#14213D]">€{h.price_per_night}</span>/night
-                          </>
-                        ) : (
-                          'price on the hostel page'
-                        )}
-                        {h.rating !== null ? ` · rated ${h.rating}/10` : ''}
-                      </p>
-                    </div>
-                    <a
-                      href={h.booking_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 text-sm font-medium text-[#14213D] underline decoration-[#FCA311] decoration-2 underline-offset-4 hover:text-[#8a5a00]"
-                    >
-                      View →
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-3 text-xs text-[#5B6472]">Hostel prices are approximate &quot;from&quot; figures and can change.</p>
+            <HostelList hostels={hostels} />
           </section>
         </div>
 

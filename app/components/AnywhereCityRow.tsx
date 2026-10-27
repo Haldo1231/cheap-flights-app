@@ -1,28 +1,29 @@
 import type { AnywhereCity, Leg } from '../tripTypes'
 import FlightLeg from './FlightLeg'
+import DrillLink from './DrillLink'
 
 type Props = {
   city: AnywhereCity
-  onOpen: () => void
+  /** Where this city opens (its flights screen). */
+  href: string
   /** Emphasize the row (the city that decided the country's price). */
   highlight?: boolean
 }
 
-function legWithPrice(leg: Leg & { price?: number | null }) {
+function legPrice(leg: Leg & { price?: number | null }) {
   return leg.price ?? null
 }
 
 /** One city inside an Anywhere country: its trip (when it was checked against
  * the filters) or, otherwise, one real cached example fare marked as unfiltered. */
-export default function AnywhereCityRow({ city, onOpen, highlight = false }: Props) {
+export default function AnywhereCityRow({ city, href, highlight = false }: Props) {
   const trip = city.trip
   const example = city.example
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`w-full rounded-sm border px-3 py-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D] sm:px-4 ${
+    <DrillLink
+      href={href}
+      className={`block rounded-sm border px-3 py-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D] sm:px-4 ${
         highlight ? 'border-[#FCA311] bg-[#FFF8EC] hover:bg-[#FFF2DB]' : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
       }`}
     >
@@ -56,8 +57,8 @@ export default function AnywhereCityRow({ city, onOpen, highlight = false }: Pro
 
       {trip && (
         <div className="mt-2 divide-y divide-[#E5E1D8] border-t border-[#E5E1D8]">
-          <FlightLeg compact label="Out" leg={trip.outbound} price={legWithPrice(trip.outbound)} />
-          {trip.inbound && <FlightLeg compact label="Back" leg={trip.inbound} price={legWithPrice(trip.inbound)} />}
+          <FlightLeg compact label="Out" leg={trip.outbound} price={legPrice(trip.outbound)} />
+          {trip.inbound && <FlightLeg compact label="Back" leg={trip.inbound} price={legPrice(trip.inbound)} />}
         </div>
       )}
 
@@ -68,6 +69,6 @@ export default function AnywhereCityRow({ city, onOpen, highlight = false }: Pro
           {example.inbound && <FlightLeg compact label="Back" leg={example.inbound} />}
         </div>
       )}
-    </button>
+    </DrillLink>
   )
 }

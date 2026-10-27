@@ -55,3 +55,10 @@ export function nightsBetweenDates(from: string, to: string | null | undefined):
   const end = Date.UTC(b[0], b[1] - 1, b[2])
   return Math.max(0, Math.round((end - start) / 86400000))
 }
+
+/** "2026-11" shifted by a number of months. */
+export function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}

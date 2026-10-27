@@ -2,6 +2,7 @@
 
 import { buildBookingLink } from '../aviasalesLink'
 import type { CalendarDay, Fare, Leg } from '../tripTypes'
+import type { TripLegSnapshot, TripSnapshot } from './tripUrl'
 
 /**
  * Turns a month-calendar day into a Fare, so a calendar day always has full
@@ -53,4 +54,41 @@ export function withCalendarFare(fares: Fare[], calendarFare: Fare | null): Fare
   )
   if (alreadyThere) return fares
   return [...fares, calendarFare].sort((a, b) => a.price - b.price)
+}
+
+function legSnapshot(leg: Leg, price: number | null): TripLegSnapshot {
+  return {
+    origin: leg.origin,
+    destination: leg.destination,
+    date: leg.date,
+    time: leg.time,
+    airlineCode: leg.airlineCode,
+    stops: leg.stops,
+    price,
+  }
+}
+
+/** What the trip page needs to show one cached fare (one price for the whole fare). */
+export function snapshotFromFare(fare: Fare): TripSnapshot {
+  return {
+    kind: 'fare',
+    outbound: legSnapshot(fare.outbound, null),
+    inbound: fare.inbound ? legSnapshot(fare.inbound, null) : null,
+    price: fare.price,
+    gate: fare.gate,
+  }
+}
+
+/** What the trip page needs for two separately priced flights (Whole Month, open-jaw). */
+export function snapshotFromLegs(
+  outbound: Leg & { price: number },
+  inbound: (Leg & { price: number }) | null
+): TripSnapshot {
+  return {
+    kind: 'legs',
+    outbound: legSnapshot(outbound, outbound.price),
+    inbound: inbound ? legSnapshot(inbound, inbound.price) : null,
+    price: outbound.price + (inbound?.price ?? 0),
+    gate: null,
+  }
 }

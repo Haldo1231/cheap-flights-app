@@ -23,10 +23,14 @@ export type CostProps = {
   flightPrice: number | null
   /** What the flight price covers, e.g. "round trip, both flights". */
   flightNote?: string
+  /** What to say while there is no flight price yet, e.g. "pick a return day". */
+  flightPlaceholder?: string
   /** Days of stay the estimate is for. */
   days: number
   /** Human-readable dates the stay is based on, e.g. "10 Nov → 15 Nov". */
   dates?: string | null
+  /** Optional block shown above the numbers (e.g. the flights picked so far). */
+  summary?: React.ReactNode
 }
 
 export function costOfStayNumbers(info: DestInfo, flightPrice: number | null, days: number) {
@@ -49,17 +53,18 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
   )
 }
 
-export function CostBreakdown({ destinationName, info, flightPrice, flightNote, days, dates }: CostProps) {
+export function CostBreakdown({ destinationName, info, flightPrice, flightNote, flightPlaceholder, days, dates, summary }: CostProps) {
   const dayLabel = `${days} day${days === 1 ? '' : 's'}`
 
   if (!info) {
     return (
       <div className="text-sm">
+        {summary}
         <p className="mb-1 font-semibold text-[#14213D]">Trip cost</p>
         <p className="mb-3 text-[#5B6472]">
           We don&apos;t have cost-of-stay numbers for {destinationName} yet, so only the flights can be shown.
         </p>
-        <Row label="Flights" value={flightPrice !== null ? `€${flightPrice}` : 'pick a flight'} strong />
+        <Row label="Flights" value={flightPrice !== null ? `€${flightPrice}` : flightPlaceholder ?? 'pick a flight'} strong />
         {flightNote && flightPrice !== null && <p className="mt-1 text-xs text-[#5B6472]">{flightNote}</p>}
       </div>
     )
@@ -69,6 +74,7 @@ export function CostBreakdown({ destinationName, info, flightPrice, flightNote, 
 
   return (
     <div className="text-sm">
+      {summary}
       <p className="font-semibold text-[#14213D]">Trip cost in {info.name}</p>
       <p className="mb-3 text-xs text-[#5B6472]">
         {dayLabel}
@@ -85,7 +91,7 @@ export function CostBreakdown({ destinationName, info, flightPrice, flightNote, 
       <div className="mt-3 space-y-1 border-t border-[#E5E1D8] pt-3">
         <Row label="Per day" value={`€${perDay}`} />
         <Row label={`Stay · ${dayLabel}`} value={`€${stayTotal}`} strong />
-        <Row label="Flights" value={flightPrice !== null ? `€${flightPrice}` : 'pick a flight'} strong />
+        <Row label="Flights" value={flightPrice !== null ? `€${flightPrice}` : flightPlaceholder ?? 'pick a flight'} strong />
         {flightNote && flightPrice !== null && <p className="text-xs text-[#5B6472]">{flightNote}</p>}
       </div>
 
@@ -118,7 +124,7 @@ export function CostSidebar(props: CostProps) {
 export function CostMobileBar(props: CostProps) {
   const [expanded, setExpanded] = useState(false)
   const panelId = useId()
-  const { info, flightPrice, days } = props
+  const { info, flightPrice, days, flightPlaceholder } = props
   const total = info ? costOfStayNumbers(info, flightPrice, days).tripTotal : flightPrice
 
   return (
@@ -139,7 +145,7 @@ export function CostMobileBar(props: CostProps) {
           {info ? `Flights + stay · ${days} day${days === 1 ? '' : 's'}` : 'Flights total'} {expanded ? '▾' : '▴'}
         </span>
         <span className="font-mono text-lg font-semibold tabular-nums text-[#14213D]">
-          {total !== null ? `€${total}` : 'Pick a flight'}
+          {total !== null ? `€${total}` : flightPlaceholder ? flightPlaceholder.charAt(0).toUpperCase() + flightPlaceholder.slice(1) : 'Pick a flight'}
         </span>
       </button>
     </div>

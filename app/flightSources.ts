@@ -20,7 +20,6 @@
 
 import { getAirlineNames } from './airlines'
 import { buildBookingLink } from './aviasalesLink'
-import type { DayPriceMap } from './weekdays'
 import type { Fare, Leg } from './tripTypes'
 
 export type Flight = {
@@ -75,6 +74,14 @@ export type CalendarDayDetail = {
 // away from the API limits when the same search is opened again or shared.
 const REVALIDATE = { next: { revalidate: 3600 } }
 
+let warnedAboutToken = false
+function warnIfNoToken(token: string | undefined) {
+  if (!token && !warnedAboutToken) {
+    warnedAboutToken = true
+    console.warn('TRAVELPAYOUTS_TOKEN is not set: every price lookup will come back empty.')
+  }
+}
+
 function dateOnly(iso: string | null | undefined): string | null {
   if (!iso) return null
   return iso.split('T')[0]
@@ -92,6 +99,7 @@ async function fetchCheapExact(
   date: string | undefined,
   token: string | undefined
 ): Promise<CheapEntry[]> {
+  warnIfNoToken(token)
   try {
     let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur&token=${token}`
     if (date) url += `&depart_date=${date}`
@@ -235,24 +243,6 @@ export async function fetchMonthCalendarDetailed(
   } catch {
     return {}
   }
-}
-
-/** One day-per-price calendar for a single origin/destination/month, from
- * /v1/prices/calendar. Shared by /api/calendar (which merges this across
- * several origins) and the Anywhere-by-country search (which uses it to
- * honestly check a candidate city against the weekday filter). */
-export async function fetchMonthCalendar(
-  origin: string,
-  destination: string,
-  month: string,
-  token: string | undefined
-): Promise<DayPriceMap> {
-  const detailed = await fetchMonthCalendarDetailed(origin, destination, month, token)
-  const result: DayPriceMap = {}
-  for (const [date, entry] of Object.entries(detailed)) {
-    result[date] = { price: entry.price, origin }
-  }
-  return result
 }
 
 // Fill in airline/times for a /v2 fare from the calendar, but ONLY when the

@@ -11,6 +11,7 @@ import { describeFilters } from '../../lib/searchSummary'
 import { CalendarSkeleton, FareListSkeleton } from '../../components/Skeleton'
 import { calendarDayToFare } from '../../lib/trip'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
+import { todayString } from '../../lib/searchValidation'
 import type { Fare } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import type { MonthTrip } from './useMonthTrip'
@@ -20,6 +21,10 @@ type Combo = MonthTrip['bestCombinations'][number]
 export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip }) {
   const [drawer, setDrawer] = useState<'out' | 'back' | null>(null)
   const { destination, oneWay, departMonth, returnMonth } = p
+
+  // Prices only exist for upcoming months, about a year ahead.
+  const minMonth = todayString().slice(0, 7)
+  const maxMonth = shiftMonth(minMonth, 11)
 
   const loading = m.calOut.loading || m.calBack.loading
   const failed = m.calOut.error || m.calBack.error
@@ -143,6 +148,8 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
             selectedDate={m.outDate ?? undefined}
             onSelectDay={(date: string) => pickDay('out', date)}
             allowedDays={p.outDays}
+            minMonth={minMonth}
+            maxMonth={maxMonth}
           />
           {!oneWay && (
             <CalendarGrid
@@ -154,6 +161,8 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
               selectedDate={m.backDate ?? undefined}
               onSelectDay={(date: string) => pickDay('back', date)}
               allowedDays={p.backDays}
+              minMonth={minMonth}
+              maxMonth={maxMonth}
             />
           )}
         </div>

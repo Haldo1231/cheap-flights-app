@@ -1,13 +1,11 @@
-import { NextResponse } from 'next/server'
 import { supabase } from '../../supabase'
+import { badRequest, cachedJson, cleanCode } from '../../lib/apiParams'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const code = searchParams.get('code')
+  const code = cleanCode(searchParams.get('code'))
 
-  if (!code) {
-    return NextResponse.json({ error: 'Missing code' }, { status: 400 })
-  }
+  if (!code) return badRequest('Missing or invalid code')
 
   const { data, error } = await supabase
     .from('destinations')
@@ -16,8 +14,9 @@ export async function GET(request: Request) {
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json({ destination: null })
+    // Not cached for long: a missing row may just be a hiccup.
+    return cachedJson({ destination: null }, 60)
   }
 
-  return NextResponse.json({ destination: data })
+  return cachedJson({ destination: data }, 3600)
 }

@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
+import { cachedJson } from '../../lib/apiParams'
 import { getCheapestDestinations } from '../../cheapDestinations'
 
 // Cheapest cached fare to each curated destination (kept for the /anywhere page
 // and anything that links to it).
 export async function GET() {
   const results = await getCheapestDestinations()
-  return NextResponse.json({
+  return cachedJson({
     results: results.map(({ destination, fare }) => ({
       destination: destination.code,
       destinationName: destination.name,

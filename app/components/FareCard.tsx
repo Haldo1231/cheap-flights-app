@@ -46,7 +46,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
             </span>
           )}
           <span className="rounded-sm border border-line bg-paper px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-slate">
-            {isRoundTrip ? `Round trip · ${formatNights(nights)}` : 'One way'}
+            {isRoundTrip ? `Round trip · ${nights === 0 ? 'same day' : formatNights(nights)}` : 'One way'}
           </span>
         </div>
         <div className="text-right">

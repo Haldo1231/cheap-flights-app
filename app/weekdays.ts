@@ -2,6 +2,8 @@
 // Day numbers match JS Date.getDay() (0 = Sunday ... 6 = Saturday) so they
 // can be compared directly against a date string without any translation.
 
+import { nightsBetweenDates } from './lib/format'
+
 export const WEEKDAY_BUTTONS: { value: number; label: string }[] = [
   { value: 1, label: 'Mon' },
   { value: 2, label: 'Tue' },
@@ -34,18 +36,6 @@ export function parseDays(param: string | null): number[] {
 
 export function serializeDays(days: number[]): string {
   return days.slice().sort().join(',')
-}
-
-export function isAllDays(days: number[]): boolean {
-  return ALL_WEEKDAYS.every((d) => days.includes(d))
-}
-
-export function nightsBetween(departDate: string, returnDate: string | null): number {
-  if (!returnDate) return 1
-  const start = new Date(departDate)
-  const end = new Date(returnDate)
-  const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  return Math.max(1, diffDays)
 }
 
 export type DayPrice = { price: number; origin: string }
@@ -83,7 +73,7 @@ export function findBestCombinations<T extends DayPrice>(
     for (const [backDate, backEntry] of Object.entries(inboundData)) {
       if (!backDays.includes(dayOfWeek(backDate))) continue
       if (backDate <= outDate) continue
-      const nights = nightsBetween(outDate, backDate)
+      const nights = nightsBetweenDates(outDate, backDate)
       if (nights < minNights || nights > maxNights) continue
       combos.push({
         outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,

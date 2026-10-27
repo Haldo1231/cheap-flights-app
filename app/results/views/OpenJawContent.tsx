@@ -4,15 +4,10 @@ import FlightLeg from '../../components/FlightLeg'
 import DrillLink from '../../components/DrillLink'
 import { snapshotFromLegs } from '../../lib/trip'
 import { tripHref } from '../../lib/tripUrl'
-import type { OpenJawCombo, PricedLeg } from '../../tripTypes'
+import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 
-export type OpenJawResponse = {
-  results: OpenJawCombo[]
-  missingOutbound: boolean
-  missingReturn: boolean
-  outboundOnly: PricedLeg[]
-}
+export type OpenJawResponse = Extract<CompareResponse, { openJaw: true }>
 
 const BOOK_BUTTON =
   'inline-block rounded-sm bg-amber px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'

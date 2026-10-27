@@ -1,20 +1,17 @@
-import { NextResponse } from 'next/server'
 import { fetchMonthCalendarDetailed } from '../../flightSources'
 import { getAirlineNames } from '../../airlines'
+import { badRequest, cachedJson, cleanCode, cleanCodes, cleanMonth } from '../../lib/apiParams'
 import type { CalendarDay, CalendarDayMap } from '../../tripTypes'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const destination = searchParams.get('destination')
-  const originsParam = searchParams.get('origins')
-  const month = searchParams.get('month')
-  const leg = searchParams.get('leg') || 'outbound'
+  const destination = cleanCode(searchParams.get('destination'))
+  const month = cleanMonth(searchParams.get('month'))
+  const leg = searchParams.get('leg') === 'inbound' ? 'inbound' : 'outbound'
 
-  if (!destination || !month) {
-    return NextResponse.json({ error: 'Missing destination or month' }, { status: 400 })
-  }
+  if (!destination || !month) return badRequest('Missing or invalid destination or month')
 
-  const origins = originsParam ? originsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : []
+  const origins = cleanCodes(searchParams.get('origins'), [])
   const token = process.env.TRAVELPAYOUTS_TOKEN
 
   const result: CalendarDayMap = {}
@@ -52,5 +49,5 @@ export async function GET(request: Request) {
     if (day.airlineCode) day.airlineName = names.get(day.airlineCode) || null
   }
 
-  return NextResponse.json({ data: result })
+  return cachedJson({ data: result })
 }

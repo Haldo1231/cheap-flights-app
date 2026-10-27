@@ -27,6 +27,15 @@ html {
   scroll-padding-top: 1rem;
 }
 
+/* Keeps the page from jumping sideways when the drawer locks scrolling. Only
+ * where the drawer is a side panel; on phones it is a full-width bottom sheet
+ * and the scrollbar floats over the page, so there is nothing to reserve. */
+@media (min-width: 640px) {
+  html {
+    scrollbar-gutter: stable;
+  }
+}
+
 body {
   background-color: var(--color-paper);
   color: var(--color-ink);

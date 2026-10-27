@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { badRequest, cachedJson, cleanCode } from '../../lib/apiParams'
 import {
   parseAnywhereParams,
   rankCountries,
@@ -14,18 +14,15 @@ import {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const token = process.env.TRAVELPAYOUTS_TOKEN
-  const countryCode = (searchParams.get('country') || '').toUpperCase()
-
-  if (!countryCode) {
-    return NextResponse.json({ error: 'Missing country' }, { status: 400 })
-  }
+  const countryCode = cleanCode(searchParams.get('country'))
+  if (!countryCode) return badRequest('Missing or invalid country')
 
   const { origins, params } = parseAnywhereParams(searchParams)
   const { countries } = await rankCountries(origins, token)
   const country = countries.find((c) => c.code === countryCode)
 
   if (!country) {
-    return NextResponse.json({ country: null, cities: [], unmatchedCities: [], totalCities: 0 })
+    return cachedJson({ country: null, cities: [], unmatchedCities: [], totalCities: 0 })
   }
 
   const shown = country.cities.slice(0, MAX_CITIES_PER_COUNTRY)
@@ -36,7 +33,7 @@ export async function GET(request: Request) {
   const matched = all.filter((c) => c.trip).sort((a, b) => (a.trip?.price ?? Infinity) - (b.trip?.price ?? Infinity))
   const unmatched = all.filter((c) => !c.trip)
 
-  return NextResponse.json({
+  return cachedJson({
     country: { code: country.code, name: country.name },
     cities: matched,
     unmatchedCities: unmatched,

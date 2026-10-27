@@ -22,6 +22,11 @@ Repo: github.com/Haldo1231/cheap-flights-app
 - `app/airportsList.ts`: airport list for the AirportPicker autocomplete
 - `/api/cron/generate-deals`: daily Vercel cron that fills the `weekly_deals` table (Bearer token, `CRON_SECRET`)
 - Supabase tables: `weekly_deals`, `hostels` (name, booking_url, price_per_night, rating, destination_slug)
+- `app/flightSources.ts`: ALL Travelpayouts calls and the flight/fare shapes. A fare with a return date is ONE price for both flights; never split it per leg.
+- `app/tripTypes.ts`: shared types (Leg, Fare, AnywhereCity, CompareResponse ...). `app/anywhereSearch.ts`: the "Anywhere" ranking and checks.
+- `app/results/`: one `/results` page; `ResultsRouter.tsx` picks the screen from the URL (Anywhere, country, destination, month, open-jaw). `app/trip/` is the single-trip detail page.
+- `app/lib/`: small helpers. `resultsUrl.ts` and `tripUrl.ts` build/read URLs (the URL is the single source of truth for filters and drill-down), `apiParams.ts` cleans API inputs, `useJson.ts` loads data with a short client cache so Back is instant.
+- `app/components/`: shared UI. `CostOfStay.tsx` is the trip cost panel (sticky sidebar on desktop, bottom bar on phones). `FlightLeg.tsx` shows airline + time for every flight.
 
 ## Environment variables
 These live in `.env.local` and Vercel. Never print, commit or log their values.
@@ -47,9 +52,12 @@ Airport departure-board look. Keep it consistent.
 ## Known limitations (not bugs)
 - Travelpayouts free data is cached: small routes (e.g. KSC → Prague) can return no results.
 - Prices can be stale, so always show them as "from €X".
+- Some cached fares have no airline or departure time. Show "Airline not in data" instead of guessing. Never invent flight data.
+- Whole Month "out + back" combines two separate cached prices; the calendar prices may themselves be round-trip fares, so that sum can overstate the real cost.
+- The public API routes (`/api/*`) have input cleaning and caching but no per-visitor rate limit.
 
 ## Current priorities (in order)
-1. Find the Travelpayouts affiliate marker ID and add it to all Aviasales flight links (this is what makes money).
-2. Replace the fake hostel data with real listings.
-3. Design pass on `/anywhere`, `/deals` and destination pages.
-4. Mobile / responsive testing.
+1. ~~Travelpayouts affiliate marker (765816) on all Aviasales flight links.~~ Done.
+2. ~~Replace the fake hostel data with real listings.~~ Done (see PROGRESS.md).
+3. ~~Design pass~~ and ~~mobile / responsive testing~~ Done on `feature/polish-pass` (see PROGRESS.md).
+4. Hostelworld affiliate approval (needs more travel content on the site).

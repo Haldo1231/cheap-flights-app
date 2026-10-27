@@ -97,3 +97,23 @@ export type AnywhereCountry = {
   /** The other cities in this country (quick ranking only). */
   candidateCities: AnywhereCity[]
 }
+
+/** What /api/compare answers: priced fares, or (open-jaw) two-leg combinations. */
+export type CompareResponse =
+  | {
+      openJaw: true
+      destination: string
+      results: OpenJawCombo[]
+      missingOutbound: boolean
+      missingReturn: boolean
+      outboundOnly: PricedLeg[]
+    }
+  | {
+      openJaw?: false
+      destination: string
+      results: Fare[]
+      /** How many cached fares were found before the list was cut to the cheapest. */
+      total: number
+      requestedReturn: string | null
+      oneWayRequested: boolean
+    }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { cachedJson } from '../../lib/apiParams'
 import {
   parseAnywhereParams,
   rankCountries,
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const { countries: ranked, totalCities } = await rankCountries(origins, token)
 
   if (ranked.length === 0) {
-    return NextResponse.json({
+    return cachedJson({
       countries: [],
       unmatchedCountries: [],
       checkedCount: 0,
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
   matched.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
   await nameAirlines(allCities)
 
-  return NextResponse.json({
+  return cachedJson({
     countries: matched,
     unmatchedCountries: unmatched,
     checkedCount: top.length,

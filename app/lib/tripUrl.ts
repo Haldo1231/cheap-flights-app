@@ -104,7 +104,8 @@ export function parseTrip(get: (key: string) => string | null | undefined): Trip
   let inbound: TripLegSnapshot | null = null
   const backDate = date(get('d2'))
   const backAirport = code(get('h2'))
-  if (backDate && backAirport) {
+  // A return that is before the departure cannot be a real trip (edited URL).
+  if (backDate && backAirport && backDate >= outDate) {
     inbound = {
       origin: destination,
       destination: backAirport,

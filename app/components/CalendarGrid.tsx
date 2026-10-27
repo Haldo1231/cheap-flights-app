@@ -23,6 +23,9 @@ type Props = {
   selectedDate: string | undefined
   onSelectDay: (date: string, day: CalendarDay) => void
   allowedDays?: number[]
+  /** Earliest / latest month the arrows may reach (YYYY-MM). */
+  minMonth?: string
+  maxMonth?: string
 }
 
 /** One month of cheapest-fare-per-day. Days outside the chosen weekdays, or
@@ -36,6 +39,8 @@ export default function CalendarGrid({
   selectedDate,
   onSelectDay,
   allowedDays = ALL_WEEKDAYS,
+  minMonth,
+  maxMonth,
 }: Props) {
   const total = daysInMonth(month)
   const cells: (number | null)[] = []
@@ -56,8 +61,9 @@ export default function CalendarGrid({
         <button
           type="button"
           onClick={onPrev}
+          disabled={!!minMonth && month <= minMonth}
           aria-label={`Previous month, ${title}`}
-          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
         >
           ←
         </button>
@@ -67,8 +73,9 @@ export default function CalendarGrid({
         <button
           type="button"
           onClick={onNext}
+          disabled={!!maxMonth && month >= maxMonth}
           aria-label={`Next month, ${title}`}
-          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
         >
           →
         </button>

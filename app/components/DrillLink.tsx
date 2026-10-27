@@ -11,7 +11,9 @@ export default function DrillLink({ onClick, ...props }: ComponentProps<typeof L
       {...props}
       onClick={(e) => {
         onClick?.(e)
-        requestScrollTop()
+        // Ctrl/Cmd/Shift-click opens a new tab: this page stays where it is.
+        const plain = e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+        if (plain) requestScrollTop()
       }}
     />
   )

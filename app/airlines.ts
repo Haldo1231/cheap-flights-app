@@ -37,12 +37,6 @@ async function loadAirlines(): Promise<Map<string, string>> {
   }
 }
 
-export async function getAirlineName(code: string | null | undefined): Promise<string | null> {
-  if (!code) return null
-  const map = await loadAirlines()
-  return map.get(code) || null
-}
-
 export async function getAirlineNames(codes: (string | null | undefined)[]): Promise<Map<string, string>> {
   const map = await loadAirlines()
   const result = new Map<string, string>()

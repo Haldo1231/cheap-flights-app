@@ -23,11 +23,13 @@ import { parseDays, findBestCombinations } from './weekdays'
 import { calendarDayToFare } from './lib/trip'
 import { mapWithLimit } from './lib/pool'
 import type { AnywhereCity, AnywhereTrip, CalendarDay, Fare, Leg } from './tripTypes'
+import { cleanCodes, cleanDate, cleanInt, cleanMonth, MAX_ORIGINS as MAX_ORIGIN_CODES } from './lib/apiParams'
+import { HOME_AIRPORTS } from './homeAirports'
 
 // Bounds shown to the user ("checked the N cheapest-looking countries").
 export { mapWithLimit }
 
-export const MAX_ORIGINS = 6
+export const MAX_ORIGINS = MAX_ORIGIN_CODES
 export const TOP_N_COUNTRIES = 15
 export const MAX_CITIES_PER_COUNTRY = 10
 // A city is tried from at most this many home airports (cheapest first), and
@@ -52,30 +54,25 @@ export type AnywhereParams = {
 }
 
 export function parseAnywhereParams(searchParams: URLSearchParams): { origins: string[]; params: AnywhereParams } {
-  const originsParam = searchParams.get('origins')
-  const origins = (
-    originsParam
-      ? originsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
-      : ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
-  ).slice(0, MAX_ORIGINS)
+  const origins = cleanCodes(searchParams.get('origins'), HOME_AIRPORTS, MAX_ORIGINS)
 
   return {
     origins,
     params: {
       dateMode: searchParams.get('dateMode') || 'exact',
       oneWay: searchParams.get('oneWay') === 'true',
-      departDate: searchParams.get('departDate'),
-      returnDate: searchParams.get('returnDate'),
-      month: searchParams.get('month'),
-      returnMonth: searchParams.get('returnMonth') || searchParams.get('month'),
+      departDate: cleanDate(searchParams.get('departDate')),
+      returnDate: cleanDate(searchParams.get('returnDate')),
+      month: cleanMonth(searchParams.get('month')),
+      returnMonth: cleanMonth(searchParams.get('returnMonth')) ?? cleanMonth(searchParams.get('month')),
       outDays: parseDays(searchParams.get('outDays')),
       backDays: parseDays(searchParams.get('backDays')),
-      minNights: parseInt(searchParams.get('minNights') || '1', 10),
-      maxNights: parseInt(searchParams.get('maxNights') || '14', 10),
-      rangeStart: searchParams.get('rangeStart'),
-      rangeEnd: searchParams.get('rangeEnd'),
-      minDays: parseInt(searchParams.get('minDays') || '2', 10),
-      maxDays: parseInt(searchParams.get('maxDays') || '10', 10),
+      minNights: cleanInt(searchParams.get('minNights'), 1, 1, 60),
+      maxNights: cleanInt(searchParams.get('maxNights'), 14, 1, 60),
+      rangeStart: cleanDate(searchParams.get('rangeStart')),
+      rangeEnd: cleanDate(searchParams.get('rangeEnd')),
+      minDays: cleanInt(searchParams.get('minDays'), 2, 1, 30),
+      maxDays: cleanInt(searchParams.get('maxDays'), 10, 1, 30),
     },
   }
 }

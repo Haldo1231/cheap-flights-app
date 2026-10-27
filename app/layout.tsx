@@ -42,7 +42,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${plexSans.variable} ${plexMono.variable} flex min-h-screen flex-col font-sans antialiased`}>
+      <body className={`${plexSans.variable} ${plexMono.variable} flex min-h-screen flex-col font-sans antialiased [&:has([data-mobile-bar])_footer]:pb-20 lg:[&:has([data-mobile-bar])_footer]:pb-0`}>
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-sm focus:bg-amber focus:px-4 focus:py-2 focus:font-semibold focus:text-ink"

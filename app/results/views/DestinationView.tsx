@@ -14,24 +14,15 @@ import { snapshotFromLegs } from '../../lib/trip'
 import { tripHref } from '../../lib/tripUrl'
 import { formatShortDate, nightsBetweenDates } from '../../lib/format'
 import { AIRPORTS } from '../../airportsList'
-import type { Fare } from '../../tripTypes'
+import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
 import MonthContent from './MonthContent'
 import FareListContent, { splitFares } from './FareListContent'
-import OpenJawContent, { type OpenJawResponse } from './OpenJawContent'
+import OpenJawContent from './OpenJawContent'
 
 type PlaceResponse = { city: { code: string; name: string } | null; country: { code: string; name: string } | null }
 type InfoResponse = { destination: DestInfo | null }
-type CompareResponse = {
-  results: Fare[]
-  total?: number
-  requestedReturn?: string | null
-  openJaw?: boolean
-  missingOutbound?: boolean
-  missingReturn?: boolean
-  outboundOnly?: OpenJawResponse['outboundOnly']
-}
 
 const ERROR_BOX = 'rounded-sm border border-danger-line bg-danger-bg px-5 py-4'
 
@@ -79,16 +70,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
   crumbs.push({ label: cityName })
 
   // ---- what the cost panel is about ----------------------------------------
-  const fares = compare.data && !compare.data.openJaw ? compare.data.results : []
-  const openJawData: OpenJawResponse | null =
-    compare.data?.openJaw
-      ? {
-          results: compare.data.results as unknown as OpenJawResponse['results'],
-          missingOutbound: !!compare.data.missingOutbound,
-          missingReturn: !!compare.data.missingReturn,
-          outboundOnly: compare.data.outboundOnly ?? [],
-        }
-      : null
+  const compareData = compare.data
+  const fares = compareData && !compareData.openJaw ? compareData.results : []
+  const openJawData = compareData && compareData.openJaw ? compareData : null
 
   let flightPrice: number | null = null
   let departDate: string | null = null
@@ -230,9 +214,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
             {!isMonth && !listLoading && !compare.error && !openJawData && fares.length > 0 && (
               <FareListContent
                 fares={fares}
-                total={compare.data?.total ?? fares.length}
+                total={compareData && !compareData.openJaw ? compareData.total : fares.length}
                 p={p}
-                requestedReturn={compare.data?.requestedReturn ?? null}
+                requestedReturn={compareData && !compareData.openJaw ? compareData.requestedReturn : null}
                 info={info}
                 previewedId={previewedId}
                 onPreview={setPreviewedId}

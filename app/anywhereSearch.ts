@@ -21,9 +21,12 @@ import { getCityInfoForCodes } from './geoData'
 import { getAirlineNames } from './airlines'
 import { parseDays, findBestCombinations } from './weekdays'
 import { calendarDayToFare } from './lib/trip'
+import { mapWithLimit } from './lib/pool'
 import type { AnywhereCity, AnywhereTrip, CalendarDay, Fare, Leg } from './tripTypes'
 
 // Bounds shown to the user ("checked the N cheapest-looking countries").
+export { mapWithLimit }
+
 export const MAX_ORIGINS = 6
 export const TOP_N_COUNTRIES = 15
 export const MAX_CITIES_PER_COUNTRY = 10
@@ -258,21 +261,6 @@ export async function checkCity(
     if (trip) return { origin: option.origin, trip }
   }
   return null
-}
-
-/** Runs `fn` over `items` with at most `limit` running at once, so one search
- * can't fire dozens of API requests in the same instant. Keeps result order. */
-export async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length)
-  let next = 0
-  async function worker() {
-    while (next < items.length) {
-      const i = next++
-      results[i] = await fn(items[i])
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
 }
 
 // ---------------------------------------------------------------------------

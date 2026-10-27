@@ -14,11 +14,13 @@ type Props = {
   isPreviewed?: boolean
   /** One line with the fare plus the stay, e.g. "≈ €328 with 5 days of stay costs". */
   stayLine?: string | null
+  /** A title shown at the top of the card (e.g. the destination's name). */
+  heading?: React.ReactNode
 }
 
 /** One cached fare. A round-trip fare shows BOTH flights; its single price
  * covers them together, which the card says plainly. */
-export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine }: Props) {
+export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, heading }: Props) {
   const isRoundTrip = fare.kind === 'round-trip' && fare.inbound
   const nights = fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 0
   // Nothing about the flights themselves is known: say it once for the whole fare.
@@ -26,40 +28,41 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
     (leg) => !leg || (!leg.time && !leg.airlineName && !leg.airlineCode)
   )
 
+  // One quiet line of fine print instead of several.
+  const notes: string[] = []
+  if (isRoundTrip) notes.push('One cached price for both flights, not split per flight')
+  if (fare.gate) notes.push(`found via ${fare.gate}`)
+  if (detailsUnknown) notes.push('airline and times not in the cached data — see the booking site')
+  if (fare.returnMatchesRequest === false) notes.push('different return date than you asked for')
+
   const body = (
     <div className="px-4 pt-4 pb-2 sm:px-5">
+      {heading && <div className="mb-2 text-lg font-semibold text-ink">{heading}</div>}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {isCheapest && (
-            <span className="rounded-sm bg-[#FCA311] px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-[#14213D]">
+            <span className="rounded-sm bg-amber px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-ink">
               Cheapest
             </span>
           )}
-          <span className="rounded-sm border border-[#E5E1D8] bg-[#FBF9F4] px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-[#5B6472]">
+          <span className="rounded-sm border border-line bg-paper px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-slate">
             {isRoundTrip ? `Round trip · ${formatNights(nights)}` : 'One way'}
           </span>
         </div>
         <div className="text-right">
-          <p className="font-mono text-2xl font-semibold tabular-nums text-[#14213D]">€{fare.price}</p>
-          <p className="text-xs text-[#5B6472]">{isRoundTrip ? 'both flights' : 'per person'}</p>
+          <p className={`font-mono text-2xl font-semibold tabular-nums text-ink ${isCheapest ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{fare.price}</p>
+          <p className="text-xs text-slate">{isRoundTrip ? 'both flights' : 'per person'}</p>
         </div>
       </div>
 
-      <div className="mt-2 divide-y divide-[#E5E1D8]">
+      <div className="mt-2 divide-y divide-line">
         <FlightLeg label="Outbound" leg={fare.outbound} hideMissing={detailsUnknown} />
         {fare.inbound && <FlightLeg label="Return" leg={fare.inbound} hideMissing={detailsUnknown} />}
       </div>
 
-      <div className="mt-1 space-y-1 text-xs text-[#5B6472]">
-        {detailsUnknown && <p>Airline and times are not in the cached data for this fare — they show on the booking site.</p>}
-        {isRoundTrip && (
-          <p>
-            One cached price for both flights, not split per flight.
-            {fare.gate ? ` Found via ${fare.gate}.` : ''}
-            {fare.returnMatchesRequest === false ? ' Different return date than you asked for.' : ''}
-          </p>
-        )}
-        {stayLine && <p className="font-medium text-[#14213D]">{stayLine}</p>}
+      <div className="mt-1 space-y-1 text-xs text-slate">
+        {notes.length > 0 && <p>{notes.join(' · ')}.</p>}
+        {stayLine && <p className="font-medium text-ink">{stayLine}</p>}
       </div>
     </div>
   )
@@ -69,13 +72,13 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
       onMouseEnter={onPreview}
       onFocus={onPreview}
       className={`rounded-sm border bg-white transition-colors ${
-        isPreviewed ? 'border-[#FCA311] shadow-sm' : 'border-[#E5E1D8]'
+        isPreviewed ? 'border-amber shadow-sm' : 'border-line'
       }`}
     >
       {detailsHref ? (
         <DrillLink
           href={detailsHref}
-          className="block rounded-t-sm hover:bg-[#FBF9F4]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D]"
+          className="block rounded-t-sm hover:bg-paper/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
         >
           {body}
         </DrillLink>
@@ -87,14 +90,14 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
           href={fare.bookingUrl}
           target="_blank"
           rel="noopener noreferrer sponsored"
-          className="inline-block rounded-sm bg-[#FCA311] px-4 py-2 text-sm font-semibold text-[#14213D] transition-colors hover:bg-[#e8940a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D]"
+          className="inline-block rounded-sm bg-amber px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           {isRoundTrip ? 'Book round trip →' : 'Book on Aviasales →'}
         </a>
         {detailsHref && (
           <DrillLink
             href={detailsHref}
-            className="rounded-sm text-sm font-medium text-[#14213D] underline decoration-[#14213D]/30 decoration-2 underline-offset-4 hover:decoration-[#FCA311] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D]"
+            className="inline-flex min-h-10 items-center rounded-sm text-sm font-medium text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-amber focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             Trip details →
           </DrillLink>
@@ -104,7 +107,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
             href={fare.inbound.bookingUrl}
             target="_blank"
             rel="noopener noreferrer sponsored"
-            className="rounded-sm text-xs font-medium text-[#5B6472] underline decoration-[#E5E1D8] decoration-2 underline-offset-4 hover:text-[#14213D] hover:decoration-[#FCA311] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D]"
+            className="inline-flex min-h-10 items-center rounded-sm text-xs font-medium text-slate underline decoration-line decoration-2 underline-offset-4 hover:text-ink hover:decoration-amber focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             Return flight only (one-way search)
           </a>

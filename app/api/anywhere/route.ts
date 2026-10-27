@@ -1,72 +1,22 @@
 import { NextResponse } from 'next/server'
+import { getCheapestDestinations } from '../../cheapDestinations'
 
-const AIRPORTS = ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
-
-const DESTINATIONS = [
-  { code: 'ROM', name: 'Rome', slug: 'rome' },
-  { code: 'MIL', name: 'Milan', slug: 'milan' },
-  { code: 'BCN', name: 'Barcelona', slug: 'barcelona' },
-  { code: 'ATH', name: 'Athens', slug: 'athens' },
-  { code: 'PAR', name: 'Paris', slug: 'paris' },
-  { code: 'LON', name: 'London', slug: 'london' },
-  { code: 'BER', name: 'Berlin', slug: 'berlin' },
-  { code: 'AMS', name: 'Amsterdam', slug: 'amsterdam' },
-  { code: 'LIS', name: 'Lisbon', slug: 'lisbon' },
-  { code: 'WAW', name: 'Warsaw', slug: 'warsaw' },
-  { code: 'KRK', name: 'Krakow', slug: 'krakow' },
-  { code: 'MAD', name: 'Madrid', slug: 'madrid' },
-]
-
+// Cheapest cached fare to each curated destination (kept for the /anywhere page
+// and anything that links to it).
 export async function GET() {
-  const token = process.env.TRAVELPAYOUTS_TOKEN
-
-  const destinationResults = await Promise.all(
-    DESTINATIONS.map(async (dest) => {
-      const originResults = await Promise.all(
-        AIRPORTS.map(async (origin) => {
-          try {
-            const url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${dest.code}&currency=eur&token=${token}`
-            const res = await fetch(url)
-            if (!res.ok) return null
-            const json = await res.json()
-
-            const destData = json.data?.[dest.code]
-            if (!destData) return null
-
-            const firstEntry: any = Object.values(destData)[0]
-            if (!firstEntry) return null
-
-            return {
-              origin,
-              price: firstEntry.price,
-              departure_at: firstEntry.departure_at,
-              return_at: firstEntry.return_at,
-            }
-          } catch {
-            return null
-          }
-        })
-      )
-
-      const valid = originResults.filter((r) => r !== null) as any[]
-      if (valid.length === 0) return null
-
-      valid.sort((a, b) => a.price - b.price)
-      const best = valid[0]
-      return {
-        destination: dest.code,
-        destinationName: dest.name,
-        destinationSlug: dest.slug,
-        origin: best.origin,
-        price: best.price,
-        departure_at: best.departure_at,
-        return_at: best.return_at,
-      }
-    })
-  )
-
-  const validDestinations = destinationResults.filter((r) => r !== null) as any[]
-  validDestinations.sort((a, b) => a.price - b.price)
-
-  return NextResponse.json({ results: validDestinations })
+  const results = await getCheapestDestinations()
+  return NextResponse.json({
+    results: results.map(({ destination, fare }) => ({
+      destination: destination.code,
+      destinationName: destination.name,
+      destinationSlug: destination.slug,
+      origin: fare.outbound.origin,
+      price: fare.price,
+      departure_at: fare.outbound.time ? `${fare.outbound.date}T${fare.outbound.time}:00` : fare.outbound.date,
+      return_at: fare.inbound ? (fare.inbound.time ? `${fare.inbound.date}T${fare.inbound.time}:00` : fare.inbound.date) : null,
+      airlineCode: fare.outbound.airlineCode,
+      airlineName: fare.outbound.airlineName,
+      fare,
+    })),
+  })
 }

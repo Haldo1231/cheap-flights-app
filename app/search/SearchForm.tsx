@@ -1,29 +1,154 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
+import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
 import { AIRPORTS } from '../airportsList'
-import { WEEKDAY_BUTTONS, ALL_WEEKDAYS, serializeDays } from '../weekdays'
+import { HOME_AIRPORTS } from '../homeAirports'
+import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
+import { formatMonth } from '../lib/format'
+import { validateSearch, todayString, MAX_NIGHTS, MAX_RANGE_DAYS, type SearchErrors } from '../lib/searchValidation'
 
-const RECOMMENDED_AIRPORTS = [
-  { code: 'BTS', name: 'Bratislava' },
-  { code: 'VIE', name: 'Vienna' },
-  { code: 'BUD', name: 'Budapest' },
-  { code: 'KSC', name: 'Košice' },
-  { code: 'PRG', name: 'Prague' },
-]
+const CARD = 'mb-5 rounded-sm border border-line bg-white p-4 sm:p-5'
+const INPUT =
+  'min-h-11 w-full rounded-sm border border-line bg-white px-3 text-sm aria-[invalid=true]:border-danger aria-[invalid=true]:bg-danger-bg'
 
 function getNext12Months() {
   const months = []
   const now = new Date()
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    months.push({ value, label })
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
   return months
+}
+
+/** A pill that is really a radio button or checkbox, so keyboard and screen readers just work. */
+function Chip({
+  type,
+  name,
+  checked,
+  onChange,
+  children,
+  tone = 'navy',
+}: {
+  type: 'radio' | 'checkbox'
+  name: string
+  checked: boolean
+  onChange: () => void
+  children: React.ReactNode
+  tone?: 'navy' | 'amber'
+}) {
+  return (
+    <label className="relative inline-flex">
+      <input type={type} name={name} checked={checked} onChange={onChange} className="peer sr-only" />
+      <span
+        className={`inline-flex min-h-11 cursor-pointer items-center rounded-sm border px-4 text-sm transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
+          tone === 'navy'
+            ? 'border-line bg-white text-ink hover:border-ink peer-checked:border-ink peer-checked:bg-ink peer-checked:text-white'
+            : 'border-line bg-white text-ink hover:border-ink peer-checked:border-amber peer-checked:bg-amber-soft'
+        }`}
+      >
+        {children}
+      </span>
+    </label>
+  )
+}
+
+function Heading({ n, id, children }: { n: number; id: string; children: React.ReactNode }) {
+  return (
+    <h2 id={id} className="mb-3 flex items-center gap-3 text-base font-semibold">
+      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-sm bg-ink text-xs text-white">{n}</span>
+      {children}
+    </h2>
+  )
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null
+  return (
+    <p id={id} className="mt-1 text-sm text-danger">
+      {message}
+    </p>
+  )
+}
+
+function DateField({
+  id,
+  label,
+  value,
+  onChange,
+  min,
+  error,
+  hint,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  min: string
+  error?: string
+  hint?: string
+}) {
+  return (
+    <div className="min-w-0 flex-1">
+      <label htmlFor={id} className="mb-1 block text-sm text-slate">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="date"
+        value={value}
+        min={min}
+        suppressHydrationWarning
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+        className={INPUT}
+      />
+      {hint && !error && (
+        <p id={`${id}-hint`} className="mt-1 text-xs text-slate">
+          {hint}
+        </p>
+      )}
+      <FieldError id={`${id}-error`} message={error} />
+    </div>
+  )
+}
+
+function NumberField({
+  id,
+  label,
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  id: string
+  label: string
+  value: number
+  onChange: (v: number) => void
+  min: number
+  max: number
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-sm text-slate">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={Number.isFinite(value) ? value : ''}
+        onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))}
+        className={`${INPUT} w-24`}
+      />
+    </div>
+  )
 }
 
 export default function SearchForm() {
@@ -31,11 +156,11 @@ export default function SearchForm() {
   const toParam = (useSearchParams().get('to') || '').toUpperCase()
   const prefill = AIRPORTS.find((a) => a.code === toParam)
 
-  const [selectedAirports, setSelectedAirports] = useState<string[]>(['BTS', 'VIE', 'BUD', 'KSC', 'PRG'])
+  const [selectedAirports, setSelectedAirports] = useState<string[]>(HOME_AIRPORTS)
   const [extraOrigins, setExtraOrigins] = useState<{ code: string; city: string }[]>([])
 
-  const [destinationCode, setDestinationCode] = useState(prefill?.code ?? '')
-  const [destinationCity, setDestinationCity] = useState(prefill?.city ?? '')
+  const [destinationCode, setDestinationCode] = useState(toParam === 'ANYWHERE' ? 'ANYWHERE' : prefill?.code ?? '')
+  const [destinationCity, setDestinationCity] = useState(toParam === 'ANYWHERE' ? 'Anywhere' : prefill?.city ?? '')
 
   const [oneWay, setOneWay] = useState(false)
   const [openJaw, setOpenJaw] = useState(false)
@@ -55,15 +180,16 @@ export default function SearchForm() {
   const [minNights, setMinNights] = useState(1)
   const [maxNights, setMaxNights] = useState(14)
 
-  function toggleOutDay(day: number) {
-    setOutDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
-  }
+  const [errors, setErrors] = useState<SearchErrors>({})
+  const summaryRef = useRef<HTMLDivElement>(null)
 
-  function toggleBackDay(day: number) {
-    setBackDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
-  }
-
+  const today = todayString()
   const months = getNext12Months()
+  const isAnywhere = destinationCode === 'ANYWHERE'
+  const errorList = Object.values(errors)
+
+  const toggleIn = (setter: React.Dispatch<React.SetStateAction<number[]>>) => (day: number) =>
+    setter((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
 
   function toggleAirport(code: string) {
     setSelectedAirports((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
@@ -74,45 +200,71 @@ export default function SearchForm() {
     setExtraOrigins((prev) => [...prev, { code, city }])
   }
 
-  function removeExtraOrigin(code: string) {
-    setExtraOrigins((prev) => prev.filter((o) => o.code !== code))
+  function chooseMonth(value: string) {
+    setMonth(value)
+    // Most trips return in the same month: start there, the traveller can change it.
+    setReturnMonth((prev) => (!prev || prev < value ? value : prev))
   }
 
-  function handleSearch() {
-    if (!destinationCode) return
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
     const allOrigins = [...selectedAirports, ...extraOrigins.map((o) => o.code)]
-    if (allOrigins.length === 0) return
 
-    const isAnywhere = destinationCode === 'ANYWHERE'
+    const found = validateSearch({
+      origins: allOrigins,
+      destination: destinationCode,
+      oneWay,
+      dateMode,
+      departDate,
+      returnDate,
+      month,
+      returnMonth,
+      rangeStart,
+      rangeEnd,
+      minDays,
+      maxDays,
+      outDays,
+      backDays,
+      minNights,
+      maxNights,
+      today,
+    })
+    setErrors(found)
+    if (Object.keys(found).length > 0) {
+      requestAnimationFrame(() => {
+        summaryRef.current?.focus()
+        summaryRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      })
+      return
+    }
+
+    // Open-jaw only works for exact dates and a whole month.
+    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'range' && openJaw
 
     const params = new URLSearchParams({
       origins: allOrigins.join(','),
       oneWay: String(oneWay),
       dateMode,
-      openJaw: String(isAnywhere ? false : openJaw),
+      openJaw: String(useOpenJaw),
     })
-
-    if (isAnywhere) {
-      params.set('anywhere', 'true')
-    } else {
-      params.set('destination', destinationCode)
-    }
+    if (isAnywhere) params.set('anywhere', 'true')
+    else params.set('destination', destinationCode)
 
     if (dateMode === 'exact') {
-      if (departDate) params.set('departDate', departDate)
-      if (returnDate) params.set('returnDate', returnDate)
+      params.set('departDate', departDate)
+      if (!oneWay && returnDate) params.set('returnDate', returnDate)
     } else if (dateMode === 'month') {
-      if (month) params.set('month', month)
-      if (!oneWay && returnMonth) params.set('returnMonth', returnMonth)
+      params.set('month', month)
+      if (!oneWay) params.set('returnMonth', returnMonth || month)
       params.set('outDays', serializeDays(outDays))
       if (!oneWay) {
         params.set('backDays', serializeDays(backDays))
         params.set('minNights', String(minNights))
         params.set('maxNights', String(maxNights))
       }
-    } else if (dateMode === 'range') {
-      if (rangeStart) params.set('rangeStart', rangeStart)
-      if (rangeEnd) params.set('rangeEnd', rangeEnd)
+    } else {
+      params.set('rangeStart', rangeStart)
+      params.set('rangeEnd', rangeEnd)
       params.set('minDays', String(minDays))
       params.set('maxDays', String(maxDays))
     }
@@ -121,210 +273,254 @@ export default function SearchForm() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-semibold mb-2">Compare cheap flights</h1>
-      <p className="text-[#5B6472] mb-8">Pick where you can fly from, where you want to go, and how flexible your dates are.</p>
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <h1 className="mb-2 text-3xl font-semibold tracking-tight">Compare cheap flights</h1>
+      <p className="mb-8 text-slate">Pick where you can fly from, where you want to go, and how flexible your dates are.</p>
 
-      <div className="mb-6">
-        <label className="block font-medium mb-2">Flying from</label>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {RECOMMENDED_AIRPORTS.map((a) => (
-            <button
-              key={a.code}
-              type="button"
-              onClick={() => toggleAirport(a.code)}
-              className={`px-3 py-2 rounded-sm border text-sm font-mono transition-colors ${
-                selectedAirports.includes(a.code) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'
-              }`}
-            >
-              {a.code} · {a.name}
-            </button>
-          ))}
-          {extraOrigins.map((o) => (
-            <button
-              key={o.code}
-              type="button"
-              onClick={() => removeExtraOrigin(o.code)}
-              className="px-3 py-2 rounded-sm border text-sm font-mono bg-[#FFF8EC] border-[#FCA311] text-[#14213D]"
-            >
-              {o.code} · {o.city} ✕
-            </button>
-          ))}
-        </div>
-        <AirportPicker placeholder="Add another airport, e.g. Barcelona" onSelect={addExtraOrigin} />
-      </div>
-
-      <div className="mb-6">
-        <label className="block font-medium mb-2">Flying to</label>
-        {destinationCode ? (
-          <button
-            type="button"
-            onClick={() => { setDestinationCode(''); setDestinationCity('') }}
-            className="px-3 py-2 rounded-sm border text-sm font-mono bg-[#FFF8EC] border-[#FCA311] text-[#14213D]"
-          >
-            {destinationCode === 'ANYWHERE' ? '✈️ Anywhere' : `${destinationCode} · ${destinationCity}`} ✕
-          </button>
-        ) : (
-          <AirportPicker
-            placeholder="Type a city, e.g. Rome"
-            onSelect={(code, city) => { setDestinationCode(code); setDestinationCity(city) }}
-            onSelectAnywhere={() => { setDestinationCode('ANYWHERE'); setDestinationCity('Anywhere') }}
-          />
-        )}
-        {destinationCode === 'ANYWHERE' && (
-          <p className="text-xs text-[#5B6472] mt-1">
-            Searches every destination we have cached flight data for, grouped by country, cheapest first.
+      {errorList.length > 0 && (
+        <div
+          ref={summaryRef}
+          tabIndex={-1}
+          role="alert"
+          className="mb-5 rounded-sm border border-danger-line bg-danger-bg p-4 text-sm text-ink"
+        >
+          <p className="mb-1 font-semibold">
+            {errorList.length === 1 ? 'One thing to fix before searching:' : `${errorList.length} things to fix before searching:`}
           </p>
-        )}
-      </div>
-
-      <div className="mb-6">
-        <label className="block font-medium mb-2">Trip type</label>
-        <div className="flex gap-2 mb-3">
-          <button type="button" onClick={() => setOneWay(false)} className={`px-4 py-2 rounded-sm border text-sm ${!oneWay ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>Round trip</button>
-          <button type="button" onClick={() => setOneWay(true)} className={`px-4 py-2 rounded-sm border text-sm ${oneWay ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>One way</button>
+          <ul className="list-disc space-y-0.5 pl-5">
+            {errorList.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
         </div>
-        {!oneWay && destinationCode !== 'ANYWHERE' && (
-          <label className="flex items-center gap-2 text-sm text-[#5B6472]">
-            <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} />
-            Allow flying back to a different airport (only works with Exact dates or Whole month)
-          </label>
-        )}
-      </div>
+      )}
 
-      <div className="mb-6">
-        <label className="block font-medium mb-2">Dates</label>
-        <div className="flex gap-2 mb-4">
-          <button type="button" onClick={() => setDateMode('exact')} className={`px-4 py-2 rounded-sm border text-sm ${dateMode === 'exact' ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>Exact dates</button>
-          <button type="button" onClick={() => setDateMode('month')} className={`px-4 py-2 rounded-sm border text-sm ${dateMode === 'month' ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>Whole month</button>
-          <button type="button" onClick={() => setDateMode('range')} className={`px-4 py-2 rounded-sm border text-sm ${dateMode === 'range' ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}>Date range</button>
-        </div>
-
-        {dateMode === 'exact' && (
-          <div className="flex gap-3">
-            <div>
-              <label className="block text-xs text-[#5B6472] mb-1">Departure</label>
-              <input type="date" value={departDate} onChange={(e) => setDepartDate(e.target.value)} className="px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-            </div>
-            {!oneWay && (
-              <div>
-                <label className="block text-xs text-[#5B6472] mb-1">Return</label>
-                <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className="px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-              </div>
-            )}
+      <form onSubmit={handleSubmit} noValidate>
+        <section className={CARD} aria-labelledby="h-from">
+          <Heading n={1} id="h-from">
+            Flying from
+          </Heading>
+          <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Home airports">
+            {HOME_AIRPORTS.map((code) => {
+              const a = AIRPORTS.find((x) => x.code === code)
+              return (
+                <Chip key={code} type="checkbox" name="origin" checked={selectedAirports.includes(code)} onChange={() => toggleAirport(code)}>
+                  <span className="num">{code}</span>
+                  <span className="ml-2">{a?.city}</span>
+                </Chip>
+              )
+            })}
+            {extraOrigins.map((o) => (
+              <button
+                key={o.code}
+                type="button"
+                onClick={() => setExtraOrigins((prev) => prev.filter((x) => x.code !== o.code))}
+                aria-label={`Remove ${o.city}`}
+                className="inline-flex min-h-11 items-center rounded-sm border border-amber bg-amber-soft px-4 text-sm text-ink hover:bg-amber-soft-hover"
+              >
+                <span className="num">{o.code}</span>
+                <span className="ml-2">{o.city}</span>
+                <span aria-hidden="true" className="ml-2">
+                  ✕
+                </span>
+              </button>
+            ))}
           </div>
-        )}
-        {dateMode === 'month' && (
-          <div>
-            <label className="block text-xs text-[#5B6472] mb-1">{oneWay ? 'Month' : 'Departure month'}</label>
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {months.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setMonth(m.value)}
-                  className={`px-3 py-2 rounded-sm border text-sm ${month === m.value ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {!oneWay && (
-              <>
-                <label className="block text-xs text-[#5B6472] mb-1">Return month</label>
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  {months.map((m) => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => setReturnMonth(m.value)}
-                      className={`px-3 py-2 rounded-sm border text-sm ${returnMonth === m.value ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#14213D] border-[#E5E1D8]'}`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+          <AirportPicker label="Add another airport to fly from" placeholder="Add another airport, e.g. Barcelona" onSelect={addExtraOrigin} />
+          <FieldError id="origins-error" message={errors.origins} />
+        </section>
 
-            <div className="mt-2">
-              <label className="block text-xs text-[#5B6472] mb-1">Departure days (optional)</label>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {WEEKDAY_BUTTONS.map((d) => (
-                  <button
-                    key={d.value}
-                    type="button"
-                    onClick={() => toggleOutDay(d.value)}
-                    className={`px-3 py-1.5 rounded-sm border text-sm ${outDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-
-              {!oneWay && (
+        <section className={CARD} aria-labelledby="h-to">
+          <Heading n={2} id="h-to">
+            Flying to
+          </Heading>
+          {destinationCode ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDestinationCode('')
+                setDestinationCity('')
+              }}
+              aria-label={`Change destination, currently ${isAnywhere ? 'anywhere' : destinationCity}`}
+              className="inline-flex min-h-11 items-center rounded-sm border border-amber bg-amber-soft px-4 text-sm text-ink hover:bg-amber-soft-hover"
+            >
+              {isAnywhere ? (
                 <>
-                  <label className="block text-xs text-[#5B6472] mb-1">Return days (optional)</label>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {WEEKDAY_BUTTONS.map((d) => (
-                      <button
-                        key={d.value}
-                        type="button"
-                        onClick={() => toggleBackDay(d.value)}
-                        className={`px-3 py-1.5 rounded-sm border text-sm ${backDays.includes(d.value) ? 'bg-[#14213D] text-white border-[#14213D]' : 'bg-white text-[#5B6472] border-[#E5E1D8]'}`}
-                      >
-                        {d.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-3 items-end">
-                    <div>
-                      <label className="block text-xs text-[#5B6472] mb-1">Min nights</label>
-                      <input type="number" min={1} max={60} value={minNights} onChange={(e) => setMinNights(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[#5B6472] mb-1">Max nights</label>
-                      <input type="number" min={1} max={60} value={maxNights} onChange={(e) => setMaxNights(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-                    </div>
-                  </div>
+                  <span aria-hidden="true">✈️</span>
+                  <span className="ml-2">Anywhere</span>
+                </>
+              ) : (
+                <>
+                  <span className="num">{destinationCode}</span>
+                  <span className="ml-2">{destinationCity}</span>
                 </>
               )}
-            </div>
+              <span aria-hidden="true" className="ml-2">
+                ✕
+              </span>
+            </button>
+          ) : (
+            <AirportPicker
+              label="Destination"
+              placeholder="Type a city, e.g. Rome"
+              onSelect={(code, city) => {
+                setDestinationCode(code)
+                setDestinationCity(city)
+              }}
+              onSelectAnywhere={() => {
+                setDestinationCode('ANYWHERE')
+                setDestinationCity('Anywhere')
+              }}
+            />
+          )}
+          {isAnywhere && (
+            <p className="mt-2 text-sm text-slate">
+              Searches every destination we have cached flight data for, grouped by country, cheapest first.
+            </p>
+          )}
+          <FieldError id="destination-error" message={errors.destination} />
+        </section>
+
+        <section className={CARD} aria-labelledby="h-trip">
+          <Heading n={3} id="h-trip">
+            Trip type
+          </Heading>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="h-trip">
+            <Chip type="radio" name="trip" checked={!oneWay} onChange={() => setOneWay(false)}>
+              Round trip
+            </Chip>
+            <Chip
+              type="radio"
+              name="trip"
+              checked={oneWay}
+              onChange={() => {
+                setOneWay(true)
+                setOpenJaw(false)
+              }}
+            >
+              One way
+            </Chip>
           </div>
-        )}
+          {!oneWay && !isAnywhere && dateMode !== 'range' && (
+            <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+              <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
+              <span>
+                Fly back to a different airport
+                <span className="block text-slate">Works with exact dates or a whole month.</span>
+              </span>
+            </label>
+          )}
+        </section>
 
-
-        {dateMode === 'range' && (
-          <div>
-            <div className="flex gap-3 mb-3">
-              <div>
-                <label className="block text-xs text-[#5B6472] mb-1">From</label>
-                <input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-[#5B6472] mb-1">To</label>
-                <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-              </div>
-            </div>
-            <div className="flex gap-3 items-end">
-              <div>
-                <label className="block text-xs text-[#5B6472] mb-1">Min days</label>
-                <input type="number" min={1} max={30} value={minDays} onChange={(e) => setMinDays(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-[#5B6472] mb-1">Max days</label>
-                <input type="number" min={1} max={30} value={maxDays} onChange={(e) => setMaxDays(Number(e.target.value))} className="w-24 px-3 py-2 border border-[#E5E1D8] rounded-sm text-sm" />
-              </div>
-            </div>
-            <p className="text-xs text-[#5B6472] mt-1">Experimental — fewer cached results may be available than the other two modes.</p>
+        <section className={CARD} aria-labelledby="h-dates">
+          <Heading n={4} id="h-dates">
+            Dates
+          </Heading>
+          <div className="mb-5 flex flex-wrap gap-2" role="radiogroup" aria-labelledby="h-dates">
+            <Chip type="radio" name="mode" checked={dateMode === 'exact'} onChange={() => setDateMode('exact')}>
+              Exact dates
+            </Chip>
+            <Chip type="radio" name="mode" checked={dateMode === 'month'} onChange={() => setDateMode('month')}>
+              Whole month
+            </Chip>
+            <Chip type="radio" name="mode" checked={dateMode === 'range'} onChange={() => setDateMode('range')}>
+              Date range
+            </Chip>
           </div>
-        )}
-      </div>
 
-      <button onClick={handleSearch} className="px-6 py-3 bg-[#FCA311] text-[#14213D] font-semibold rounded-sm hover:bg-[#e8940a] transition-colors">
-        Search
-      </button>
+          {dateMode === 'exact' && (
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <DateField id="departDate" label="Departure" value={departDate} onChange={setDepartDate} min={today} error={errors.departDate} />
+              {!oneWay && (
+                <DateField
+                  id="returnDate"
+                  label="Return (optional)"
+                  value={returnDate}
+                  onChange={setReturnDate}
+                  min={departDate || today}
+                  error={errors.returnDate}
+                  hint="Leave empty to see every return date."
+                />
+              )}
+            </div>
+          )}
+
+          {dateMode === 'month' && (
+            <div>
+              <div role="radiogroup" aria-label={oneWay ? 'Month' : 'Departure month'} className="mb-1">
+                <p className="mb-2 text-sm text-slate">{oneWay ? 'Month' : 'Departure month'}</p>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {months.map((m) => (
+                    <Chip key={m} type="radio" name="month" checked={month === m} onChange={() => chooseMonth(m)}>
+                      {formatMonth(m)}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+              <FieldError id="month-error" message={errors.month} />
+
+              {!oneWay && (
+                <div role="radiogroup" aria-label="Return month" className="mt-4">
+                  <p className="mb-2 text-sm text-slate">Return month</p>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {months.map((m) => (
+                      <Chip key={m} type="radio" name="returnMonth" checked={returnMonth === m} onChange={() => setReturnMonth(m)}>
+                        {formatMonth(m)}
+                      </Chip>
+                    ))}
+                  </div>
+                  <FieldError id="returnMonth-error" message={errors.returnMonth} />
+                </div>
+              )}
+
+              <div className="mt-5">
+                <p className="mb-1 text-sm text-slate">Optional: only look at certain weekdays.</p>
+                <WeekdayFilterPanel
+                  outDays={outDays}
+                  backDays={backDays}
+                  oneWay={oneWay}
+                  minNights={minNights}
+                  maxNights={maxNights}
+                  onToggleOutDay={toggleIn(setOutDays)}
+                  onToggleBackDay={toggleIn(setBackDays)}
+                  onChangeMinNights={(v) => setMinNights(v === '' ? NaN : Number(v))}
+                  onChangeMaxNights={(v) => setMaxNights(v === '' ? NaN : Number(v))}
+                />
+                <FieldError id="outDays-error" message={errors.outDays} />
+                <FieldError id="backDays-error" message={errors.backDays} />
+                <FieldError id="nights-error" message={errors.nights} />
+                <p className="mt-1 text-xs text-slate">Nights can be 1 to {MAX_NIGHTS}.</p>
+              </div>
+            </div>
+          )}
+
+          {dateMode === 'range' && (
+            <div>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                <DateField id="rangeStart" label="Leave from" value={rangeStart} onChange={setRangeStart} min={today} error={errors.rangeStart} />
+                <DateField id="rangeEnd" label="Leave until" value={rangeEnd} onChange={setRangeEnd} min={rangeStart || today} error={errors.rangeEnd} />
+              </div>
+              {!oneWay && (
+                <div className="flex flex-wrap items-end gap-3">
+                  <NumberField id="minDays" label="Min days away" value={minDays} onChange={setMinDays} min={1} max={MAX_RANGE_DAYS} />
+                  <NumberField id="maxDays" label="Max days away" value={maxDays} onChange={setMaxDays} min={1} max={MAX_RANGE_DAYS} />
+                </div>
+              )}
+              <FieldError id="days-error" message={errors.days} />
+              <p className="mt-3 text-xs text-slate">
+                Experimental — fewer cached results may be available than the other two modes.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <button
+          type="submit"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-amber px-6 font-semibold text-ink transition-colors hover:bg-amber-hover sm:w-auto"
+        >
+          Search flights
+        </button>
+      </form>
     </div>
   )
 }

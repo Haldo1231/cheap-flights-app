@@ -1,43 +1,60 @@
-import type { Metadata } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import Link from "next/link";
-import "./globals.css";
+import type { Metadata, Viewport } from 'next'
+import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
+import './globals.css'
+import SiteHeader from './components/SiteHeader'
+import SiteFooter from './components/SiteFooter'
 
 const plexSans = IBM_Plex_Sans({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+  variable: '--font-sans',
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700'],
+})
 
 const plexMono = IBM_Plex_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
+  variable: '--font-mono',
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600'],
+})
+
+const DESCRIPTION =
+  'Compare cheap flights from Bratislava, Vienna, Budapest, Košice and Prague in one search — exact dates, a whole month, or anywhere — with airlines, times and the total trip cost.'
 
 export const metadata: Metadata = {
-  title: "Cheap Flights — Compare fares from 4 Central European airports",
-  description: "Find the cheapest way to fly from Vienna, Bratislava, Budapest, and Košice.",
-};
+  metadataBase: new URL('https://cheap-flights-app.vercel.app'),
+  title: {
+    default: 'cheapflights — compare cheap flights from 5 Central European airports',
+    template: '%s — cheapflights',
+  },
+  description: DESCRIPTION,
+  openGraph: {
+    type: 'website',
+    siteName: 'cheapflights',
+    title: 'cheapflights — compare cheap flights from 5 Central European airports',
+    description: DESCRIPTION,
+  },
+  twitter: { card: 'summary', title: 'cheapflights', description: DESCRIPTION },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#14213D',
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${plexSans.variable} ${plexMono.variable} font-sans antialiased`}>
-        <header className="bg-[#14213D] text-white">
-          <nav className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-            <Link href="/" className="font-mono text-lg font-semibold tracking-tight">
-              cheap<span className="text-[#FCA311]">flights</span>
-            </Link>
-            <div className="flex gap-6 text-sm">
-              <Link href="/search" className="hover:text-[#FCA311] transition-colors">Search</Link>
-              <Link href="/anywhere" className="hover:text-[#FCA311] transition-colors">Anywhere</Link>
-              <Link href="/deals" className="hover:text-[#FCA311] transition-colors">Deals</Link>
-            </div>
-          </nav>
-        </header>
-        {children}
+      <body className={`${plexSans.variable} ${plexMono.variable} flex min-h-screen flex-col font-sans antialiased`}>
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-sm focus:bg-amber focus:px-4 focus:py-2 focus:font-semibold focus:text-ink"
+        >
+          Skip to content
+        </a>
+        <SiteHeader />
+        <main id="main" className="flex-1">
+          {children}
+        </main>
+        <SiteFooter />
       </body>
     </html>
-  );
+  )
 }

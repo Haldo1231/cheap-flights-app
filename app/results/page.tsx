@@ -12,7 +12,7 @@ export async function generateMetadata({
   const one = (key: string) => (Array.isArray(sp[key]) ? sp[key][0] : sp[key])
   const where = one('anywhere') === 'true' ? 'Anywhere' : one('destination')
   return {
-    title: where ? `Flights to ${where} — cheapflights` : 'Flight results — cheapflights',
+    title: where ? `Flights to ${where}` : 'Flight results',
     description:
       'Cached flight prices from Bratislava, Vienna, Budapest, Košice and Prague, with airlines, times and the total cost of the trip.',
     robots: { index: false },

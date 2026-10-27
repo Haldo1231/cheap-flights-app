@@ -55,26 +55,26 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
   return (
     <>
       {primary.length === 0 && oneWay && (
-        <p className="mb-3 rounded-sm border border-[#E5E1D8] bg-white px-4 py-3 text-sm text-[#5B6472]">
+        <p className="mb-3 rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
           No one-way fare is cached for this search. Only round-trip fares (which include a return flight) were found,
           shown below.
         </p>
       )}
       {primary.length === 0 && !oneWay && requestedReturn && (
-        <p className="mb-3 rounded-sm border border-[#E5E1D8] bg-white px-4 py-3 text-sm text-[#5B6472]">
+        <p className="mb-3 rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
           No cached fare found for your exact return date ({formatDay(requestedReturn)}). These fares leave on your
           departure day with a different return date:
         </p>
       )}
       {dateMode === 'range' && primary.length > 0 && (
-        <p className="mb-3 text-xs text-[#5B6472]">
+        <p className="mb-3 text-xs text-slate">
           Cached fares found in your date range, cheapest first
           {total > fares.length ? ` (the cheapest ${fares.length} of ${total})` : ''}. Prices are cached and may change —
           always confirm on the booking site.
         </p>
       )}
       {dateMode === 'exact' && primary.length > 1 && (
-        <p className="mb-3 text-xs text-[#5B6472]">
+        <p className="mb-3 text-xs text-slate">
           All cached fares found for this day across your chosen airports, cheapest first. Prices are cached and may
           change on the booking site.
         </p>
@@ -87,7 +87,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
           {primary.length > 0 && (
             <>
               <h2 className="mb-1 text-sm font-semibold">{oneWay ? 'Round-trip fares (include a return flight)' : 'Other return dates'}</h2>
-              <p className="mb-3 text-xs text-[#5B6472]">
+              <p className="mb-3 text-xs text-slate">
                 {oneWay
                   ? 'There is no one-way price for these — the price covers a return flight too.'
                   : `No cached fare for ${requestedReturn ? formatDay(requestedReturn) : 'your return date'} — these leave on your departure day with another return date.`}

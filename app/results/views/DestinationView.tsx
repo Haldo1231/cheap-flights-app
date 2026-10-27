@@ -33,7 +33,7 @@ type CompareResponse = {
   outboundOnly?: OpenJawResponse['outboundOnly']
 }
 
-const ERROR_BOX = 'rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-5 py-4'
+const ERROR_BOX = 'rounded-sm border border-danger-line bg-danger-bg px-5 py-4'
 
 function originLabel(codes: string[]) {
   const first = codes[0]
@@ -172,15 +172,15 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
       <h1 className="mb-2 text-2xl font-semibold">
         {originLabel(p.originList)} →{' '}
         {place.loading ? <Skeleton className="inline-block h-6 w-28 align-middle" /> : cityName}
-        <span className="ml-2 font-mono text-base font-normal text-[#5B6472]">{destination}</span>
+        <span className="ml-2 font-mono text-base font-normal text-slate">{destination}</span>
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />
 
       {missing && (
-        <div className="rounded-sm border border-[#E5E1D8] bg-white px-5 py-6">
+        <div className="rounded-sm border border-line bg-white px-5 py-6">
           <p className="mb-2 font-semibold">Your search is missing {missing}</p>
-          <p className="mb-3 text-sm text-[#5B6472]">Pick it on the search page and we will look up the prices.</p>
-          <DrillLink href="/search" className="text-sm font-medium text-[#14213D] underline decoration-[#FCA311] decoration-2 underline-offset-4">
+          <p className="mb-3 text-sm text-slate">Pick it on the search page and we will look up the prices.</p>
+          <DrillLink href="/search" className="text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
             Back to search →
           </DrillLink>
         </div>
@@ -197,11 +197,11 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
 
             {!isMonth && !listLoading && compare.error && (
               <div role="alert" className={ERROR_BOX}>
-                <p className="mb-3 text-[#14213D]">Something went wrong loading results.</p>
+                <p className="mb-3 text-ink">Something went wrong loading results.</p>
                 <button
                   type="button"
                   onClick={() => setRetry((n) => n + 1)}
-                  className="rounded-sm bg-[#14213D] px-4 py-2 text-sm font-medium text-white hover:bg-[#1c2d52] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D]"
+                  className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                 >
                   Try again
                 </button>
@@ -211,17 +211,17 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
             {!isMonth && !listLoading && !compare.error && openJawData && <OpenJawContent data={openJawData} p={p} />}
 
             {!isMonth && !listLoading && !compare.error && !openJawData && fares.length === 0 && (
-              <div className="rounded-sm border border-[#E5E1D8] bg-white px-5 py-6">
+              <div className="rounded-sm border border-line bg-white px-5 py-6">
                 <p className="mb-2 font-semibold">No cached prices found for this search</p>
-                <p className="mb-3 text-sm text-[#5B6472]">
+                <p className="mb-3 text-sm text-slate">
                   Cached data is thin for small routes and exact days. Things that usually help:
                 </p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-[#5B6472]">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-slate">
                   <li>use Whole month or a wider date range instead of one exact day</li>
                   <li>add more home airports (Vienna and Budapest have the most data)</li>
                   <li>try a more popular destination</li>
                 </ul>
-                <DrillLink href="/search" className="mt-4 inline-block text-sm font-medium text-[#14213D] underline decoration-[#FCA311] decoration-2 underline-offset-4">
+                <DrillLink href="/search" className="mt-4 inline-block text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
                   Change my search →
                 </DrillLink>
               </div>

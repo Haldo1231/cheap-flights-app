@@ -46,12 +46,12 @@ export default function CountryView({ p }: { p: ResultsParams }) {
       {loading && <RowListSkeleton count={4} label="Checking the cities in this country" />}
 
       {!loading && error && (
-        <div role="alert" className="rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-5 py-4">
-          <p className="mb-3 text-[#14213D]">Something went wrong loading this country.</p>
+        <div role="alert" className="rounded-sm border border-danger-line bg-danger-bg px-5 py-4">
+          <p className="mb-3 text-ink">Something went wrong loading this country.</p>
           <button
             type="button"
             onClick={() => setRetry((n) => n + 1)}
-            className="rounded-sm bg-[#14213D] px-4 py-2 text-sm font-medium text-white hover:bg-[#1c2d52] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D]"
+            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             Try again
           </button>
@@ -59,10 +59,10 @@ export default function CountryView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && !data?.country && (
-        <div className="rounded-sm border border-[#E5E1D8] bg-white px-5 py-6">
+        <div className="rounded-sm border border-line bg-white px-5 py-6">
           <p className="mb-2 font-semibold">We have no cached prices for this country right now</p>
-          <p className="mb-3 text-sm text-[#5B6472]">The cache changes over time, so it may have dropped out of the list.</p>
-          <DrillLink href={anywhereHref} className="text-sm font-medium text-[#14213D] underline decoration-[#FCA311] decoration-2 underline-offset-4">
+          <p className="mb-3 text-sm text-slate">The cache changes over time, so it may have dropped out of the list.</p>
+          <DrillLink href={anywhereHref} className="text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
             ← Back to all countries
           </DrillLink>
         </div>
@@ -70,15 +70,15 @@ export default function CountryView({ p }: { p: ResultsParams }) {
 
       {!loading && !error && data?.country && (
         <>
-          <p className="mb-4 text-xs text-[#5B6472]">
+          <p className="mb-4 text-xs text-slate">
             Checked {data.checkedCities} of {data.totalCities} destination{data.totalCities === 1 ? '' : 's'} against your
             filters, cheapest first. Prices are cached and may change on the booking site.
           </p>
 
           {data.cities.length === 0 && (
-            <div className="mb-6 rounded-sm border border-[#E5E1D8] bg-white px-5 py-4">
+            <div className="mb-6 rounded-sm border border-line bg-white px-5 py-4">
               <p className="mb-1 font-semibold">No day matches your filters in {countryName}</p>
-              <p className="text-sm text-[#5B6472]">
+              <p className="text-sm text-slate">
                 Try more weekdays, a wider range of nights, another month, or another home airport.
               </p>
             </div>
@@ -99,7 +99,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
               <h2 id="no-match-cities" className="mb-1 text-sm font-semibold">
                 No matching day in these cities
               </h2>
-              <p className="mb-3 text-xs text-[#5B6472]">They have cached flights, just not on your days. You can still open them.</p>
+              <p className="mb-3 text-xs text-slate">They have cached flights, just not on your days. You can still open them.</p>
               <ul className="space-y-2">
                 {data.unmatchedCities.map((city) => (
                   <li key={city.code}>

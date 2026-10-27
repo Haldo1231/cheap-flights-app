@@ -12,6 +12,8 @@ type Props = {
   onToggleBackDay: (day: number) => void
   onChangeMinNights: (value: string) => void
   onChangeMaxNights: (value: string) => void
+  /** No card around it (when it already sits inside another box). */
+  bare?: boolean
 }
 
 function DayToggles({
@@ -25,7 +27,7 @@ function DayToggles({
 }) {
   return (
     <fieldset className="mb-4">
-      <legend className="mb-2 text-sm font-semibold text-[#14213D]">{label}</legend>
+      <legend className="mb-2 text-sm font-semibold text-ink">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {WEEKDAY_BUTTONS.map((d) => {
           const on = selected.includes(d.value)
@@ -35,10 +37,10 @@ function DayToggles({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(d.value)}
-              className={`min-h-10 min-w-12 rounded-sm border px-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D] ${
+              className={`min-h-10 min-w-12 rounded-sm border px-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                 on
-                  ? 'border-[#14213D] bg-[#14213D] text-white'
-                  : 'border-[#E5E1D8] bg-white text-[#5B6472] hover:border-[#14213D] hover:text-[#14213D]'
+                  ? 'border-ink bg-ink text-white'
+                  : 'border-line bg-white text-slate hover:border-ink hover:text-ink'
               }`}
             >
               {d.label}
@@ -53,7 +55,7 @@ function DayToggles({
 function NightsInput({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: string) => void }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-xs text-[#5B6472]">
+      <label htmlFor={id} className="mb-1 block text-xs text-slate">
         {label}
       </label>
       <input
@@ -64,7 +66,7 @@ function NightsInput({ id, label, value, onChange }: { id: string; label: string
         max={60}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-10 w-24 rounded-sm border border-[#E5E1D8] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D]"
+        className="min-h-10 w-24 rounded-sm border border-line bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
       />
     </div>
   )
@@ -83,9 +85,10 @@ export default function WeekdayFilterPanel({
   onToggleBackDay,
   onChangeMinNights,
   onChangeMaxNights,
+  bare = false,
 }: Props) {
   return (
-    <div className="mb-6 rounded-sm border border-[#E5E1D8] bg-white p-4">
+    <div className={bare ? '' : 'mb-6 rounded-sm border border-line bg-white p-4'}>
       <DayToggles label="Departure days" selected={outDays} onToggle={onToggleOutDay} />
       {!oneWay && (
         <>

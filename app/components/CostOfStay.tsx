@@ -46,9 +46,9 @@ export function costOfStayNumbers(info: DestInfo, flightPrice: number | null, da
 
 function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between gap-3 ${strong ? 'font-semibold text-[#14213D]' : 'text-[#5B6472]'}`}>
+    <div className={`flex items-baseline justify-between gap-3 ${strong ? 'font-semibold text-ink' : 'text-slate'}`}>
       <span>{label}</span>
-      <span className="font-mono tabular-nums text-[#14213D]">{value}</span>
+      <span className="font-mono tabular-nums text-ink">{value}</span>
     </div>
   )
 }
@@ -60,12 +60,12 @@ export function CostBreakdown({ destinationName, info, flightPrice, flightNote, 
     return (
       <div className="text-sm">
         {summary}
-        <p className="mb-1 font-semibold text-[#14213D]">Trip cost</p>
-        <p className="mb-3 text-[#5B6472]">
+        <p className="mb-1 font-semibold text-ink">Trip cost</p>
+        <p className="mb-3 text-slate">
           We don&apos;t have cost-of-stay numbers for {destinationName} yet, so only the flights can be shown.
         </p>
         <Row label="Flights" value={flightPrice !== null ? `€${flightPrice}` : flightPlaceholder ?? 'pick a flight'} strong />
-        {flightNote && flightPrice !== null && <p className="mt-1 text-xs text-[#5B6472]">{flightNote}</p>}
+        {flightNote && flightPrice !== null && <p className="mt-1 text-xs text-slate">{flightNote}</p>}
       </div>
     )
   }
@@ -75,8 +75,8 @@ export function CostBreakdown({ destinationName, info, flightPrice, flightNote, 
   return (
     <div className="text-sm">
       {summary}
-      <p className="font-semibold text-[#14213D]">Trip cost in {info.name}</p>
-      <p className="mb-3 text-xs text-[#5B6472]">
+      <p className="font-semibold text-ink">Trip cost in {info.name}</p>
+      <p className="mb-3 text-xs text-slate">
         {dayLabel}
         {dates ? ` · ${dates}` : ''}
       </p>
@@ -88,20 +88,20 @@ export function CostBreakdown({ destinationName, info, flightPrice, flightNote, 
         <Row label="Other / day" value={`€${info.other_avg_price ?? 0}`} />
       </div>
 
-      <div className="mt-3 space-y-1 border-t border-[#E5E1D8] pt-3">
+      <div className="mt-3 space-y-1 border-t border-line pt-3">
         <Row label="Per day" value={`€${perDay}`} />
         <Row label={`Stay · ${dayLabel}`} value={`€${stayTotal}`} strong />
         <Row label="Flights" value={flightPrice !== null ? `€${flightPrice}` : flightPlaceholder ?? 'pick a flight'} strong />
-        {flightNote && flightPrice !== null && <p className="text-xs text-[#5B6472]">{flightNote}</p>}
+        {flightNote && flightPrice !== null && <p className="text-xs text-slate">{flightNote}</p>}
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between gap-3 border-t-2 border-[#14213D] pt-3">
-        <span className="font-semibold text-[#14213D]">Flights + stay</span>
-        <span className="font-mono text-xl font-semibold tabular-nums text-[#14213D]">
+      <div className="mt-3 flex items-baseline justify-between gap-3 border-t-2 border-ink pt-3">
+        <span className="font-semibold text-ink">Flights + stay</span>
+        <span className="font-mono text-xl font-semibold tabular-nums text-ink">
           {tripTotal !== null ? `€${tripTotal}` : '—'}
         </span>
       </div>
-      <p className="mt-2 text-xs text-[#5B6472]">Rough daily averages and cached flight prices — estimates, not quotes.</p>
+      <p className="mt-2 text-xs text-slate">Rough daily averages and cached flight prices — estimates, not quotes.</p>
     </div>
   )
 }
@@ -113,7 +113,7 @@ export function CostSidebar(props: CostProps) {
   return (
     <aside
       aria-label="Trip cost"
-      className="hidden lg:block lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto rounded-sm border border-[#E5E1D8] bg-white p-4 shadow-sm"
+      className="hidden lg:block lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto rounded-sm border border-line bg-white p-4 shadow-sm"
     >
       <CostBreakdown {...props} />
     </aside>
@@ -128,9 +128,9 @@ export function CostMobileBar(props: CostProps) {
   const total = info ? costOfStayNumbers(info, flightPrice, days).tripTotal : flightPrice
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E5E1D8] bg-white shadow-[0_-4px_12px_rgba(20,33,61,0.10)] lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white shadow-[0_-4px_12px_rgba(20,33,61,0.10)] lg:hidden">
       {expanded && (
-        <div id={panelId} className="max-h-[60vh] overflow-y-auto border-b border-[#E5E1D8] px-4 py-4">
+        <div id={panelId} className="max-h-[60vh] overflow-y-auto border-b border-line px-4 py-4">
           <CostBreakdown {...props} />
         </div>
       )}
@@ -141,10 +141,10 @@ export function CostMobileBar(props: CostProps) {
         aria-controls={expanded ? panelId : undefined}
         className="flex w-full items-center justify-between px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       >
-        <span className="text-sm text-[#5B6472]">
+        <span className="text-sm text-slate">
           {info ? `Flights + stay · ${days} day${days === 1 ? '' : 's'}` : 'Flights total'} {expanded ? '▾' : '▴'}
         </span>
-        <span className="font-mono text-lg font-semibold tabular-nums text-[#14213D]">
+        <span className="font-mono text-lg font-semibold tabular-nums text-ink">
           {total !== null ? `€${total}` : flightPlaceholder ? flightPlaceholder.charAt(0).toUpperCase() + flightPlaceholder.slice(1) : 'Pick a flight'}
         </span>
       </button>

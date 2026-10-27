@@ -34,14 +34,14 @@ function cityLabel(code: string) {
 export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
   const params = toUrlParams(await searchParams)
   const trip = parseTrip((k) => params.get(k))
-  if (!trip) return { title: 'Trip details — cheapflights', robots: { index: false } }
+  if (!trip) return { title: 'Trip details', robots: { index: false } }
   const place = await getCityInfo(trip.outbound.destination)
   const name = place?.name ?? trip.outbound.destination
   const dates = trip.inbound
     ? `${formatShortDate(trip.outbound.date)} – ${formatShortDate(trip.inbound.date)}`
     : formatShortDate(trip.outbound.date)
   return {
-    title: `${name} trip, ${dates} — cheapflights`,
+    title: `${name} trip, ${dates}`,
     description: `Flights, stay costs and total price for a trip from ${cityLabel(trip.outbound.origin)} to ${name}. Prices are cached and may change.`,
     robots: { index: false },
   }
@@ -64,10 +64,10 @@ function MissingTrip() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-20 text-center">
       <h1 className="mb-3 text-2xl font-semibold">We can&apos;t open this trip</h1>
-      <p className="mb-6 text-[#5B6472]">
+      <p className="mb-6 text-slate">
         The link is missing some trip details. Start from the search and pick a flight again.
       </p>
-      <Link href="/search" className="inline-block rounded-sm bg-[#14213D] px-5 py-3 font-medium text-white hover:bg-[#1c2d52]">
+      <Link href="/search" className="inline-block rounded-sm bg-ink px-5 py-3 font-medium text-white hover:bg-ink-hover">
         Go to search
       </Link>
     </div>
@@ -75,7 +75,7 @@ function MissingTrip() {
 }
 
 const BOOK_BUTTON =
-  'inline-block rounded-sm bg-[#FCA311] px-5 py-2.5 text-sm font-semibold text-[#14213D] transition-colors hover:bg-[#e8940a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14213D]'
+  'inline-block rounded-sm bg-amber px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
 
 export default async function TripPage({ searchParams }: { searchParams: SearchParams }) {
   const rawParams = toUrlParams(await searchParams)
@@ -160,11 +160,11 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
         <Breadcrumbs items={crumbs} />
         <h1 className="mb-1 text-2xl font-semibold">
           {cityName}
-          <span className="ml-2 font-mono text-base font-normal text-[#5B6472]">
+          <span className="ml-2 font-mono text-base font-normal text-slate">
             {trip.inbound ? `${formatNights(nights)}` : 'one way'}
           </span>
         </h1>
-        <p className="mb-6 text-sm text-[#5B6472]">
+        <p className="mb-6 text-sm text-slate">
           {cityLabel(homeOut)} {trip.inbound ? '⇄' : '→'} {cityName}
           {homeBack && homeBack !== homeOut ? ` (back to ${cityLabel(homeBack)})` : ''} · cached prices, they may change on
           the booking site
@@ -172,11 +172,11 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
 
         <div className="flex flex-col gap-8 lg:flex-row">
           <div className="min-w-0 flex-1 space-y-8">
-            <section aria-labelledby="your-flights" className="rounded-sm border border-[#E5E1D8] bg-white p-4 sm:p-5">
+            <section aria-labelledby="your-flights" className="rounded-sm border border-line bg-white p-4 sm:p-5">
               <h2 id="your-flights" className="mb-1 text-lg font-semibold">
                 Your flights
               </h2>
-              <div className="divide-y divide-[#E5E1D8]">
+              <div className="divide-y divide-line">
                 <FlightLeg label="Outbound" leg={outLeg} price={isFare ? null : trip.outbound.price} searchLinkLabel={!isFare ? 'Book outbound →' : undefined} />
                 {backLeg && (
                   <FlightLeg
@@ -188,12 +188,12 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                 )}
               </div>
 
-              <div className="mt-3 rounded-sm bg-[#FBF9F4] px-4 py-3">
+              <div className="mt-3 rounded-sm bg-paper px-4 py-3">
                 {isFare && trip.inbound ? (
                   <p className="text-sm">
                     <span className="font-mono text-2xl font-semibold tabular-nums">€{trip.price}</span>{' '}
-                    <span className="text-[#5B6472]">round trip for both flights</span>
-                    <span className="mt-1 block text-xs text-[#5B6472]">
+                    <span className="text-slate">round trip for both flights</span>
+                    <span className="mt-1 block text-xs text-slate">
                       One cached price for the whole round trip{trip.gate ? ` (found via ${trip.gate})` : ''} — it is not
                       split per flight.
                     </span>
@@ -201,7 +201,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                 ) : (
                   <p className="text-sm">
                     <span className="font-mono text-2xl font-semibold tabular-nums">€{trip.price}</span>{' '}
-                    <span className="text-[#5B6472]">
+                    <span className="text-slate">
                       {trip.inbound
                         ? `flights: €${trip.outbound.price ?? '?'} out + €${trip.inbound.price ?? '?'} back`
                         : 'one way'}
@@ -235,7 +235,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                 <h2 id="other-flights" className="mb-1 text-lg font-semibold">
                   Other cached flights on these days
                 </h2>
-                <p className="mb-3 text-sm text-[#5B6472]">
+                <p className="mb-3 text-sm text-slate">
                   Each has its own cached price. Open the booking site to check what is available.
                 </p>
                 {outOthers.length > 0 && (
@@ -243,7 +243,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                     <h3 className="mb-1 text-sm font-semibold">
                       {cityLabel(homeOut)} → {cityName} · {formatDay(trip.outbound.date)}
                     </h3>
-                    <ul className="mb-5 divide-y divide-[#E5E1D8] rounded-sm border border-[#E5E1D8] bg-white px-4">
+                    <ul className="mb-5 divide-y divide-line rounded-sm border border-line bg-white px-4">
                       {outOthers.map((f) => (
                         <li key={`${f.price}-${f.departureTime}-${f.gate}`}>
                           <FlightLeg
@@ -271,7 +271,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                     <h3 className="mb-1 text-sm font-semibold">
                       {cityName} → {cityLabel(homeBack ?? homeOut)} · {formatDay(trip.inbound.date)}
                     </h3>
-                    <ul className="divide-y divide-[#E5E1D8] rounded-sm border border-[#E5E1D8] bg-white px-4">
+                    <ul className="divide-y divide-line rounded-sm border border-line bg-white px-4">
                       {backOthers.map((f) => (
                         <li key={`${f.price}-${f.departureTime}-${f.gate}`}>
                           <FlightLeg

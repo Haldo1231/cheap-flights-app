@@ -2,7 +2,7 @@
 // page does not jump when the data arrives.
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div aria-hidden="true" className={`animate-pulse rounded-sm bg-[#E5E1D8]/70 ${className}`} />
+  return <div aria-hidden="true" className={`animate-pulse rounded-sm bg-line/70 ${className}`} />
 }
 
 function Status({ label, children }: { label: string; children: React.ReactNode }) {
@@ -16,7 +16,7 @@ function Status({ label, children }: { label: string; children: React.ReactNode 
 
 export function FareCardSkeleton() {
   return (
-    <div aria-hidden="true" className="rounded-sm border border-[#E5E1D8] bg-white p-4 sm:p-5">
+    <div aria-hidden="true" className="rounded-sm border border-line bg-white p-4 sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-8 w-20" />
@@ -47,7 +47,7 @@ export function RowListSkeleton({ count = 5, label = 'Loading' }: { count?: numb
     <Status label={label}>
       <div className="space-y-3">
         {Array.from({ length: count }, (_, i) => (
-          <div key={i} aria-hidden="true" className="flex items-center justify-between rounded-sm border border-[#E5E1D8] bg-white px-5 py-4">
+          <div key={i} aria-hidden="true" className="flex items-center justify-between rounded-sm border border-line bg-white px-5 py-4">
             <div className="space-y-2">
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-3 w-28" />

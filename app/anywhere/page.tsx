@@ -1,99 +1,57 @@
-'use client'
-
-import { useState, useEffect } from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { buildBookingLink } from '../aviasalesLink'
+import { getCheapestDestinations } from '../cheapDestinations'
+import FareCard from '../components/FareCard'
 
-export default function AnywherePage() {
-  const [results, setResults] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+// Prices come from 1-hour cached data, so refresh this page about as often.
+export const revalidate = 3600
 
-  useEffect(() => {
-    fetch('/api/anywhere')
-      .then((res) => res.json())
-      .then((data) => {
-        setResults(data.results || [])
-        setLoading(false)
-      })
-      .catch(() => {
-        setError('Something went wrong loading destinations. Please try again.')
-        setLoading(false)
-      })
-  }, [])
+export const metadata: Metadata = {
+  title: 'Where can I fly cheaply?',
+  description:
+    'The cheapest cached flights right now to popular city breaks from Bratislava, Vienna, Budapest, Košice and Prague, sorted by price.',
+}
+
+export default async function AnywherePage() {
+  const results = await getCheapestDestinations()
 
   return (
-    <div style={{ padding: '24px 20px', fontFamily: 'sans-serif', maxWidth: 700, margin: '0 auto' }}>
-      <h1>Where can I fly cheaply?</h1>
-      <p>Cheapest destinations right now from Vienna, Bratislava, Budapest, and Košice — sorted by price.</p>
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <h1 className="mb-2 text-3xl font-semibold tracking-tight">Where can I fly cheaply?</h1>
+      <p className="mb-2 text-slate">
+        The cheapest cached fare to each popular city break from Bratislava, Vienna, Budapest, Košice and Prague, sorted by
+        price. Prices are cached and may change on the booking site.
+      </p>
+      <p className="mb-6 text-sm text-slate">
+        Have dates in mind?{' '}
+        <Link
+          href="/search?to=ANYWHERE"
+          className="font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 hover:text-amber-ink"
+        >
+          Search anywhere with your own dates →
+        </Link>
+      </p>
 
-      {loading && <p>Loading cheap destinations...</p>}
-
-      {!loading && error && (
-        <div style={{ border: '1px solid #F3B3AC', backgroundColor: '#FDECEA', borderRadius: 8, padding: 15 }}>
-          <p style={{ margin: '0 0 10px' }}>{error}</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#14213D',
-              color: 'white',
-              border: 'none',
-              borderRadius: 4,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Try again
-          </button>
+      {results.length === 0 && (
+        <div className="rounded-sm border border-line bg-white px-5 py-6">
+          <p className="mb-1 font-semibold">No cached destination prices right now</p>
+          <p className="text-sm text-slate">The price data refreshes through the day. Try again in a little while.</p>
         </div>
       )}
 
-      {!loading && !error && results.length === 0 && (
-        <p>No cached destination prices found right now. Try again later.</p>
-      )}
-
-      {!loading && !error && results.length > 0 && (
-        <ol style={{ padding: 0, listStyle: 'none' }}>
-          {results.map((r, i) => (
-            <li
-              key={r.destination}
-              style={{
-                marginBottom: 10,
-                border: i === 0 ? '2px solid #0070f3' : '1px solid #ddd',
-                borderRadius: 8,
-                backgroundColor: i === 0 ? '#f0f7ff' : 'white',
-              }}
-            >
-              <Link
-                href={`/destinations/${r.destinationSlug}`}
-                style={{ display: 'block', padding: '15px 15px 0', textDecoration: 'none', color: 'inherit' }}
-              >
-                <strong>{i + 1}. {r.destinationName}</strong> — <strong>€{r.price}</strong>
-                <br />
-                <small>{r.origin} → {r.destination} · {r.departure_at?.split('T')[0]} → {r.return_at?.split('T')[0]}</small>
-              </Link>
-              <div style={{ padding: 15 }}>
-                <a
-                  href={buildBookingLink(r.origin, r.destination, r.departure_at, r.return_at)}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
-                  style={{
-                    display: 'inline-block',
-                    padding: '6px 14px',
-                    backgroundColor: '#FCA311',
-                    color: '#14213D',
-                    fontWeight: 600,
-                    borderRadius: 4,
-                    textDecoration: 'none',
-                    fontSize: 14,
-                  }}
-                >
-                  Book on Aviasales →
-                </a>
-              </div>
-            </li>
+      {results.length > 0 && (
+        <ol className="space-y-4">
+          {results.map(({ destination, fare }, i) => (
+            <FareCard
+              key={destination.code}
+              fare={fare}
+              isCheapest={i === 0}
+              heading={
+                <Link href={`/destinations/${destination.slug}`} className="hover:underline">
+                  {i + 1}. {destination.name}
+                </Link>
+              }
+            />
           ))}
         </ol>
       )}

@@ -35,3 +35,17 @@ export function describeSearch(params: URLSearchParams): string[] {
   }
   return out
 }
+
+/** Only the weekday / nights part, e.g. "Depart Thu · Return Tue · 3–7 nights". */
+export function describeFilters(params: URLSearchParams): string {
+  const parts: string[] = []
+  const oneWay = params.get('oneWay') === 'true'
+  const outDays = parseDays(params.get('outDays'))
+  parts.push(outDays.length < ALL_WEEKDAYS.length ? `Depart ${dayNames(outDays)}` : 'Depart any day')
+  if (!oneWay) {
+    const backDays = parseDays(params.get('backDays'))
+    parts.push(backDays.length < ALL_WEEKDAYS.length ? `Return ${dayNames(backDays)}` : 'Return any day')
+    parts.push(`${params.get('minNights') || 1}–${params.get('maxNights') || 14} nights`)
+  }
+  return parts.join(' · ')
+}

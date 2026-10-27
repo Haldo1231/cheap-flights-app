@@ -18,10 +18,10 @@ export default function ResultsRouter() {
   if (p.isAnywhere) return <AnywhereView p={p} />
 
   return (
-    <div className="rounded-sm border border-[#E5E1D8] bg-white px-5 py-6">
+    <div className="rounded-sm border border-line bg-white px-5 py-6">
       <p className="mb-2 font-semibold">Where do you want to go?</p>
-      <p className="mb-3 text-sm text-[#5B6472]">This link has no destination. Pick one on the search page.</p>
-      <Link href="/search" className="text-sm font-medium text-[#14213D] underline decoration-[#FCA311] decoration-2 underline-offset-4">
+      <p className="mb-3 text-sm text-slate">This link has no destination. Pick one on the search page.</p>
+      <Link href="/search" className="text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
         Go to search →
       </Link>
     </div>

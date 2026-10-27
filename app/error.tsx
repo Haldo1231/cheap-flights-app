@@ -1,27 +1,27 @@
 'use client'
 
+import Link from 'next/link'
+
 export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-      <p className="font-mono text-sm text-[#5B6472] mb-4">Oops</p>
-      <h1 className="text-3xl font-semibold mb-4">Something went wrong</h1>
-      <p className="text-[#5B6472] mb-8">
-        This page hit an unexpected error. Try again, or head back home.
-      </p>
-      <div className="flex flex-wrap gap-4 justify-center">
+    <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
+      <p className="num mb-4 text-sm text-slate">Oops</p>
+      <h1 className="mb-4 text-3xl font-semibold tracking-tight">Something went wrong</h1>
+      <p className="mb-8 text-slate">This page hit an unexpected error. Try again, or head back home.</p>
+      <div className="flex flex-wrap justify-center gap-3">
         <button
           type="button"
           onClick={() => reset()}
-          className="px-6 py-3 bg-[#14213D] text-white rounded-sm font-medium hover:bg-[#1c2d52] transition-colors"
+          className="inline-flex min-h-12 items-center rounded-sm bg-ink px-6 font-medium text-white transition-colors hover:bg-ink-hover"
         >
           Try again
         </button>
-        <a
+        <Link
           href="/"
-          className="px-6 py-3 border border-[#14213D] text-[#14213D] rounded-sm font-medium hover:bg-[#14213D] hover:text-white transition-colors"
+          className="inline-flex min-h-12 items-center rounded-sm border border-ink px-6 font-medium text-ink transition-colors hover:bg-ink hover:text-white"
         >
           Go home
-        </a>
+        </Link>
       </div>
     </div>
   )

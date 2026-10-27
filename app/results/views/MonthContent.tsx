@@ -6,6 +6,8 @@ import DayFlightRow from '../../components/DayFlightRow'
 import Drawer from '../../components/Drawer'
 import FlightLeg from '../../components/FlightLeg'
 import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
+import FilterDisclosure from '../../components/FilterDisclosure'
+import { describeFilters } from '../../lib/searchSummary'
 import { CalendarSkeleton, FareListSkeleton } from '../../components/Skeleton'
 import { calendarDayToFare } from '../../lib/trip'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
@@ -48,20 +50,23 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
 
   return (
     <div>
-      <WeekdayFilterPanel
-        outDays={p.outDays}
-        backDays={p.backDays}
-        oneWay={oneWay}
-        minNights={p.minNights}
-        maxNights={p.maxNights}
-        onToggleOutDay={p.toggleOutDay}
-        onToggleBackDay={p.toggleBackDay}
-        onChangeMinNights={(v) => p.setParams({ minNights: v })}
-        onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
-      />
+      <FilterDisclosure summary={describeFilters(new URLSearchParams(p.filterString))}>
+        <WeekdayFilterPanel
+          bare
+          outDays={p.outDays}
+          backDays={p.backDays}
+          oneWay={oneWay}
+          minNights={p.minNights}
+          maxNights={p.maxNights}
+          onToggleOutDay={p.toggleOutDay}
+          onToggleBackDay={p.toggleBackDay}
+          onChangeMinNights={(v) => p.setParams({ minNights: v })}
+          onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
+        />
+      </FilterDisclosure>
 
       {failed && (
-        <div role="alert" className="mb-6 rounded-sm border border-[#F3B3AC] bg-[#FDECEA] px-5 py-4 text-sm text-[#14213D]">
+        <div role="alert" className="mb-6 rounded-sm border border-danger-line bg-danger-bg px-5 py-4 text-sm text-ink">
           Something went wrong loading the calendar. Reload the page to try again.
         </div>
       )}
@@ -73,7 +78,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
           </h2>
           {loading && <FareListSkeleton count={2} label="Finding the best day pairs" />}
           {!loading && m.bestCombinations.length === 0 && (
-            <p className="rounded-sm border border-[#E5E1D8] bg-white px-4 py-3 text-sm text-[#5B6472]">
+            <p className="rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
               {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
                 ? 'No pair of days fits your weekday and nights filters in these months. A trip needs a cached price on both the outbound and the return day. Loosen the filters, or browse other months with the arrows below.'
                 : `No complete round trip to suggest: ${
@@ -95,23 +100,23 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                       type="button"
                       onClick={() => pickCombo(combo)}
                       aria-pressed={picked}
-                      className={`flex w-full items-start justify-between gap-3 rounded-sm border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D] ${
-                        picked ? 'border-2 border-[#14213D] bg-[#FFF8EC]' : 'border-[#E5E1D8] bg-white hover:bg-[#FBF9F4]'
+                      className={`flex w-full items-start justify-between gap-3 rounded-sm border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink ${
+                        picked ? 'border-2 border-ink bg-amber-soft' : 'border-line bg-white hover:bg-paper'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           {i === 0 && (
-                            <span className="rounded-sm bg-[#FCA311] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide">
+                            <span className="rounded-sm bg-amber px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide">
                               Cheapest
                             </span>
                           )}
-                          <span className="font-mono text-xs text-[#5B6472]">{formatNights(combo.nights)}</span>
+                          <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
                         </div>
                         <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
                         <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
                       </div>
-                      <p className="whitespace-nowrap font-mono text-lg font-semibold tabular-nums">€{combo.total}</p>
+                      <p className={`whitespace-nowrap font-mono text-lg font-semibold tabular-nums ${i === 0 ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{combo.total}</p>
                     </button>
                   </li>
                 )
@@ -121,7 +126,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
         </section>
       )}
 
-      <p className="mb-3 text-sm text-[#5B6472]">
+      <p className="mb-3 text-sm text-slate">
         Tap a day to see its flights. Each price is the cheapest cached fare for that day.
       </p>
 
@@ -154,18 +159,18 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
         </div>
       )}
 
-      <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#5B6472]" aria-label="Calendar colours">
+      <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate" aria-label="Calendar colours">
         <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border border-[#A5D6A7] bg-[#E8F5E9]" /> Below average
+          <span className="inline-block h-3 w-3 rounded-sm border border-ok-line bg-ok-bg" /> Below average
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border border-[#F3B3AC] bg-[#FDECEA]" /> Above average
+          <span className="inline-block h-3 w-3 rounded-sm border border-danger-line bg-danger-bg" /> Above average
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border-2 border-[#FCA311]" /> Cheapest day
+          <span className="inline-block h-3 w-3 rounded-sm border-2 border-amber" /> Cheapest day
         </li>
         <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-[#F1EEE6]" /> Not one of your weekdays / no price
+          <span className="inline-block h-3 w-3 rounded-sm bg-sand" /> Not one of your weekdays / no price
         </li>
       </ul>
 
@@ -181,7 +186,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
       >
         {drawerLoading && <FareListSkeleton count={3} label="Loading flights for this day" />}
         {!drawerLoading && drawerFares.length === 0 && (
-          <p className="text-sm text-[#5B6472]">
+          <p className="text-sm text-slate">
             No cached flight details found for this day. Pick another day, or check the price on the booking site.
           </p>
         )}
@@ -196,7 +201,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                 onSelect={() => pickFlight(drawer ?? 'out', fare)}
               />
             ))}
-            <p className="pt-2 text-xs text-[#5B6472]">
+            <p className="pt-2 text-xs text-slate">
               Choose a flight to use it in your trip. Cached prices can change on the booking site.
             </p>
           </div>

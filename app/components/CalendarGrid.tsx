@@ -57,23 +57,23 @@ export default function CalendarGrid({
           type="button"
           onClick={onPrev}
           aria-label={`Previous month, ${title}`}
-          className="min-h-10 min-w-10 rounded-sm border border-[#E5E1D8] bg-white text-sm hover:border-[#14213D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D]"
+          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
         >
           ←
         </button>
-        <h3 className="text-sm font-semibold text-[#14213D]">
+        <h3 className="text-sm font-semibold text-ink">
           {title} · {formatMonth(month)}
         </h3>
         <button
           type="button"
           onClick={onNext}
           aria-label={`Next month, ${title}`}
-          className="min-h-10 min-w-10 rounded-sm border border-[#E5E1D8] bg-white text-sm hover:border-[#14213D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#14213D]"
+          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
         >
           →
         </button>
       </div>
-      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-[#5B6472]" aria-hidden="true">
+      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-slate" aria-hidden="true">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
           <div key={i}>{d}</div>
         ))}
@@ -89,9 +89,13 @@ export default function CalendarGrid({
           const isSelected = selectedDate === dateStr
           const isGood = usable && avg !== null && entry.price < avg
           const airline = entry?.airlineName || entry?.airlineCode
-          const detail = entry
-            ? `${formatDay(dateStr)}, €${entry.price}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}`
-            : `${formatDay(dateStr)}, no cached price`
+          // Read out by screen readers in addition to the visible day number and price.
+          const spoken = !isAllowedDay
+            ? `${formatDay(dateStr)}, not one of your selected weekdays.`
+            : entry
+            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}.`
+            : `${formatDay(dateStr)}, no cached price.`
+          const detail = entry ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${airline ? ` · ${airline}` : ''}` : undefined
 
           return (
             <button
@@ -99,21 +103,21 @@ export default function CalendarGrid({
               type="button"
               disabled={!usable}
               aria-pressed={usable ? isSelected : undefined}
-              aria-label={!isAllowedDay ? `${formatDay(dateStr)}, not one of your selected weekdays` : detail}
               onClick={() => usable && onSelectDay(dateStr, entry)}
               title={!isAllowedDay ? 'Not one of your selected weekdays' : usable ? detail : undefined}
-              className={`flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#14213D] ${
+              className={`flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
                 !isAllowedDay
-                  ? 'cursor-not-allowed border-transparent bg-[#F1EEE6] text-[#b8b2a3] line-through opacity-60'
+                  ? 'cursor-not-allowed border-transparent bg-sand text-faint line-through opacity-60'
                   : isSelected
-                  ? 'border-[#14213D] bg-[#FFF8EC] ring-2 ring-[#14213D]'
+                  ? 'border-ink bg-amber-soft ring-2 ring-ink'
                   : entry
                   ? isGood
-                    ? 'border-[#A5D6A7] bg-[#E8F5E9] hover:border-[#14213D]'
-                    : 'border-[#F3B3AC] bg-[#FDECEA] hover:border-[#14213D]'
-                  : 'cursor-default border-transparent bg-[#FBF9F4] text-[#c9c3b6]'
-              } ${isCheapest && !isSelected ? 'outline outline-2 outline-[#FCA311]' : ''}`}
+                    ? 'border-ok-line bg-ok-bg hover:border-ink'
+                    : 'border-danger-line bg-danger-bg hover:border-ink'
+                  : 'cursor-default border-transparent bg-paper text-faint'
+              } ${isCheapest && !isSelected ? 'outline outline-2 outline-amber' : ''}`}
             >
+              <span className="sr-only">{spoken}</span>
               <span>{day}</span>
               {usable && <span className="font-mono tabular-nums">€{entry.price}</span>}
             </button>

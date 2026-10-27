@@ -101,3 +101,67 @@ any unexpected server-side crash with a branded "Something went wrong" page
 + retry button, instead of Next.js's generic crash screen -- the exact page
 we saw when debugging the Travelpayouts token issue) and `app/not-found.tsx`
 (branded 404 instead of the default one).
+
+# Polish pass — `feature/polish-pass` branch
+
+Six tasks, one commit each. Nothing merged, pushed or deployed.
+
+## Task 1: Return flight shown with price, airline and time
+Status: done
+
+Root cause: a Travelpayouts fare that has a return date is ONE round-trip price for
+both flights. The old code threw the return leg's details away. Now every trip is
+built from legs (`Leg`/`Fare` in `app/tripTypes.ts`), the return leg shows its own
+date, time and airline, and the UI says "one price for both flights" instead of
+inventing a split. Fares that are priced separately (Whole Month, open-jaw) show each
+leg's own cached price, or "no cached return price" when there is none.
+
+## Task 2: Trip cost panel stays on screen
+Status: done
+
+Desktop: sticky sidebar (the flex column had to stretch for `sticky` to work).
+Phones: sticky bottom bar with the live total. Stay days follow the chosen dates.
+Tested with 30+ results.
+
+## Task 3: Airline name and departure time everywhere
+Status: done
+
+`FlightLeg` is used in every view. Falls back to the airline code, then to
+"Airline not in data". Low-cost carriers get a small label. Names only, no logos
+(no free, reliable logo source).
+
+## Task 4: Drill-down navigation
+Status: done
+
+Every level has its own URL (Anywhere, country, destination, trip detail), with
+breadcrumbs, scroll-to-top when going forward, Back restores filters, selection and
+scroll position, skeleton loading screens, and the whole state lives in the URL.
+
+## Task 5: Design pass
+Status: done
+
+One consistent system (navy / amber / paper, IBM Plex), checked at 360, 390, 768,
+1024 and 1440 px. Page titles and descriptions on every page. Accessibility checked
+with axe (0 violations on 14 screens), keyboard focus, drawer focus trap. No new UI
+library.
+
+## Task 6: Critical review
+Status: done
+
+Fixed: API inputs are cleaned and capped, API answers carry cache headers, security
+headers added (`next.config.ts`), Calendar can't be paged outside the searchable
+range, "same day" trips are labelled, the trip page validates its URL, links with
+Ctrl/Cmd-click still open in a new tab, footer no longer hides behind the phone bar,
+duplicate night-counting code merged, three unused functions removed, a warning is
+logged once if the Travelpayouts token is missing, pre-existing lint errors
+(22) fixed so `npm run lint` is clean.
+
+Not fixed on purpose (needs a decision or real data):
+- Whole Month "out + back" adds two cached prices; the calendar prices look like
+  round-trip fares, so the sum may be too high. Open the calendar API URL to check.
+- The Anywhere list ranks countries by checking the cheapest-looking city of each
+  country; opening a country checks up to 10 cities.
+- `one_way=true` on the `v2/latest` call is assumed to be honoured by Travelpayouts.
+- No per-visitor rate limit on `/api/*` (needs a service like Upstash, so a new service).
+- Return-leg airline is assumed to be the same as the outbound one for round-trip fares.
+- No airline logos.

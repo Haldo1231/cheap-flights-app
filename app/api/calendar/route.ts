@@ -1,21 +1,20 @@
-import { NextResponse } from 'next/server'
-import { fetchMonthCalendar } from '../../flightSources'
+import { fetchMonthCalendarDetailed } from '../../flightSources'
+import { getAirlineNames } from '../../airlines'
+import { badRequest, cachedJson, cleanCode, cleanCodes, cleanMonth } from '../../lib/apiParams'
+import type { CalendarDay, CalendarDayMap } from '../../tripTypes'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const destination = searchParams.get('destination')
-  const originsParam = searchParams.get('origins')
-  const month = searchParams.get('month')
-  const leg = searchParams.get('leg') || 'outbound'
+  const destination = cleanCode(searchParams.get('destination'))
+  const month = cleanMonth(searchParams.get('month'))
+  const leg = searchParams.get('leg') === 'inbound' ? 'inbound' : 'outbound'
 
-  if (!destination || !month) {
-    return NextResponse.json({ error: 'Missing destination or month' }, { status: 400 })
-  }
+  if (!destination || !month) return badRequest('Missing or invalid destination or month')
 
-  const origins = originsParam ? originsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : []
+  const origins = cleanCodes(searchParams.get('origins'), [])
   const token = process.env.TRAVELPAYOUTS_TOKEN
 
-  const result: Record<string, { price: number; origin: string }> = {}
+  const result: CalendarDayMap = {}
 
   await Promise.all(
     origins.map(async (origin) => {
@@ -25,16 +24,30 @@ export async function GET(request: Request) {
       // city, so it's set explicitly below rather than trusted from the call.
       const data =
         leg === 'inbound'
-          ? await fetchMonthCalendar(destination, origin, month, token)
-          : await fetchMonthCalendar(origin, destination, month, token)
+          ? await fetchMonthCalendarDetailed(destination, origin, month, token)
+          : await fetchMonthCalendarDetailed(origin, destination, month, token)
 
       for (const [date, entry] of Object.entries(data)) {
         if (!result[date] || entry.price < result[date].price) {
-          result[date] = { price: entry.price, origin }
+          result[date] = {
+            price: entry.price,
+            origin,
+            airlineCode: entry.airlineCode,
+            airlineName: null,
+            time: entry.time,
+            stops: entry.stops,
+            returnDate: entry.returnDate,
+            returnTime: entry.returnTime,
+          }
         }
       }
     })
   )
 
-  return NextResponse.json({ data: result })
+  const names = await getAirlineNames(Object.values(result).map((d: CalendarDay) => d.airlineCode))
+  for (const day of Object.values(result)) {
+    if (day.airlineCode) day.airlineName = names.get(day.airlineCode) || null
+  }
+
+  return cachedJson({ data: result })
 }

@@ -1,107 +1,99 @@
-import { NextResponse } from 'next/server'
-import { getDayFlights, getRangeFlights } from '../../flightSources'
+import { getDayFlights, getRangeFlights, getCheapestLeg, flightToFare, type Flight } from '../../flightSources'
+import { buildBookingLink } from '../../aviasalesLink'
+import { HOME_AIRPORTS } from '../../homeAirports'
+import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate, cleanInt, cleanMonth } from '../../lib/apiParams'
+import type { CompareResponse, Fare, OpenJawCombo, PricedLeg } from '../../tripTypes'
 
-const DEFAULT_ORIGINS = ['BTS', 'VIE', 'BUD', 'KSC', 'PRG']
+// Keeps the response (and the page) a sensible size for very busy routes.
+const MAX_FARES = 100
 
-async function searchLeg(
-  origin: string,
-  destination: string,
-  token: string | undefined,
-  date: string | undefined
-) {
-  let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur&token=${token}`
-  if (date) url += `&depart_date=${date}`
-
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const json = await res.json()
-
-    const destData = json.data?.[destination]
-    if (!destData) return null
-    const firstEntry: any = Object.values(destData)[0]
-    if (!firstEntry) return null
-
-    return {
-      price: firstEntry.price,
-      departure_at: firstEntry.departure_at,
-    }
-  } catch {
-    return null
+function toPricedLeg(f: Flight): PricedLeg {
+  return {
+    origin: f.origin,
+    destination: f.destination,
+    date: f.departureDate,
+    time: f.departureTime,
+    airlineCode: f.airlineCode,
+    airlineName: f.airlineName,
+    stops: f.stops,
+    bookingUrl: buildBookingLink(f.origin, f.destination, f.departureDate),
+    price: f.price,
   }
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const destination = searchParams.get('destination')
-  const originsParam = searchParams.get('origins')
+  const destination = cleanCode(searchParams.get('destination'))
   const oneWay = searchParams.get('oneWay') === 'true'
   const dateMode = searchParams.get('dateMode') || 'exact'
 
-  if (!destination) {
-    return NextResponse.json({ error: 'Missing destination' }, { status: 400 })
-  }
+  if (!destination) return badRequest('Missing or invalid destination')
 
-  const origins = originsParam
-    ? originsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
-    : DEFAULT_ORIGINS
-
+  const origins = cleanCodes(searchParams.get('origins'), HOME_AIRPORTS)
   const token = process.env.TRAVELPAYOUTS_TOKEN
-
   const openJaw = searchParams.get('openJaw') === 'true'
+  // leg=inbound: `destination` is the city you fly FROM and `origins` are the
+  // home airports you fly BACK TO (used for the return day of a Whole Month trip).
+  const inboundLeg = searchParams.get('leg') === 'inbound'
 
   if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'month')) {
-    const outDate = dateMode === 'exact' ? searchParams.get('departDate') || undefined : searchParams.get('month') || undefined
-    const backDate = dateMode === 'exact' ? searchParams.get('returnDate') || undefined : searchParams.get('month') || undefined
+    const outDate =
+      dateMode === 'exact' ? cleanDate(searchParams.get('departDate')) : cleanMonth(searchParams.get('month'))
+    const backDate =
+      dateMode === 'exact' ? cleanDate(searchParams.get('returnDate')) : cleanMonth(searchParams.get('month'))
 
-    const outLegs = await Promise.all(
-      origins.map(async (o) => ({ origin: o, leg: await searchLeg(o, destination, token, outDate) }))
-    )
-    const backLegs = await Promise.all(
-      origins.map(async (o) => ({ origin: o, leg: await searchLeg(destination, o, token, backDate) }))
-    )
+    const [outLegs, backLegs] = await Promise.all([
+      Promise.all(origins.map((o) => getCheapestLeg(o, destination, outDate ?? undefined, token))),
+      Promise.all(origins.map((o) => getCheapestLeg(destination, o, backDate ?? undefined, token))),
+    ])
 
-    const validOut = outLegs.filter((l) => l.leg !== null)
-    const validBack = backLegs.filter((l) => l.leg !== null)
+    const validOut = outLegs.filter((l): l is Flight => l !== null).map(toPricedLeg)
+    const validBack = backLegs.filter((l): l is Flight => l !== null).map(toPricedLeg)
 
-    const combos: any[] = []
-    for (const out of validOut) {
-      for (const back of validBack) {
-        combos.push({
-          outOrigin: out.origin,
-          backOrigin: back.origin,
-          outPrice: out.leg!.price,
-          backPrice: back.leg!.price,
-          outDeparture: out.leg!.departure_at,
-          backDeparture: back.leg!.departure_at,
-          total: out.leg!.price + back.leg!.price,
-        })
+    // A trip only counts as a complete round trip when BOTH legs have a cached
+    // price; otherwise we say which leg is missing instead of showing a half trip.
+    const combos: OpenJawCombo[] = []
+    for (const outbound of validOut) {
+      for (const inbound of validBack) {
+        combos.push({ outbound, inbound, total: outbound.price + inbound.price })
       }
     }
-
     combos.sort((a, b) => a.total - b.total)
 
-    return NextResponse.json({ destination, openJaw: true, results: combos.slice(0, 8) })
+    const body: CompareResponse = {
+      openJaw: true,
+      destination,
+      results: combos.slice(0, 8),
+      missingOutbound: validOut.length === 0,
+      missingReturn: validBack.length === 0,
+      outboundOnly: validBack.length === 0 ? validOut.sort((a, b) => a.price - b.price) : [],
+    }
+    return cachedJson(body)
   }
 
-  let allFlights: Awaited<ReturnType<typeof getDayFlights>> = []
+  let allFlights: Flight[] = []
+  const requestedReturn = oneWay ? null : cleanDate(searchParams.get('returnDate'))
 
   if (dateMode === 'range') {
-    const rangeStart = searchParams.get('rangeStart') || undefined
-    const rangeEnd = searchParams.get('rangeEnd') || undefined
-    const minDays = parseInt(searchParams.get('minDays') || '2', 10)
-    const maxDays = parseInt(searchParams.get('maxDays') || '10', 10)
+    const rangeStart = cleanDate(searchParams.get('rangeStart')) ?? undefined
+    const rangeEnd = cleanDate(searchParams.get('rangeEnd')) ?? undefined
+    const minDays = cleanInt(searchParams.get('minDays'), 2, 1, 30)
+    const maxDays = cleanInt(searchParams.get('maxDays'), 10, 1, 30)
 
     const perOrigin = await Promise.all(
-      origins.map((origin) => getRangeFlights(origin, destination, rangeStart, rangeEnd, minDays, maxDays, token))
+      origins.map((origin) => getRangeFlights(origin, destination, rangeStart, rangeEnd, minDays, maxDays, token, { oneWay }))
     )
     allFlights = perOrigin.flat()
   } else {
     // exact-date mode (and the fallback for any other non-openJaw mode)
-    const departDate = searchParams.get('departDate')
+    const departDate = cleanDate(searchParams.get('departDate'))
     if (departDate) {
       const perOrigin = await Promise.all(
-        origins.map((origin) => getDayFlights(origin, destination, departDate, token))
+        origins.map((origin) =>
+          inboundLeg
+            ? getDayFlights(destination, origin, departDate, token, { oneWay, returnDate: requestedReturn })
+            : getDayFlights(origin, destination, departDate, token, { oneWay, returnDate: requestedReturn })
+        )
       )
       allFlights = perOrigin.flat()
     }
@@ -109,20 +101,15 @@ export async function GET(request: Request) {
 
   allFlights.sort((a, b) => a.price - b.price)
 
-  // Shape kept close to the old response (origin/price/departure_at/return_at)
-  // so the results page's existing rendering keeps working, with the new
-  // fields (airline, stops, gate) added alongside.
-  const results = allFlights.map((f) => ({
-    origin: f.origin,
-    price: f.price,
-    departure_at: f.departureTime ? `${f.departureDate}T${f.departureTime}:00` : f.departureDate,
-    return_at: f.returnDate,
-    stops: f.stops,
-    airlineCode: f.airlineCode,
-    airlineName: f.airlineName,
-    gate: f.gate,
-    bookingUrl: f.bookingUrl,
-  }))
+  const fares: Fare[] = allFlights.slice(0, MAX_FARES).map((f) => flightToFare(f, requestedReturn))
 
-  return NextResponse.json({ destination, results })
+  const body: CompareResponse = {
+    destination,
+    results: fares,
+    total: allFlights.length,
+    requestedReturn,
+    oneWayRequested: oneWay,
+  }
+  return cachedJson(body)
 }
+

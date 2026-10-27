@@ -5,11 +5,13 @@ const TP_CAMPAIGN_ID = '100'
 const TP_P = '4114'
 const TP_TRS = '588622'
 
+// Takes the day and month straight from the "YYYY-MM-DD..." text so the link
+// never depends on the server's or browser's timezone (new Date() could shift
+// an early-morning departure to the previous day).
 function ddmm(dateStr: string) {
-  const d = new Date(dateStr)
-  const day = String(d.getDate()).padStart(2, '0')
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  return `${day}${month}`
+  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(dateStr)
+  if (!m) return ''
+  return `${m[2]}${m[1]}`
 }
 
 function searchPath(origin: string, destination: string, departDate?: string, returnDate?: string) {

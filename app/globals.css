@@ -1,18 +1,86 @@
 @import "tailwindcss";
 
-:root {
-  --ink: #14213D;
-  --paper: #FBF9F4;
-  --amber: #FCA311;
-  --slate: #5B6472;
-  --line: #E5E1D8;
+/* Design tokens: navy / amber / paper, as Tailwind colours (text-ink, bg-paper,
+   border-line, bg-amber ...). Amber is for prices and "cheapest"; for amber TEXT
+   use amber-ink, which stays readable on paper. */
+@theme {
+  --color-ink: #14213D;
+  --color-ink-hover: #1c2d52;
+  --color-paper: #FBF9F4;
+  --color-amber: #FCA311;
+  --color-amber-hover: #e8940a;
+  --color-amber-ink: #8A5A00;
+  --color-amber-soft: #FFF8EC;
+  --color-amber-soft-hover: #FFF2DB;
+  --color-slate: #5B6472;
+  --color-line: #E5E1D8;
+  --color-sand: #F1EEE6;
+  --color-faint: #BDB7A8;
+  --color-danger: #8A2F22;
+  --color-danger-bg: #FDECEA;
+  --color-danger-line: #F3B3AC;
+  --color-ok-bg: #E8F5E9;
+  --color-ok-line: #A5D6A7;
+}
+
+html {
+  scroll-padding-top: 1rem;
+}
+
+/* Keeps the page from jumping sideways when the drawer locks scrolling. Only
+ * where the drawer is a side panel; on phones it is a full-width bottom sheet
+ * and the scrollbar floats over the page, so there is nothing to reserve. */
+@media (min-width: 640px) {
+  html {
+    scrollbar-gutter: stable;
+  }
 }
 
 body {
-  background-color: var(--paper);
-  color: var(--ink);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  line-height: 1.55;
 }
 
-.font-mono-data {
+/* One consistent keyboard focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* Prices and codes: monospace with equal-width digits so columns line up. */
+.num {
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* Screen transitions: short and gentle, and off for people who ask for less motion. */
+/* Opacity only: a transform on a screen container would make it the reference
+   box for position:fixed children (the drawer and the mobile cost bar). */
+@keyframes view-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drawer-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes drawer-in-right {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+.view-in { animation: view-in 180ms ease-out; }
+.fade-in { animation: fade-in 160ms ease-out both; }
+.drawer-panel { animation: drawer-in-bottom 220ms ease-out both; }
+@media (min-width: 640px) {
+  .drawer-panel { animation-name: drawer-in-right; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-in, .fade-in, .drawer-panel { animation: none; }
 }

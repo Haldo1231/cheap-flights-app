@@ -7,6 +7,7 @@ import AnywhereCityRow from '../../components/AnywhereCityRow'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
 import DrillLink from '../../components/DrillLink'
 import CountryPhoto, { PhotoCredit } from '../../components/CountryPhoto'
+import ShareButton from '../../components/ShareButton'
 import { RowListSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
@@ -43,7 +44,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
           { label: loading ? 'Country' : countryName, flag: p.country },
         ]}
       />
-      <div className="relative mb-4 h-40 overflow-hidden rounded-lg bg-ink sm:h-52">
+      <div className="relative mb-4 h-40 overflow-hidden rounded-lg bg-deep sm:h-52">
         <CountryPhoto
           code={p.country}
           image={data?.country?.image}
@@ -56,6 +57,14 @@ export default function CountryView({ p }: { p: ResultsParams }) {
         <h1 className="absolute inset-x-0 bottom-0 p-4 text-2xl font-semibold text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.45)] sm:p-6 sm:text-3xl">
           {loading ? 'Checking every city…' : countryName}
         </h1>
+        {data?.country && (
+          <ShareButton
+            title={countryName}
+            text={`${countryName} — cheap flights found on cheapflights`}
+            variant="round"
+            className="absolute bottom-3 right-3 z-10"
+          />
+        )}
         {data?.country?.image && !photoFailed && (
           <PhotoCredit
             image={data.country.image}

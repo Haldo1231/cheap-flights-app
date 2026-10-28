@@ -47,8 +47,8 @@ function Chip({
       <span
         className={`pill min-h-11 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
           tone === 'navy'
-            ? 'border-line bg-white text-ink hover:border-ink peer-checked:border-ink peer-checked:bg-ink peer-checked:text-white'
-            : 'border-line bg-white text-ink hover:border-ink peer-checked:border-amber peer-checked:bg-amber-soft'
+            ? 'border-line bg-surface text-ink hover:border-ink peer-checked:border-ink peer-checked:bg-navy peer-checked:text-white'
+            : 'border-line bg-surface text-ink hover:border-ink peer-checked:border-amber peer-checked:bg-amber-soft'
         }`}
       >
         {children}
@@ -60,7 +60,7 @@ function Chip({
 function Heading({ n, id, children }: { n: number; id: string; children: React.ReactNode }) {
   return (
     <h2 id={id} className="mb-3 flex items-center gap-3 text-base font-semibold">
-      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs text-white">{n}</span>
+      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-full bg-navy text-xs text-white">{n}</span>
       {children}
     </h2>
   )
@@ -513,12 +513,12 @@ export default function SearchForm() {
           )}
         </section>
 
-        <button
-          type="submit"
-          className="btn btn-amber btn-lg w-full sm:w-auto"
-        >
-          Search flights
-        </button>
+        {/* On phones the main button stays at the bottom of the screen while you scroll the form. */}
+        <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-paper/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+          <button type="submit" className="btn btn-amber btn-lg w-full sm:w-auto">
+            Search flights
+          </button>
+        </div>
       </form>
     </div>
   )

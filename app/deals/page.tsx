@@ -6,17 +6,19 @@ import { getDayFlights, flightToFare } from '../flightSources'
 import { mapWithLimit } from '../lib/pool'
 import FareCard from '../components/FareCard'
 import PageHero from '../components/PageHero'
+import { pageMetadata } from '../lib/seo'
 import type { Fare } from '../tripTypes'
 
 // The daily job refreshes the table, so rebuild this page at least hourly
 // instead of freezing whatever was in the table when the site was last deployed.
 export const revalidate = 3600
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "This week's cheap flight deals",
   description:
     'The cheapest cached flights this week from Bratislava, Vienna, Budapest, Košice and Prague, with airlines and times where the data has them.',
-}
+  path: '/deals',
+})
 
 type Deal = {
   id: number
@@ -75,7 +77,7 @@ export default async function DealsPage() {
 
   return (
     <div>
-      <PageHero eyebrow="Updated daily" title="Top cheap flights this week">
+      <PageHero eyebrow="Fresh every day" title="Top cheap flights this week">
         <p>
           The cheapest cached fares from Bratislava, Vienna, Budapest, Košice and Prague. Prices are cached and may change
           on the booking site.
@@ -99,6 +101,8 @@ export default async function DealsPage() {
                 key={deal.id}
                 fare={fares[i]}
                 isCheapest={i === 0}
+                shareHref={`/destinations/${deal.destination_slug}`}
+                shareTitle={deal.destination_city}
                 heading={
                   <Link href={`/destinations/${deal.destination_slug}`} className="hover:underline">
                     {deal.destination_city}

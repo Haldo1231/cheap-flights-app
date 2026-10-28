@@ -81,7 +81,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && countries.length === 0 && unmatched.length === 0 && (
-        <div className="rounded-lg border border-line bg-white px-5 py-8 text-center sm:px-8">
+        <div className="rounded-lg border border-line bg-surface px-5 py-8 text-center sm:px-8">
           <CompassIcon className="mx-auto mb-3 h-10 w-10 text-amber-ink" />
           <p className="mb-2 text-lg font-semibold">No cached destinations for this search</p>
           <p className="mx-auto mb-4 max-w-md text-sm text-slate">
@@ -102,7 +102,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && countries.length === 0 && unmatched.length > 0 && (
-        <div className="mb-6 rounded-lg border border-line bg-white px-5 py-6 sm:px-8">
+        <div className="mb-6 rounded-lg border border-line bg-surface px-5 py-6 sm:px-8">
           <p className="mb-1 text-lg font-semibold">No country has a day that fits your filters</p>
           <p className="text-sm text-slate">
             Try loosening them: allow more weekdays, a wider range of nights, or another month. The countries below do
@@ -153,7 +153,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
                   <li key={c.code}>
                     <DrillLink
                       href={withParams(p.searchString, { country: c.code })}
-                      className="flex items-center justify-between rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+                      className="flex items-center justify-between rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
                     >
                       <span className="font-medium text-ink">
                         <Flag code={c.code} className="mr-2" />

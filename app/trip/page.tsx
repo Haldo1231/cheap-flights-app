@@ -1,4 +1,5 @@
 import Flag from '../components/Flag'
+import ShareButton from '../components/ShareButton'
 import { airportCountryCode } from '../airportsList'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -10,6 +11,9 @@ import { buildBookingLink } from '../aviasalesLink'
 import { parseTrip, resultsHrefFromTrip, type TripLegSnapshot, type TripSnapshot } from '../lib/tripUrl'
 import { withParams, filtersOnly } from '../lib/resultsUrl'
 import { formatDay, formatShortDate, formatNights, nightsBetweenDates } from '../lib/format'
+import { pageMetadata } from '../lib/seo'
+import type { OgCard } from '../lib/ogCard'
+import { tripShareCard } from '../lib/shareData'
 import { AIRPORTS } from '../airportsList'
 import type { Leg } from '../tripTypes'
 import Breadcrumbs, { type Crumb } from '../components/Breadcrumbs'
@@ -42,11 +46,19 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
   const dates = trip.inbound
     ? `${formatShortDate(trip.outbound.date)} – ${formatShortDate(trip.inbound.date)}`
     : formatShortDate(trip.outbound.date)
-  return {
-    title: `${name} trip, ${dates}`,
-    description: `Flights, stay costs and total price for a trip from ${cityLabel(trip.outbound.origin)} to ${name}. Prices are cached and may change.`,
-    robots: { index: false },
+  let card: OgCard | null = null
+  try {
+    card = await tripShareCard(trip)
+  } catch {
+    card = null
   }
+  return pageMetadata({
+    title: `${name} trip, ${dates}`,
+    previewTitle: `${name} from €${trip.price} · ${dates}`,
+    description: `Flights, stay costs and total price for a trip from ${cityLabel(trip.outbound.origin)} to ${name}. Prices are cached and may change.`,
+    card,
+    noindex: true,
+  })
 }
 
 function legFrom(s: TripLegSnapshot, names: Map<string, string>): Leg {
@@ -77,7 +89,7 @@ function MissingTrip() {
 }
 
 const BOOK_BUTTON =
-  'inline-block rounded-sm bg-amber px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+  'inline-block rounded-sm bg-amber px-5 py-2.5 text-sm font-semibold text-deep transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
 
 export default async function TripPage({ searchParams }: { searchParams: SearchParams }) {
   const rawParams = toUrlParams(await searchParams)
@@ -160,13 +172,19 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
       <div className="view-in">
         <ScrollTopOnArrive />
         <Breadcrumbs items={crumbs} />
-        <h1 className="h-page mb-1">
-          <Flag code={fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" />
-          {cityName}
-          <span className="ml-2 font-mono text-base font-normal text-slate">
-            {trip.inbound ? `${formatNights(nights)}` : 'one way'}
-          </span>
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="h-page mb-1">
+            <Flag code={fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" />
+            {cityName}
+            <span className="ml-2 font-mono text-base font-normal text-slate">
+              {trip.inbound ? `${formatNights(nights)}` : 'one way'}
+            </span>
+          </h1>
+          <ShareButton
+            title={cityName}
+            text={`${cityName} from €${trip.price}${trip.inbound ? ' round trip' : ''} — found on cheapflights`}
+          />
+        </div>
         <p className="mb-6 text-sm text-slate">
           {cityLabel(homeOut)} {trip.inbound ? '⇄' : '→'} {cityName}
           {homeBack && homeBack !== homeOut ? ` (back to ${cityLabel(homeBack)})` : ''} · cached prices, they may change on

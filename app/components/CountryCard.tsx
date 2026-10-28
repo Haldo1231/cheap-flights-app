@@ -5,6 +5,7 @@ import DrillLink from './DrillLink'
 import FlightLeg from './FlightLeg'
 import CountryPhoto, { PhotoCredit } from './CountryPhoto'
 import Flag from './Flag'
+import ShareButton from './ShareButton'
 import type { AnywhereCountry } from '../tripTypes'
 
 type Props = {
@@ -33,24 +34,24 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
 
   return (
     <li
-      className="group rise-in relative transition-transform duration-300 ease-out hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:transform-none"
+      className="group rise-in relative transition-transform duration-300 ease-out hover:-translate-y-1 active:scale-[0.985] motion-reduce:transition-none motion-reduce:hover:transform-none motion-reduce:active:transform-none"
       style={{ animationDelay: `${Math.min(index, 11) * 45}ms` }}
     >
       <DrillLink
         href={href}
-        className="flex h-full flex-col overflow-hidden rounded-lg border border-line bg-white shadow-sm transition-shadow duration-300 group-hover:shadow-xl group-hover:shadow-ink/15"
+        className="flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-sm transition-shadow duration-300 group-hover:shadow-xl group-hover:shadow-deep/25"
       >
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-deep">
           <CountryPhoto code={country.code} image={country.image} failed={failed} onFail={() => setFailed(true)} sizes={PHOTO_SIZES} eager={eager} />
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
           {credit && <Flag code={country.code} size="md" className="absolute left-3 top-3 shadow-md" />}
-          {cheapest && (
-            <span className="absolute right-3 top-3 rounded-full bg-amber px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-wide text-ink shadow-sm">
-              Cheapest
-            </span>
-          )}
           <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
             <div className="min-w-0">
+              {cheapest && (
+                <span className="mb-1.5 inline-block rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-deep shadow-sm">
+                  Cheapest
+                </span>
+              )}
               <h3 className="line-clamp-2 text-xl font-semibold leading-tight [text-shadow:0_1px_8px_rgba(0,0,0,0.45)]">{country.name}</h3>
               <p className="text-sm text-white/90">{destinations}</p>
             </div>
@@ -80,6 +81,13 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
           )}
         </div>
       </DrillLink>
+      <ShareButton
+        href={href}
+        title={country.name}
+        text={`${country.name}${country.price != null ? ` from €${country.price}` : ''} — found on cheapflights`}
+        variant="round"
+        className="absolute right-3 top-3 z-10"
+      />
       {credit && (
         <PhotoCredit image={credit} className="absolute inset-x-4 bottom-1.5 z-10 text-slate [&_a:hover]:text-ink" />
       )}

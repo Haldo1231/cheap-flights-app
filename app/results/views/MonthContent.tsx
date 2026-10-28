@@ -83,7 +83,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
           </h2>
           {loading && <FareListSkeleton count={2} label="Finding the best day pairs" />}
           {!loading && m.bestCombinations.length === 0 && (
-            <p className="rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
+            <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
               {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
                 ? 'No pair of days fits your weekday and nights filters in these months. A trip needs a cached price on both the outbound and the return day. Loosen the filters, or browse other months with the arrows below.'
                 : `No complete round trip to suggest: ${
@@ -106,13 +106,13 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                       onClick={() => pickCombo(combo)}
                       aria-pressed={picked}
                       className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink motion-reduce:transition-none ${
-                        picked ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-white hover:border-ink/40 hover:bg-paper'
+                        picked ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-surface hover:border-ink/40 hover:bg-paper'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           {i === 0 && (
-                            <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide">
+                            <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">
                               Cheapest
                             </span>
                           )}

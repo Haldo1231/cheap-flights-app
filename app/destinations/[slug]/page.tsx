@@ -10,6 +10,9 @@ import FareCard from '../../components/FareCard'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import HostelList, { type Hostel } from '../../components/HostelList'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/CostOfStay'
+import { pageMetadata } from '../../lib/seo'
+import type { OgCard } from '../../lib/ogCard'
+import { formatShortDate } from '../../lib/format'
 
 const TRIP_DAYS = 3
 
@@ -28,10 +31,32 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   const destination = await getDestination(slug)
   if (!destination) return { title: 'Destination not found' }
-  return {
-    title: `${destination.name}: cheap flights and trip cost`,
-    description: `Cheapest cached flights to ${destination.name} from Bratislava, Vienna, Budapest, Košice and Prague, plus an estimate of daily costs and hostel picks.`,
+  // The preview card shows the cheapest cached fare, when there is one.
+  let card: OgCard | null = null
+  let price: number | null = null
+  try {
+    const fare = destination.airport_code
+      ? await getCheapestFare(HOME_AIRPORTS, destination.airport_code, process.env.TRAVELPAYOUTS_TOKEN)
+      : null
+    price = fare?.price ?? null
+    card = {
+      title: destination.name,
+      eyebrow: 'From 5 airports',
+      price,
+      note: fare ? (fare.inbound ? 'round trip' : 'one way') : '',
+      line: fare ? `${formatShortDate(fare.outbound.date)}${fare.inbound ? ` → ${formatShortDate(fare.inbound.date)}` : ''}` : 'Flights, stay costs and hostels',
+      cc: airportCountryCode(destination.airport_code) ?? '',
+    }
+  } catch {
+    card = null
   }
+  return pageMetadata({
+    title: `${destination.name}: cheap flights and trip cost`,
+    previewTitle: price !== null ? `${destination.name} from €${price}` : `${destination.name}: cheap flights`,
+    description: `Cheapest cached flights to ${destination.name} from Bratislava, Vienna, Budapest, Košice and Prague, plus an estimate of daily costs and hostel picks.`,
+    path: `/destinations/${slug}`,
+    card,
+  })
 }
 
 export default async function DestinationPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -84,7 +109,7 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
             </p>
             {fare ? (
               <ul>
-                <FareCard fare={fare} isCheapest />
+                <FareCard fare={fare} isCheapest shareHref={`/destinations/${slug}`} shareTitle={destination.name} />
               </ul>
             ) : (
               <div className="surface p-4 text-sm text-slate">

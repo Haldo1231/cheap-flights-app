@@ -116,7 +116,7 @@ export default function AirportPicker({ onSelect, placeholder, label, onSelectAn
         role="listbox"
         aria-label={`${label} suggestions`}
         hidden={!showList}
-        className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-white shadow-lift"
+        className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-surface shadow-lift"
       >
         {options.map((option, i) => (
           <li

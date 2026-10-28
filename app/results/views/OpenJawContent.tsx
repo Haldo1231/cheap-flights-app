@@ -20,12 +20,12 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
   return (
     <div>
       {nothing && (
-        <p className="rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
+        <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
           No cached prices found for this search.
         </p>
       )}
       {data.missingOutbound && (
-        <p className="mb-3 rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
+        <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
           No cached outbound price found from your airports to {destination}, so no complete trip can be built.
         </p>
       )}
@@ -54,7 +54,7 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
           {data.results.map((combo, i) => (
             <li
               key={`${combo.outbound.origin}-${combo.inbound.destination}-${combo.total}-${i}`}
-              className={`rounded-lg border bg-white shadow-card transition-shadow duration-200 hover:shadow-lift motion-reduce:transition-none ${i === 0 ? 'border-amber ring-1 ring-amber' : 'border-line'}`}
+              className={`rounded-lg border bg-surface shadow-card transition-shadow duration-200 hover:shadow-lift motion-reduce:transition-none ${i === 0 ? 'border-amber ring-1 ring-amber' : 'border-line'}`}
             >
               <DrillLink
                 href={tripHref(p.searchString, destination, snapshotFromLegs(combo.outbound, combo.inbound))}
@@ -63,7 +63,7 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     {i === 0 && (
-                      <span className="mb-1 inline-block rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide">
+                      <span className="mb-1 inline-block rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-deep">
                         Cheapest combo
                       </span>
                     )}

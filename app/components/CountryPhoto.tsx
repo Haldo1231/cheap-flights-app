@@ -33,7 +33,7 @@ export default function CountryPhoto({ code, image, failed, onFail, sizes, eager
         loading={eager ? 'eager' : 'lazy'}
         fetchPriority={eager ? 'high' : 'auto'}
         onError={onFail}
-        className="object-cover transition-transform duration-700 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:transform-none"
+        className="object-cover object-[center_40%] transition-transform duration-700 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:transform-none"
       />
     </div>
   )

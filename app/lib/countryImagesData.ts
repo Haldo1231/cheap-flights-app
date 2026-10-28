@@ -17,7 +17,9 @@ function isUsable(image: Partial<CountryImage> | undefined): image is CountryIma
     image.raw.startsWith('https://images.unsplash.com/') &&
     typeof image.photographer === 'string' &&
     typeof image.photographerUrl === 'string' &&
-    typeof image.photoUrl === 'string'
+    image.photographerUrl.startsWith('https://unsplash.com/') &&
+    typeof image.photoUrl === 'string' &&
+    image.photoUrl.startsWith('https://unsplash.com/')
   )
 }
 

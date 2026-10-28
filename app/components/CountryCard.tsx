@@ -49,7 +49,7 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
           )}
           <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
             <div className="min-w-0">
-              <h3 className="truncate text-xl font-semibold leading-tight [text-shadow:0_1px_8px_rgba(0,0,0,0.45)]">{country.name}</h3>
+              <h3 className="line-clamp-2 text-xl font-semibold leading-tight [text-shadow:0_1px_8px_rgba(0,0,0,0.45)]">{country.name}</h3>
               <p className="text-sm text-white/90">{destinations}</p>
             </div>
             <div className="shrink-0 text-right">

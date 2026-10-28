@@ -140,7 +140,7 @@ export default function Home() {
           Or{' '}
           <Link
             href="/search?to=ANYWHERE"
-            className="font-medium text-white underline decoration-amber decoration-2 underline-offset-4 transition-colors hover:text-amber"
+            className="inline-block py-1 font-medium text-white underline decoration-amber decoration-2 underline-offset-4 transition-colors hover:text-amber"
           >
             search anywhere with your own dates →
           </Link>

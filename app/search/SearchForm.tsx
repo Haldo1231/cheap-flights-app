@@ -3,8 +3,10 @@
 import { useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
+import Flag from '../components/Flag'
+import { PlaneIcon } from '../components/Icons'
 import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
-import { AIRPORTS } from '../airportsList'
+import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { HOME_AIRPORTS } from '../homeAirports'
 import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
 import { formatMonth } from '../lib/format'
@@ -301,6 +303,7 @@ export default function SearchForm() {
               const a = AIRPORTS.find((x) => x.code === code)
               return (
                 <Chip key={code} type="checkbox" name="origin" checked={selectedAirports.includes(code)} onChange={() => toggleAirport(code)}>
+                  <Flag code={a?.countryCode} size="xs" className="mr-2" />
                   <span className="num">{code}</span>
                   <span className="ml-2">{a?.city}</span>
                 </Chip>
@@ -314,6 +317,7 @@ export default function SearchForm() {
                 aria-label={`Remove ${o.city}`}
                 className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
               >
+                <Flag code={airportCountryCode(o.code)} size="xs" className="mr-2" />
                 <span className="num">{o.code}</span>
                 <span className="ml-2">{o.city}</span>
                 <span aria-hidden="true" className="ml-2">
@@ -342,11 +346,12 @@ export default function SearchForm() {
             >
               {isAnywhere ? (
                 <>
-                  <span aria-hidden="true">✈️</span>
+                  <PlaneIcon className="h-4 w-4 text-amber-ink" />
                   <span className="ml-2">Anywhere</span>
                 </>
               ) : (
                 <>
+                  <Flag code={airportCountryCode(destinationCode)} size="xs" className="mr-2" />
                   <span className="num">{destinationCode}</span>
                   <span className="ml-2">{destinationCity}</span>
                 </>

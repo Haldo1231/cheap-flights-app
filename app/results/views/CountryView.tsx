@@ -40,7 +40,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
         items={[
           { label: 'Search', href: '/search' },
           { label: 'Anywhere', href: anywhereHref },
-          { label: loading ? 'Country' : countryName },
+          { label: loading ? 'Country' : countryName, flag: p.country },
         ]}
       />
       <div className="relative mb-4 h-40 overflow-hidden rounded-lg bg-ink sm:h-52">

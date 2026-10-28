@@ -74,10 +74,3 @@ export function photoLoader({ src, width, quality }: { src: string; width: numbe
     return src
   }
 }
-
-/** The flag emoji for a 2-letter country code ("IT" -> the Italian flag), or "" if it is not one. */
-export function countryFlag(code: string): string {
-  const c = code.toUpperCase()
-  if (!/^[A-Z]{2}$/.test(c)) return ''
-  return String.fromCodePoint(...Array.from(c, (ch) => 0x1f1e6 + ch.charCodeAt(0) - 65))
-}

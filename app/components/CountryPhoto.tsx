@@ -1,7 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { countryFlag, photoLoader, creditLink, PHOTO_SITES, type CountryImage } from '../lib/countryImage'
+import { photoLoader, creditLink, PHOTO_SITES, type CountryImage } from '../lib/countryImage'
+import Flag from './Flag'
 
 type PhotoProps = {
   code: string
@@ -47,7 +48,6 @@ function seed(code: string): number {
 /** Navy-to-amber gradient with the flag and the country code as a big watermark. */
 function FallbackArt({ code }: { code: string }) {
   const x = 15 + (seed(code) % 70)
-  const flag = countryFlag(code)
   return (
     <div
       aria-hidden="true"
@@ -59,7 +59,7 @@ function FallbackArt({ code }: { code: string }) {
       <span className="num absolute -bottom-6 right-2 select-none text-[9rem] font-semibold leading-none text-white/[0.07]">
         {code}
       </span>
-      {flag && <span className="absolute left-4 top-3 text-5xl leading-none drop-shadow-sm">{flag}</span>}
+      <Flag code={code} size="xl" className="absolute left-4 top-4 shadow-lg" />
     </div>
   )
 }

@@ -2,6 +2,8 @@
 
 import { useId, useMemo, useRef, useState } from 'react'
 import { AIRPORTS } from '../airportsList'
+import Flag from './Flag'
+import { PlaneIcon } from './Icons'
 
 type Props = {
   onSelect: (code: string, city: string) => void
@@ -15,7 +17,7 @@ type Props = {
 
 const MAX_OPTIONS = 7
 
-type Option = { key: string; code: string; city: string; detail: string; anywhere?: boolean }
+type Option = { key: string; code: string; city: string; detail: string; countryCode?: string; anywhere?: boolean }
 
 /** Type a city, airport code or country and pick from the list. Works with the
  * keyboard (arrows, Enter, Esc) and is announced properly by screen readers. */
@@ -36,7 +38,7 @@ export default function AirportPicker({ onSelect, placeholder, label, onSelectAn
           // cities that START with what was typed come first
           .sort((a, b) => Number(b.city.toLowerCase().startsWith(q)) - Number(a.city.toLowerCase().startsWith(q)))
           .slice(0, MAX_OPTIONS)
-          .map((a) => ({ key: a.code, code: a.code, city: a.city, detail: `${a.country} · ${a.code}` }))
+          .map((a) => ({ key: a.code, code: a.code, city: a.city, detail: `${a.country} · ${a.code}`, countryCode: a.countryCode }))
       : []
     const anywhere: Option[] = onSelectAnywhere
       ? [{ key: 'ANYWHERE', code: 'ANYWHERE', city: 'Anywhere', detail: 'search all destinations', anywhere: true }]
@@ -84,7 +86,7 @@ export default function AirportPicker({ onSelect, placeholder, label, onSelectAn
           onClick={onSelectAnywhere}
           className="mb-2 flex min-h-11 w-full items-center gap-2 rounded-sm border border-amber bg-amber-soft px-3 text-left text-sm font-medium text-ink transition-colors hover:bg-amber-soft-hover"
         >
-          <span aria-hidden="true">✈️</span> Anywhere — search all destinations
+          <PlaneIcon className="h-4 w-4 text-amber-ink" /> Anywhere — search all destinations
         </button>
       )}
       <input
@@ -132,7 +134,10 @@ export default function AirportPicker({ onSelect, placeholder, label, onSelectAn
               i === activeIndex ? 'bg-amber-soft' : ''
             } ${option.anywhere ? 'border-b border-line font-medium' : ''}`}
           >
-            <span>{option.anywhere ? '✈️ Anywhere' : option.city}</span>
+            <span className="flex items-center gap-2">
+              {option.anywhere ? <PlaneIcon className="h-4 w-4 text-amber-ink" /> : <Flag code={option.countryCode} />}
+              {option.anywhere ? 'Anywhere' : option.city}
+            </span>
             <span className="num text-xs text-slate">{option.detail}</span>
           </li>
         ))}

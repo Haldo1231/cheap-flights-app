@@ -1,3 +1,5 @@
+import Flag from '../../components/Flag'
+import { airportCountryCode } from '../../airportsList'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { cache } from 'react'
@@ -67,7 +69,10 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 pb-24 lg:pb-12">
       <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Deals', href: '/deals' }, { label: destination.name }]} />
-      <h1 className="h-page mb-2 sm:text-4xl">{destination.name}</h1>
+      <h1 className="h-page mb-2 sm:text-4xl">
+        <Flag code={airportCountryCode(destination.airport_code)} size="md" className="mr-3 -translate-y-0.5" />
+        {destination.name}
+      </h1>
       {destination.description && <p className="mb-8 max-w-2xl text-slate">{destination.description}</p>}
 
       <div className="flex flex-col gap-8 lg:flex-row">

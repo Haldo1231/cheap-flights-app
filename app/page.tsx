@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import PageHero from './components/PageHero'
+import Flag from './components/Flag'
 import { HOME_AIRPORTS } from './homeAirports'
 import { AIRPORTS } from './airportsList'
 import { DESTINATIONS } from './destinationsList'
@@ -100,7 +101,10 @@ function DepartureBoard() {
                 </span>
                 <span className="font-medium">{airport?.city}</span>
               </span>
-              <span className="num text-xs uppercase tracking-wide text-white/60">{airport?.country}</span>
+              <span className="num flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+                {airport?.country}
+                <Flag code={airport?.countryCode} size="sm" />
+              </span>
             </li>
           )
         })}

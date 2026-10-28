@@ -11,7 +11,8 @@ import DrillLink from '../../components/DrillLink'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
 import { CountryGridSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
-import { countryFlag } from '../../lib/countryImage'
+import Flag from '../../components/Flag'
+import { CompassIcon } from '../../components/Icons'
 import { withParams } from '../../lib/resultsUrl'
 import type { AnywhereCountry } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
@@ -81,7 +82,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
 
       {!loading && !error && countries.length === 0 && unmatched.length === 0 && (
         <div className="rounded-lg border border-line bg-white px-5 py-8 text-center sm:px-8">
-          <p className="mb-2 text-3xl" aria-hidden="true">🧭</p>
+          <CompassIcon className="mx-auto mb-3 h-10 w-10 text-amber-ink" />
           <p className="mb-2 text-lg font-semibold">No cached destinations for this search</p>
           <p className="mx-auto mb-4 max-w-md text-sm text-slate">
             We have no cached prices from your selected airports yet. Cached data is thin for small airports — loosening
@@ -155,7 +156,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
                       className="flex items-center justify-between rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
                     >
                       <span className="font-medium text-ink">
-                        <span aria-hidden="true" className="mr-2">{countryFlag(c.code)}</span>
+                        <Flag code={c.code} className="mr-2" />
                         {c.name}
                       </span>
                       <span>

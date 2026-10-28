@@ -1,3 +1,5 @@
+import Flag from '../components/Flag'
+import { airportCountryCode } from '../airportsList'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { supabase } from '../supabase'
@@ -159,6 +161,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
         <ScrollTopOnArrive />
         <Breadcrumbs items={crumbs} />
         <h1 className="h-page mb-1">
+          <Flag code={fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" />
           {cityName}
           <span className="ml-2 font-mono text-base font-normal text-slate">
             {trip.inbound ? `${formatNights(nights)}` : 'one way'}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import DrillLink from './DrillLink'
 import FlightLeg from './FlightLeg'
 import CountryPhoto, { PhotoCredit } from './CountryPhoto'
+import Flag from './Flag'
 import type { AnywhereCountry } from '../tripTypes'
 
 type Props = {
@@ -42,6 +43,7 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink">
           <CountryPhoto code={country.code} image={country.image} failed={failed} onFail={() => setFailed(true)} sizes={PHOTO_SIZES} eager={eager} />
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
+          {credit && <Flag code={country.code} size="md" className="absolute left-3 top-3 shadow-md" />}
           {cheapest && (
             <span className="absolute right-3 top-3 rounded-full bg-amber px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-wide text-ink shadow-sm">
               Cheapest

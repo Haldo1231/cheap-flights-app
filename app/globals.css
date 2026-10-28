@@ -22,6 +22,11 @@
   --color-ok-bg: #E8F5E9;
   --color-ok-line: #A5D6A7;
   --color-ink-deep: #0E1730;
+  /* The brand navy as a BACKGROUND (buttons, header, hero). Text colour stays `ink`. */
+  --color-navy: #14213D;
+  --color-navy-hover: #1c2d52;
+  /* Cards and panels (white in the light theme). */
+  --color-surface: #FFFFFF;
 
   /* Corners: 6px for buttons, inputs and chips; 12px for cards and panels. */
   --radius-sm: 0.375rem;

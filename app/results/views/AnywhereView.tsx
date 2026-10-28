@@ -52,8 +52,8 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
             oneWay={p.oneWay}
             minNights={p.minNights}
             maxNights={p.maxNights}
-            onToggleOutDay={p.toggleOutDay}
-            onToggleBackDay={p.toggleBackDay}
+            onChangeOutDays={p.setOutDays}
+            onChangeBackDays={p.setBackDays}
             onChangeMinNights={(v) => p.setParams({ minNights: v })}
             onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
           />

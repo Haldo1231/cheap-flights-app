@@ -189,9 +189,6 @@ export default function SearchForm() {
   const isAnywhere = destinationCode === 'ANYWHERE'
   const errorList = Object.values(errors)
 
-  const toggleIn = (setter: React.Dispatch<React.SetStateAction<number[]>>) => (day: number) =>
-    setter((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
-
   function toggleAirport(code: string) {
     setSelectedAirports((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
   }
@@ -257,9 +254,10 @@ export default function SearchForm() {
     } else if (dateMode === 'month') {
       params.set('month', month)
       if (!oneWay) params.set('returnMonth', returnMonth || month)
-      params.set('outDays', serializeDays(outDays))
+      // Weekday limits are only written when the person chose some; no limit = any day.
+      if (outDays.length < ALL_WEEKDAYS.length) params.set('outDays', serializeDays(outDays))
       if (!oneWay) {
-        params.set('backDays', serializeDays(backDays))
+        if (backDays.length < ALL_WEEKDAYS.length) params.set('backDays', serializeDays(backDays))
         params.set('minNights', String(minNights))
         params.set('maxNights', String(maxNights))
       }
@@ -482,8 +480,8 @@ export default function SearchForm() {
                   oneWay={oneWay}
                   minNights={minNights}
                   maxNights={maxNights}
-                  onToggleOutDay={toggleIn(setOutDays)}
-                  onToggleBackDay={toggleIn(setBackDays)}
+                  onChangeOutDays={setOutDays}
+                  onChangeBackDays={setBackDays}
                   onChangeMinNights={(v) => setMinNights(v === '' ? NaN : Number(v))}
                   onChangeMaxNights={(v) => setMaxNights(v === '' ? NaN : Number(v))}
                 />

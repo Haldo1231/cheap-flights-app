@@ -63,8 +63,8 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
           oneWay={oneWay}
           minNights={p.minNights}
           maxNights={p.maxNights}
-          onToggleOutDay={p.toggleOutDay}
-          onToggleBackDay={p.toggleBackDay}
+          onChangeOutDays={p.setOutDays}
+          onChangeBackDays={p.setBackDays}
           onChangeMinNights={(v) => p.setParams({ minNights: v })}
           onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
         />

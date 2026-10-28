@@ -21,7 +21,7 @@ export default function FilterDisclosure({ summary, children }: { summary: strin
   )
 
   return (
-    <details open={wide} className="group mb-6 rounded-sm border border-line bg-white">
+    <details open={wide} className="surface group mb-6">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-sm [&::-webkit-details-marker]:hidden">
         <span className="min-w-0">
           <span className="font-semibold text-ink">Weekday filters</span>

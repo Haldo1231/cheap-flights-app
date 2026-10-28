@@ -10,9 +10,8 @@ import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
 import { formatMonth } from '../lib/format'
 import { validateSearch, todayString, MAX_NIGHTS, MAX_RANGE_DAYS, type SearchErrors } from '../lib/searchValidation'
 
-const CARD = 'mb-5 rounded-sm border border-line bg-white p-4 sm:p-5'
-const INPUT =
-  'min-h-11 w-full rounded-sm border border-line bg-white px-3 text-sm aria-[invalid=true]:border-danger aria-[invalid=true]:bg-danger-bg'
+const CARD = 'surface mb-5 p-4 sm:p-5'
+const INPUT = 'field'
 
 function getNext12Months() {
   const months = []
@@ -44,7 +43,7 @@ function Chip({
     <label className="relative inline-flex">
       <input type={type} name={name} checked={checked} onChange={onChange} className="peer sr-only" />
       <span
-        className={`inline-flex min-h-11 cursor-pointer items-center rounded-sm border px-4 text-sm transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
+        className={`pill min-h-11 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
           tone === 'navy'
             ? 'border-line bg-white text-ink hover:border-ink peer-checked:border-ink peer-checked:bg-ink peer-checked:text-white'
             : 'border-line bg-white text-ink hover:border-ink peer-checked:border-amber peer-checked:bg-amber-soft'
@@ -59,7 +58,7 @@ function Chip({
 function Heading({ n, id, children }: { n: number; id: string; children: React.ReactNode }) {
   return (
     <h2 id={id} className="mb-3 flex items-center gap-3 text-base font-semibold">
-      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-sm bg-ink text-xs text-white">{n}</span>
+      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs text-white">{n}</span>
       {children}
     </h2>
   )
@@ -273,10 +272,7 @@ export default function SearchForm() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <h1 className="mb-2 text-3xl font-semibold tracking-tight">Compare cheap flights</h1>
-      <p className="mb-8 text-slate">Pick where you can fly from, where you want to go, and how flexible your dates are.</p>
-
+    <div className="mx-auto max-w-2xl px-4 pb-10 pt-8 sm:px-6">
       {errorList.length > 0 && (
         <div
           ref={summaryRef}
@@ -316,7 +312,7 @@ export default function SearchForm() {
                 type="button"
                 onClick={() => setExtraOrigins((prev) => prev.filter((x) => x.code !== o.code))}
                 aria-label={`Remove ${o.city}`}
-                className="inline-flex min-h-11 items-center rounded-sm border border-amber bg-amber-soft px-4 text-sm text-ink hover:bg-amber-soft-hover"
+                className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
               >
                 <span className="num">{o.code}</span>
                 <span className="ml-2">{o.city}</span>
@@ -342,7 +338,7 @@ export default function SearchForm() {
                 setDestinationCity('')
               }}
               aria-label={`Change destination, currently ${isAnywhere ? 'anywhere' : destinationCity}`}
-              className="inline-flex min-h-11 items-center rounded-sm border border-amber bg-amber-soft px-4 text-sm text-ink hover:bg-amber-soft-hover"
+              className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
             >
               {isAnywhere ? (
                 <>
@@ -516,7 +512,7 @@ export default function SearchForm() {
 
         <button
           type="submit"
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-amber px-6 font-semibold text-ink transition-colors hover:bg-amber-hover sm:w-auto"
+          className="btn btn-amber btn-lg w-full sm:w-auto"
         >
           Search flights
         </button>

@@ -21,6 +21,15 @@
   --color-danger-line: #F3B3AC;
   --color-ok-bg: #E8F5E9;
   --color-ok-line: #A5D6A7;
+  --color-ink-deep: #0E1730;
+
+  /* Corners: 6px for buttons, inputs and chips; 12px for cards and panels. */
+  --radius-sm: 0.375rem;
+  --radius-lg: 0.75rem;
+
+  /* Shadows are soft and navy-tinted, never grey. */
+  --shadow-card: 0 1px 2px rgb(20 33 61 / 0.05), 0 6px 18px -10px rgb(20 33 61 / 0.14);
+  --shadow-lift: 0 2px 4px rgb(20 33 61 / 0.06), 0 18px 36px -14px rgb(20 33 61 / 0.3);
 }
 
 html {
@@ -40,6 +49,12 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   line-height: 1.55;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-amber);
+  color: var(--color-ink);
 }
 
 /* One consistent keyboard focus ring everywhere. */
@@ -74,13 +89,87 @@ body {
   to { transform: none; }
 }
 
+/* Cards rise into place one after another. Used on small leaf elements only (a
+   transform kept on a big container would break position:fixed inside it), and
+   "backwards" means no transform is left behind once the animation is over. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
 .view-in { animation: view-in 180ms ease-out; }
 .fade-in { animation: fade-in 160ms ease-out both; }
+.rise-in { animation: rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 .drawer-panel { animation: drawer-in-bottom 220ms ease-out both; }
 @media (min-width: 640px) {
   .drawer-panel { animation-name: drawer-in-right; }
 }
 
+/* Departure-board flap: used on the airport codes of the home page. */
+@keyframes flap-in {
+  from { opacity: 0; transform: perspective(200px) rotateX(-80deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.flap-in { animation: flap-in 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+/* Loading placeholders: a soft light sweeping across. */
+.skeleton {
+  background-color: var(--color-line);
+  background-image: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.55) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Reusable pieces, so every page looks like the same site. */
+@layer components {
+  /* Buttons: .btn plus one colour (.btn-primary navy, .btn-amber, .btn-outline). */
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-sm px-5 text-sm font-semibold transition duration-150 ease-out active:translate-y-px active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:transform-none;
+  }
+  .btn-lg { @apply min-h-12 px-6 text-base; }
+  .btn-primary { @apply bg-ink text-white shadow-sm hover:bg-ink-hover hover:shadow-md; }
+  .btn-amber { @apply bg-amber text-ink shadow-sm hover:bg-amber-hover hover:shadow-md; }
+  .btn-outline { @apply border border-ink/25 bg-white text-ink hover:border-ink hover:bg-paper; }
+  .btn-outline-light { @apply border border-white/35 text-white hover:border-white hover:bg-white/10; }
+
+  /* Text boxes and selects. */
+  .field {
+    @apply min-h-11 w-full rounded-sm border border-line bg-white px-3 text-sm text-ink transition-colors placeholder:text-slate/70 hover:border-faint focus:border-ink aria-[invalid=true]:border-danger aria-[invalid=true]:bg-danger-bg;
+  }
+
+  /* A white panel. */
+  .surface { @apply rounded-lg border border-line bg-white shadow-card; }
+
+  /* Small capital label above a title. */
+  .eyebrow { @apply font-mono text-xs font-medium uppercase tracking-[0.18em] text-amber-ink; }
+
+  /* Page titles and section titles: one scale for the whole site. */
+  .h-page { @apply text-2xl font-semibold tracking-tight sm:text-3xl; }
+  .h-section { @apply text-xl font-semibold tracking-tight; }
+
+  /* Pill used for toggles and filters. */
+  .pill {
+    @apply inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-4 text-sm transition duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:transform-none;
+  }
+}
+
+/* The dark band at the top of pages: navy with a faint timetable grid and an amber glow. */
+.hero-surface {
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(60% 120% at 92% -20%, rgb(252 163 17 / 0.22), transparent 60%),
+    linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px),
+    linear-gradient(180deg, var(--color-ink) 0%, var(--color-ink-deep) 100%);
+  background-size: auto, 40px 40px, 40px 40px, auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .view-in, .fade-in, .drawer-panel { animation: none; }
+  .view-in, .fade-in, .rise-in, .flap-in, .drawer-panel, .skeleton { animation: none; }
+  *, *::before, *::after { scroll-behavior: auto !important; }
 }

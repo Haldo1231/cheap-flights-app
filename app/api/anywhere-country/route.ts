@@ -1,4 +1,5 @@
 import { badRequest, cachedJson, cleanCode } from '../../lib/apiParams'
+import { getCountryImage } from '../../lib/countryImagesData'
 import {
   parseAnywhereParams,
   rankCountries,
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   const unmatched = all.filter((c) => !c.trip)
 
   return cachedJson({
-    country: { code: country.code, name: country.name },
+    country: { code: country.code, name: country.name, image: getCountryImage(country.code) },
     cities: matched,
     unmatchedCities: unmatched,
     totalCities: country.cities.length,

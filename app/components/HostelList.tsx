@@ -15,7 +15,7 @@ export default function HostelList({ hostels }: { hostels: Hostel[] }) {
     <>
       <ul className="space-y-3">
         {hostels.map((h) => (
-          <li key={h.id} className="flex items-center justify-between gap-4 rounded-sm border border-line bg-white p-4">
+          <li key={h.id} className="surface flex items-center justify-between gap-4 p-4">
             <div className="min-w-0">
               <p className="font-semibold">{h.name}</p>
               <p className="text-sm text-slate">

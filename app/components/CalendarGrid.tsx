@@ -112,7 +112,7 @@ export default function CalendarGrid({
               aria-pressed={usable ? isSelected : undefined}
               onClick={() => usable && onSelectDay(dateStr, entry)}
               title={!isAllowedDay ? 'Not one of your selected weekdays' : usable ? detail : undefined}
-              className={`flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
+              className={`flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
                 !isAllowedDay
                   ? 'cursor-not-allowed border-transparent bg-sand text-faint line-through opacity-60'
                   : isSelected

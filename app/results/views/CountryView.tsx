@@ -6,14 +6,16 @@ import SearchSummary from '../../components/SearchSummary'
 import AnywhereCityRow from '../../components/AnywhereCityRow'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
 import DrillLink from '../../components/DrillLink'
+import CountryPhoto, { PhotoCredit } from '../../components/CountryPhoto'
 import { RowListSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
+import type { CountryImage } from '../../lib/countryImage'
 import type { AnywhereCity } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 
 type CountryResponse = {
-  country: { code: string; name: string } | null
+  country: { code: string; name: string; image?: CountryImage | null } | null
   cities: AnywhereCity[]
   unmatchedCities: AnywhereCity[]
   totalCities: number
@@ -22,6 +24,7 @@ type CountryResponse = {
 
 export default function CountryView({ p }: { p: ResultsParams }) {
   const [retry, setRetry] = useState(0)
+  const [photoFailed, setPhotoFailed] = useState(false)
   const params = new URLSearchParams(p.filterString)
   params.set('country', p.country)
   const { data, loading, error } = useJson<CountryResponse>(`/api/anywhere-country?${params.toString()}`, retry)
@@ -40,7 +43,26 @@ export default function CountryView({ p }: { p: ResultsParams }) {
           { label: loading ? 'Country' : countryName },
         ]}
       />
-      <h1 className="mb-2 text-2xl font-semibold">{loading ? 'Checking every city…' : countryName}</h1>
+      <div className="relative mb-4 h-40 overflow-hidden rounded-lg bg-ink sm:h-52">
+        <CountryPhoto
+          code={p.country}
+          image={data?.country?.image}
+          failed={photoFailed}
+          onFail={() => setPhotoFailed(true)}
+          sizes="(min-width: 1024px) 960px, 100vw"
+          eager
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+        <h1 className="absolute inset-x-0 bottom-0 p-4 text-2xl font-semibold text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.45)] sm:p-6 sm:text-3xl">
+          {loading ? 'Checking every city…' : countryName}
+        </h1>
+        {data?.country?.image && !photoFailed && (
+          <PhotoCredit
+            image={data.country.image}
+            className="absolute right-2 top-2 max-w-[calc(100%-1rem)] rounded-full bg-black/55 px-2.5 text-white backdrop-blur-sm"
+          />
+        )}
+      </div>
       <SearchSummary params={new URLSearchParams(p.filterString)} from={p.originList.join(', ')} />
 
       {loading && <RowListSkeleton count={4} label="Checking the cities in this country" />}
@@ -51,7 +73,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
           <button
             type="button"
             onClick={() => setRetry((n) => n + 1)}
-            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="btn btn-primary"
           >
             Try again
           </button>
@@ -59,7 +81,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && !data?.country && (
-        <div className="rounded-sm border border-line bg-white px-5 py-6">
+        <div className="surface px-5 py-6">
           <p className="mb-2 font-semibold">We have no cached prices for this country right now</p>
           <p className="mb-3 text-sm text-slate">The cache changes over time, so it may have dropped out of the list.</p>
           <DrillLink href={anywhereHref} className="text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
@@ -76,7 +98,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
           </p>
 
           {data.cities.length === 0 && (
-            <div className="mb-6 rounded-sm border border-line bg-white px-5 py-4">
+            <div className="surface mb-6 px-5 py-4">
               <p className="mb-1 font-semibold">No day matches your filters in {countryName}</p>
               <p className="text-sm text-slate">
                 Try more weekdays, a wider range of nights, another month, or another home airport.

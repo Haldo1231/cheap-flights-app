@@ -20,23 +20,20 @@ export default function DayFlightRow({ fare, rank, isSelected, onSelect }: Props
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`flex w-full items-center justify-between gap-3 rounded-sm border px-3 py-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink ${
-        isSelected ? 'border-2 border-ink bg-amber-soft' : 'border-line bg-white hover:bg-paper'
+      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink motion-reduce:transition-none ${
+        isSelected ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-white hover:border-ink/40 hover:bg-paper'
       }`}
     >
       <div className="min-w-0">
-        {rank === 0 && <span className="block font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-ink">Cheapest</span>}
+        {rank === 0 && <span className="mb-0.5 inline-block rounded-full bg-amber px-2 py-px font-mono text-[10px] font-semibold uppercase tracking-wide text-ink">Cheapest</span>}
         <p className="text-sm">
+          {leg.time && <span className="font-mono text-base font-semibold tabular-nums text-ink">{leg.time} </span>}
           <span className="font-semibold text-ink">{formatDay(leg.date)}</span>
-          {leg.time ? (
-            <span className="font-mono tabular-nums text-ink"> · {leg.time}</span>
-          ) : (
-            <span className="text-slate"> · time not in cached data</span>
-          )}
+          {!leg.time && <span className="text-slate"> · time not in cached data</span>}
           <span className="font-mono text-slate"> · {leg.origin} → {leg.destination}</span>
         </p>
         <p className="text-xs text-slate">
-          {airline ? <span className="text-ink">{airline}</span> : 'airline not in cached data'}
+          {airline ? <span className="font-medium text-ink">{airline}</span> : 'airline not in cached data'}
           {isLowCostCarrier(leg.airlineCode) ? ' · Low-cost' : ''}
           {stops ? ` · ${stops}` : ''}
           {fare.inbound ? ` · priced with a return on ${formatShortDate(fare.inbound.date)}` : ''}

@@ -78,7 +78,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
 
       {!oneWay && (
         <section className="mb-6" aria-labelledby="best-combos">
-          <h2 id="best-combos" className="mb-2 text-sm font-semibold">
+          <h2 id="best-combos" className="mb-2 text-base font-semibold">
             Best combinations
           </h2>
           {loading && <FareListSkeleton count={2} label="Finding the best day pairs" />}
@@ -105,14 +105,14 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                       type="button"
                       onClick={() => pickCombo(combo)}
                       aria-pressed={picked}
-                      className={`flex w-full items-start justify-between gap-3 rounded-sm border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink ${
-                        picked ? 'border-2 border-ink bg-amber-soft' : 'border-line bg-white hover:bg-paper'
+                      className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink motion-reduce:transition-none ${
+                        picked ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-white hover:border-ink/40 hover:bg-paper'
                       }`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           {i === 0 && (
-                            <span className="rounded-sm bg-amber px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide">
+                            <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide">
                               Cheapest
                             </span>
                           )}
@@ -121,7 +121,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                         <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
                         <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
                       </div>
-                      <p className={`whitespace-nowrap font-mono text-lg font-semibold tabular-nums ${i === 0 ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{combo.total}</p>
+                      <p className={`whitespace-nowrap font-mono text-xl font-semibold tabular-nums ${i === 0 ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{combo.total}</p>
                     </button>
                   </li>
                 )

@@ -41,17 +41,17 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {isCheapest && (
-            <span className="rounded-sm bg-amber px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-ink">
+            <span className="rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-ink">
               Cheapest
             </span>
           )}
-          <span className="rounded-sm border border-line bg-paper px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-slate">
+          <span className="rounded-full border border-line bg-paper px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-slate">
             {isRoundTrip ? `Round trip · ${nights === 0 ? 'same day' : formatNights(nights)}` : 'One way'}
           </span>
         </div>
-        <div className="text-right">
-          <p className={`font-mono text-2xl font-semibold tabular-nums text-ink ${isCheapest ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{fare.price}</p>
-          <p className="text-xs text-slate">{isRoundTrip ? 'both flights' : 'per person'}</p>
+        <div className="whitespace-nowrap text-right">
+          <p className={`font-mono text-3xl font-semibold leading-none tabular-nums text-ink ${isCheapest ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{fare.price}</p>
+          <p className="mt-1.5 text-xs text-slate">{isRoundTrip ? 'both flights' : 'per person'}</p>
         </div>
       </div>
 
@@ -71,14 +71,19 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
     <li
       onMouseEnter={onPreview}
       onFocus={onPreview}
-      className={`rounded-sm border bg-white transition-colors ${
-        isPreviewed ? 'border-amber shadow-sm' : 'border-line'
+      className={`relative overflow-hidden rounded-lg border shadow-card transition duration-200 motion-reduce:transition-none ${
+        isPreviewed
+          ? 'border-amber bg-white shadow-lift'
+          : isCheapest
+          ? 'border-amber/70 bg-gradient-to-br from-amber-soft to-white'
+          : 'border-line bg-white hover:border-ink/25 hover:shadow-lift'
       }`}
     >
+      {isCheapest && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-amber" />}
       {detailsHref ? (
         <DrillLink
           href={detailsHref}
-          className="block rounded-t-sm hover:bg-paper/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+          className="block transition-colors hover:bg-paper/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
         >
           {body}
         </DrillLink>
@@ -90,14 +95,14 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
           href={fare.bookingUrl}
           target="_blank"
           rel="noopener noreferrer sponsored"
-          className="inline-block rounded-sm bg-amber px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className="btn btn-amber"
         >
           {isRoundTrip ? 'Book round trip →' : 'Book on Aviasales →'}
         </a>
         {detailsHref && (
           <DrillLink
             href={detailsHref}
-            className="inline-flex min-h-10 items-center rounded-sm text-sm font-medium text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-amber focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="btn btn-outline"
           >
             Trip details →
           </DrillLink>

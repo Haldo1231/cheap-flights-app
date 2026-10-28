@@ -1,4 +1,5 @@
 import { cachedJson } from '../../lib/apiParams'
+import { getCountryImage } from '../../lib/countryImagesData'
 import {
   parseAnywhereParams,
   rankCountries,
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
       price: result ? result.trip.price : null,
       verifiedCity: verified,
       candidateCities: others,
+      image: getCountryImage(country.code),
     }
     if (result) matched.push(base)
     else unmatched.push(base)

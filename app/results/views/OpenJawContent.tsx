@@ -9,8 +9,7 @@ import type { ResultsParams } from '../useResultsParams'
 
 export type OpenJawResponse = Extract<CompareResponse, { openJaw: true }>
 
-const BOOK_BUTTON =
-  'inline-block rounded-sm bg-amber px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-amber-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink'
+const BOOK_BUTTON = 'btn btn-amber'
 
 /** Fly out from one airport and back to another. Each flight has its own cached
  * price; a trip with a missing leg is never shown as a complete round trip. */
@@ -40,7 +39,7 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
       {data.outboundOnly.length > 0 && (
         <ul className="mb-4 space-y-3">
           {data.outboundOnly.map((leg) => (
-            <li key={`${leg.origin}-${leg.date}-${leg.price}`} className="rounded-sm border border-line bg-white px-4 py-2">
+            <li key={`${leg.origin}-${leg.date}-${leg.price}`} className="surface px-4 py-2">
               <FlightLeg label="Outbound" leg={leg} price={leg.price} />
               <a href={leg.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={`${BOOK_BUTTON} mb-2`}>
                 Book outbound →
@@ -55,16 +54,16 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
           {data.results.map((combo, i) => (
             <li
               key={`${combo.outbound.origin}-${combo.inbound.destination}-${combo.total}-${i}`}
-              className={`rounded-sm border bg-white ${i === 0 ? 'border-2 border-amber' : 'border-line'}`}
+              className={`rounded-lg border bg-white shadow-card transition-shadow duration-200 hover:shadow-lift motion-reduce:transition-none ${i === 0 ? 'border-amber ring-1 ring-amber' : 'border-line'}`}
             >
               <DrillLink
                 href={tripHref(p.searchString, destination, snapshotFromLegs(combo.outbound, combo.inbound))}
-                className="block rounded-t-sm px-4 pb-1 pt-4 hover:bg-paper/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink sm:px-5"
+                className="block rounded-t-lg px-4 pb-1 pt-4 transition-colors hover:bg-paper/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink sm:px-5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     {i === 0 && (
-                      <span className="mb-1 inline-block rounded-sm bg-amber px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide">
+                      <span className="mb-1 inline-block rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide">
                         Cheapest combo
                       </span>
                     )}
@@ -72,7 +71,7 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
                       {combo.outbound.origin} → {destination} → {combo.inbound.destination}
                     </p>
                   </div>
-                  <p className="font-mono text-2xl font-semibold tabular-nums">€{combo.total}</p>
+                  <p className="font-mono text-3xl font-semibold leading-none tabular-nums">€{combo.total}</p>
                 </div>
                 <div className="mt-2 divide-y divide-line">
                   <FlightLeg label="Outbound" leg={combo.outbound} price={combo.outbound.price} />
@@ -88,7 +87,7 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
                 </a>
                 <DrillLink
                   href={tripHref(p.searchString, destination, snapshotFromLegs(combo.outbound, combo.inbound))}
-                  className="rounded-sm text-sm font-medium text-ink underline decoration-ink/30 decoration-2 underline-offset-4 hover:decoration-amber"
+                  className="btn btn-outline"
                 >
                   Trip details →
                 </DrillLink>

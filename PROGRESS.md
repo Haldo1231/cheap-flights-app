@@ -165,3 +165,47 @@ Not fixed on purpose (needs a decision or real data):
 - No per-visitor rate limit on `/api/*` (needs a service like Upstash, so a new service).
 - Return-leg airline is assumed to be the same as the outbound one for round-trip fares.
 - No airline logos.
+
+# Country cards — `feature/country-cards` branch
+
+## Task 1: Country photo cards
+Status: done
+
+The Anywhere results are now a grid of photo cards (3 per row on desktop, 2 on tablet,
+1 on phones), cheapest first, with the same ranking and filters as before. Each card has
+the photo, country name, "from €X" in amber, the number of destinations, a "Cheapest"
+badge on the first one, and a "ticket stub" under the photo with the cheapest matching
+trip (dates, times, airline). Clicking a card opens the same country screen, URL and
+breadcrumbs as before; the country screen now has a photo banner. Loading shows skeleton
+cards; empty results suggest loosening the filters.
+
+## Task 2: Photos from Unsplash
+Status: done, but the photos themselves still need to be fetched (needs your key)
+
+- `scripts/fetch-country-images.mjs` finds one landscape photo per country (skipping photos
+  that mention people) and saves it in `data/country-images.json`. Run it with
+  `npm run images:fetch` after adding `UNSPLASH_ACCESS_KEY=...` to `.env.local`.
+- A new Unsplash app is limited to 50 requests an hour (2 per country), so each run does
+  about 25 countries, most likely destinations first, and then stops politely. Run it again
+  later and it continues. Applying for "production" status in the Unsplash dashboard lifts
+  the limit to 5000 an hour.
+- The site only reads the saved file, so there are no Unsplash calls while visitors browse.
+- Following Unsplash's rules: photos load straight from Unsplash's image server
+  (hotlinking, via a small custom loader), every card shows "Photo by NAME on Unsplash"
+  with links that carry `utm_source=cheapflights`, and the script reports each chosen photo
+  to Unsplash's download endpoint.
+- Until a photo exists, or when it fails to load, the card shows a navy-to-amber gradient
+  with the country flag. Nothing ever shows a broken image.
+
+## Task 3: Design
+Status: done
+
+Home and the Search / Anywhere / Deals pages get a dark hero band (timetable-grid texture,
+amber glow); the home hero has a departure board whose airport codes flip in. Flight cards
+put the departure time first, show the airline name clearly and highlight the cheapest with
+an amber edge. Buttons, inputs, pills, panels and titles come from shared classes in
+`globals.css`. Hover and press states, shimmering skeletons and cards rising in; everything
+moving is switched off for people who ask for reduced motion.
+
+## Task 4: Review
+Status: done. See the final report in the chat for what was fixed and what was left.

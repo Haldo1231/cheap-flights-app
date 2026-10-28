@@ -113,7 +113,7 @@ export function CostSidebar(props: CostProps) {
   return (
     <aside
       aria-label="Trip cost"
-      className="hidden lg:block lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto rounded-sm border border-line bg-white p-4 shadow-sm"
+      className="hidden lg:block lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto surface p-4"
     >
       <CostBreakdown {...props} />
     </aside>

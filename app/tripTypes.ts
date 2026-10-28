@@ -2,6 +2,8 @@
 // Everything here comes from cached Travelpayouts data -- a field is null
 // when the cache does not have it (we never fill in a guess).
 
+import type { CountryImage } from './lib/countryImage'
+
 /** One flight (one direction). */
 export type Leg = {
   origin: string
@@ -96,6 +98,8 @@ export type AnywhereCountry = {
   verifiedCity: AnywhereCity | null
   /** The other cities in this country (quick ranking only). */
   candidateCities: AnywhereCity[]
+  /** The saved Unsplash photo for this country, or null (the card then shows a gradient + flag). */
+  image?: CountryImage | null
 }
 
 /** What /api/compare answers: priced fares, or (open-jaw) two-leg combinations. */

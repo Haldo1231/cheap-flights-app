@@ -184,7 +184,7 @@ Status: done, but the photos themselves still need to be fetched (needs your key
 
 - `scripts/fetch-country-images.mjs` finds one landscape photo per country (skipping photos
   that mention people) and saves it in `data/country-images.json`. Run it with
-  `npm run images:fetch` after adding `UNSPLASH_ACCESS_KEY=...` to `.env.local`.
+  `npm run images` after adding `UNSPLASH_ACCESS_KEY=...` to `.env.local`.
 - A new Unsplash app is limited to 50 requests an hour (2 per country), so each run does
   about 25 countries, most likely destinations first, and then stops politely. Run it again
   later and it continues. Applying for "production" status in the Unsplash dashboard lifts

@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { countryFlag, unsplashLoader, UNSPLASH_HOME, withUnsplashUtm, type CountryImage } from '../lib/countryImage'
+import { countryFlag, photoLoader, creditLink, PHOTO_SITES, type CountryImage } from '../lib/countryImage'
 
 type PhotoProps = {
   code: string
@@ -25,7 +25,7 @@ export default function CountryPhoto({ code, image, failed, onFail, sizes, eager
     // The photo's main colour shows while it loads.
     <div className="absolute inset-0" style={{ backgroundColor: image.color ?? 'var(--color-ink)' }}>
       <Image
-        loader={unsplashLoader}
+        loader={photoLoader}
         src={image.raw}
         alt=""
         fill
@@ -64,16 +64,17 @@ function FallbackArt({ code }: { code: string }) {
   )
 }
 
-/** "Photo by NAME on Unsplash", linked the way Unsplash's guidelines ask. A very long
+/** "Photo by NAME on Unsplash" (or Pexels), linked the way the photo site asks. A very long
  * name is shortened with "…" so the "on Unsplash" part always stays visible. */
 export function PhotoCredit({ image, className = '' }: { image: CountryImage; className?: string }) {
+  const site = PHOTO_SITES[image.source]
   const link =
     'inline-block underline decoration-current/40 underline-offset-2 hover:decoration-current focus-visible:outline-offset-1'
   return (
     <p className={`overflow-hidden whitespace-nowrap text-[11px] leading-6 ${className}`}>
       Photo by{' '}
       <a
-        href={withUnsplashUtm(image.photographerUrl)}
+        href={creditLink(image.source, image.photographerUrl)}
         target="_blank"
         rel="noopener noreferrer"
         className={`${link} max-w-[10.5rem] truncate align-bottom`}
@@ -81,8 +82,8 @@ export function PhotoCredit({ image, className = '' }: { image: CountryImage; cl
         {image.photographer}
       </a>{' '}
       on{' '}
-      <a href={withUnsplashUtm(UNSPLASH_HOME)} target="_blank" rel="noopener noreferrer" className={link}>
-        Unsplash
+      <a href={creditLink(image.source, site.home)} target="_blank" rel="noopener noreferrer" className={link}>
+        {site.name}
       </a>
     </p>
   )

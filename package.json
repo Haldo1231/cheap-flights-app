@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "images": "node scripts/fetch-country-images.mjs",
     "images:fetch": "node scripts/fetch-country-images.mjs"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "flag-icons": "^7.6.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

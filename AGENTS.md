@@ -26,7 +26,7 @@ Repo: github.com/Haldo1231/cheap-flights-app
 - `app/tripTypes.ts`: shared types (Leg, Fare, AnywhereCity, CompareResponse ...). `app/anywhereSearch.ts`: the "Anywhere" ranking and checks.
 - `app/results/`: one `/results` page; `ResultsRouter.tsx` picks the screen from the URL (Anywhere, country, destination, month, open-jaw). `app/trip/` is the single-trip detail page.
 - `app/lib/`: small helpers. `resultsUrl.ts` and `tripUrl.ts` build/read URLs (the URL is the single source of truth for filters and drill-down), `apiParams.ts` cleans API inputs, `useJson.ts` loads data with a short client cache so Back is instant.
-- `data/country-images.json` + `scripts/fetch-country-images.mjs` (`npm run images:fetch`): one Unsplash photo per country, fetched ahead of time and committed. The site never calls Unsplash's API. `app/lib/countryImage.ts` (loader, credit links, flags) and `app/lib/countryImagesData.ts` (server-only lookup). Every photo must show its credit ("Photo by NAME on Unsplash", linked). A country without a photo shows a gradient + flag.
+- `data/country-images.json` + `scripts/fetch-country-images.mjs` (`npm run images`): one photo per country (Unsplash, Pexels as fallback), fetched ahead of time and committed. The site never calls a photo API. The script is resumable and respects the hourly limits (see README). `app/lib/countryImage.ts` (loader, credit links, flags) and `app/lib/countryImagesData.ts` (server-only lookup). Every photo must show its credit ("Photo by NAME on Unsplash", linked). A country without a photo shows a gradient + flag.
 - `app/globals.css`: the design system pieces (`btn`, `field`, `surface`, `pill`, `eyebrow`, `h-page`, `hero-surface`, shadows, radii). Use these instead of long class strings. `app/components/PageHero.tsx` is the dark band at the top of pages; `CountryCard.tsx` is the Anywhere photo card.
 - `app/components/`: shared UI. `CostOfStay.tsx` is the trip cost panel (sticky sidebar on desktop, bottom bar on phones). `FlightLeg.tsx` shows airline + time for every flight.
 
@@ -37,7 +37,7 @@ These live in `.env.local` and Vercel. Never print, commit or log their values.
 - SUPABASE_SERVICE_ROLE_KEY
 - TRAVELPAYOUTS_TOKEN
 - CRON_SECRET
-- UNSPLASH_ACCESS_KEY (only for `npm run images:fetch` on your own computer; not needed on Vercel)
+- UNSPLASH_ACCESS_KEY, PEXELS_API_KEY (optional) (only for `npm run images` on your own computer; not needed on Vercel)
 
 ## Design
 Airport departure-board look. Keep it consistent.

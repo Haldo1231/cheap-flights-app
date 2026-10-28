@@ -174,7 +174,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
         <Breadcrumbs items={crumbs} />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="h-page mb-1">
-            <Flag code={fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" />
+            <Flag code={fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" eager />
             {cityName}
             <span className="ml-2 font-mono text-base font-normal text-slate">
               {trip.inbound ? `${formatNights(nights)}` : 'one way'}

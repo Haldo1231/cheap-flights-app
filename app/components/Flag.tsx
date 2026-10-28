@@ -17,12 +17,14 @@ type Props = {
   code: string | null | undefined
   size?: keyof typeof SIZES
   className?: string
+  /** Load right away (flags above the fold). Flags further down load when scrolled near. */
+  eager?: boolean
 }
 
 /** A country flag as a real picture (not emoji, which Windows cannot show). Decorative:
  * the country name is always written next to it. A code without a flag, or a flag
  * that fails to load, shows a neutral globe instead. */
-export default function Flag({ code, size = 'sm', className = '' }: Props) {
+export default function Flag({ code, size = 'sm', className = '', eager = false }: Props) {
   const [failed, setFailed] = useState(false)
   const lower = (code || '').toLowerCase()
   const { w, h, box } = SIZES[size]
@@ -44,7 +46,7 @@ export default function Flag({ code, size = 'sm', className = '' }: Props) {
       width={w}
       height={h}
       unoptimized
-      loading="lazy"
+      loading={eager ? 'eager' : 'lazy'}
       onError={() => setFailed(true)}
       className={`${shape} object-cover shadow-[0_0_0_1px_rgb(0_0_0/0.12)]`}
     />

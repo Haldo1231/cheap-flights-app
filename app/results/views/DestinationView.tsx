@@ -161,7 +161,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
           <Skeleton className="inline-block h-6 w-28 align-middle" />
         ) : (
           <>
-            <Flag code={p.fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" />
+            <Flag code={p.fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" eager />
             {cityName}
           </>
         )}

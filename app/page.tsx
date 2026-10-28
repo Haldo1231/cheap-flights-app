@@ -103,7 +103,7 @@ function DepartureBoard() {
               </span>
               <span className="num flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                 {airport?.country}
-                <Flag code={airport?.countryCode} size="sm" />
+                <Flag code={airport?.countryCode} size="sm" eager />
               </span>
             </li>
           )

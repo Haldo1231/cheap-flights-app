@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
 import AnywhereCityRow from '../../components/AnywhereCityRow'
@@ -24,6 +25,7 @@ type CountryResponse = {
 }
 
 export default function CountryView({ p }: { p: ResultsParams }) {
+  preconnect('https://images.unsplash.com')
   const [retry, setRetry] = useState(0)
   const [photoFailed, setPhotoFailed] = useState(false)
   const params = new URLSearchParams(p.filterString)

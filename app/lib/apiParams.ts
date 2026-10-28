@@ -44,7 +44,9 @@ export function cleanInt(raw: string | null | undefined, fallback: number, min: 
  * it is already cached for an hour, so a few minutes more is invisible. */
 export function cachedJson<T>(body: T, seconds = 600) {
   return NextResponse.json(body, {
-    headers: { 'Cache-Control': `public, s-maxage=${seconds}, stale-while-revalidate=${seconds * 6}` },
+    // max-age lets the browser reuse an answer it already has (for example the copy the page
+    // asked for early) for a minute; the CDN keeps it longer.
+    headers: { 'Cache-Control': `public, max-age=60, s-maxage=${seconds}, stale-while-revalidate=${seconds * 6}` },
   })
 }
 

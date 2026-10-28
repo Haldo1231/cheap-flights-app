@@ -20,7 +20,7 @@ type PhotoProps = {
  * height or aspect ratio (so nothing jumps when the picture arrives). With no
  * photo, or a photo that does not load, it shows a gradient with the flag. */
 export default function CountryPhoto({ code, image, failed, onFail, sizes, eager = false }: PhotoProps) {
-  if (!image || failed) return <FallbackArt code={code} />
+  if (!image || failed) return <FallbackArt code={code} eager={eager} />
 
   return (
     // The photo's main colour shows while it loads.
@@ -46,7 +46,7 @@ function seed(code: string): number {
 }
 
 /** Navy-to-amber gradient with the flag and the country code as a big watermark. */
-function FallbackArt({ code }: { code: string }) {
+function FallbackArt({ code, eager }: { code: string; eager: boolean }) {
   const x = 15 + (seed(code) % 70)
   return (
     <div
@@ -59,7 +59,7 @@ function FallbackArt({ code }: { code: string }) {
       <span className="num absolute -bottom-6 right-2 select-none text-[9rem] font-semibold leading-none text-white/[0.07]">
         {code}
       </span>
-      <Flag code={code} size="xl" className="absolute left-4 top-4 shadow-lg" />
+      <Flag code={code} size="xl" className="absolute left-4 top-4 shadow-lg" eager={eager} />
     </div>
   )
 }

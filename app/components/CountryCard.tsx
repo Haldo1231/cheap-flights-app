@@ -44,7 +44,7 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-deep">
           <CountryPhoto code={country.code} image={country.image} failed={failed} onFail={() => setFailed(true)} sizes={PHOTO_SIZES} eager={eager} />
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
-          {credit && <Flag code={country.code} size="md" className="absolute left-3 top-3 shadow-md" />}
+          {credit && <Flag code={country.code} size="md" className="absolute left-3 top-3 shadow-md" eager={eager} />}
           <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
             <div className="min-w-0">
               {cheapest && (

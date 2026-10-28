@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
 import Flag from '../components/Flag'
-import { PlaneIcon } from '../components/Icons'
+import { CloseIcon, PlaneIcon } from '../components/Icons'
 import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { HOME_AIRPORTS } from '../homeAirports'
@@ -301,7 +301,7 @@ export default function SearchForm() {
               const a = AIRPORTS.find((x) => x.code === code)
               return (
                 <Chip key={code} type="checkbox" name="origin" checked={selectedAirports.includes(code)} onChange={() => toggleAirport(code)}>
-                  <Flag code={a?.countryCode} size="xs" className="mr-2" />
+                  <Flag code={a?.countryCode} size="xs" className="mr-2" eager />
                   <span className="num">{code}</span>
                   <span className="ml-2">{a?.city}</span>
                 </Chip>
@@ -315,12 +315,10 @@ export default function SearchForm() {
                 aria-label={`Remove ${o.city}`}
                 className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
               >
-                <Flag code={airportCountryCode(o.code)} size="xs" className="mr-2" />
+                <Flag code={airportCountryCode(o.code)} size="xs" className="mr-2" eager />
                 <span className="num">{o.code}</span>
                 <span className="ml-2">{o.city}</span>
-                <span aria-hidden="true" className="ml-2">
-                  ✕
-                </span>
+                <CloseIcon className="ml-2 h-3.5 w-3.5" />
               </button>
             ))}
           </div>
@@ -349,14 +347,12 @@ export default function SearchForm() {
                 </>
               ) : (
                 <>
-                  <Flag code={airportCountryCode(destinationCode)} size="xs" className="mr-2" />
+                  <Flag code={airportCountryCode(destinationCode)} size="xs" className="mr-2" eager />
                   <span className="num">{destinationCode}</span>
                   <span className="ml-2">{destinationCity}</span>
                 </>
               )}
-              <span aria-hidden="true" className="ml-2">
-                ✕
-              </span>
+              <CloseIcon className="ml-2 h-3.5 w-3.5" />
             </button>
           ) : (
             <AirportPicker

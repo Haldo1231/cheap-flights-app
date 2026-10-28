@@ -135,7 +135,7 @@ export default function AirportPicker({ onSelect, placeholder, label, onSelectAn
             } ${option.anywhere ? 'border-b border-line font-medium' : ''}`}
           >
             <span className="flex items-center gap-2">
-              {option.anywhere ? <PlaneIcon className="h-4 w-4 text-amber-ink" /> : <Flag code={option.countryCode} />}
+              {option.anywhere ? <PlaneIcon className="h-4 w-4 text-amber-ink" /> : <Flag code={option.countryCode} eager />}
               {option.anywhere ? 'Anywhere' : option.city}
             </span>
             <span className="num text-xs text-slate">{option.detail}</span>

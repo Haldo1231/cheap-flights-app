@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
 import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
@@ -26,6 +27,8 @@ type AnywhereResponse = {
 }
 
 export default function AnywhereView({ p }: { p: ResultsParams }) {
+  // Country photos come from Unsplash's image server: open that connection while the prices load.
+  preconnect('https://images.unsplash.com')
   const [retry, setRetry] = useState(0)
   const { data, loading, error } = useJson<AnywhereResponse>(`/api/anywhere-by-country?${p.filterString}`, retry)
 

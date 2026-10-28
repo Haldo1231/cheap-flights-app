@@ -73,7 +73,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
           <button
             type="button"
             onClick={() => setRetry((n) => n + 1)}
-            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="btn btn-primary"
           >
             Try again
           </button>
@@ -81,7 +81,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && !data?.country && (
-        <div className="rounded-sm border border-line bg-white px-5 py-6">
+        <div className="surface px-5 py-6">
           <p className="mb-2 font-semibold">We have no cached prices for this country right now</p>
           <p className="mb-3 text-sm text-slate">The cache changes over time, so it may have dropped out of the list.</p>
           <DrillLink href={anywhereHref} className="text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
@@ -98,7 +98,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
           </p>
 
           {data.cities.length === 0 && (
-            <div className="mb-6 rounded-sm border border-line bg-white px-5 py-4">
+            <div className="surface mb-6 px-5 py-4">
               <p className="mb-1 font-semibold">No day matches your filters in {countryName}</p>
               <p className="text-sm text-slate">
                 Try more weekdays, a wider range of nights, another month, or another home airport.

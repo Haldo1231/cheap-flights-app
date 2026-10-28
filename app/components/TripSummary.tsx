@@ -56,7 +56,7 @@ export default function TripSummary({ oneWay, outbound, inbound, outDate, backDa
       {detailsHref && (
         <DrillLink
           href={detailsHref}
-          className="mt-3 inline-block rounded-sm bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className="btn btn-primary mt-3"
         >
           Trip details →
         </DrillLink>

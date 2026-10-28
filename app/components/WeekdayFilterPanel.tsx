@@ -37,12 +37,17 @@ function DayToggles({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(d.value)}
-              className={`min-h-10 min-w-12 rounded-sm border px-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+              className={`pill min-w-12 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
                 on
                   ? 'border-ink bg-ink text-white'
                   : 'border-line bg-white text-slate hover:border-ink hover:text-ink'
               }`}
             >
+              {on && (
+                <span aria-hidden="true" className="text-xs">
+                  ✓
+                </span>
+              )}
               {d.label}
             </button>
           )
@@ -66,7 +71,7 @@ function NightsInput({ id, label, value, onChange }: { id: string; label: string
         max={60}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-10 w-24 rounded-sm border border-line bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+        className="field w-24"
       />
     </div>
   )
@@ -88,7 +93,7 @@ export default function WeekdayFilterPanel({
   bare = false,
 }: Props) {
   return (
-    <div className={bare ? '' : 'mb-6 rounded-sm border border-line bg-white p-4'}>
+    <div className={bare ? '' : 'surface mb-6 p-4'}>
       <DayToggles label="Departure days" selected={outDays} onToggle={onToggleOutDay} />
       {!oneWay && (
         <>

@@ -153,7 +153,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     <div className="view-in">
       <ScrollTopOnArrive />
       <Breadcrumbs items={crumbs} />
-      <h1 className="mb-2 text-2xl font-semibold">
+      <h1 className="h-page mb-2">
         {originLabel(p.originList)} →{' '}
         {place.loading ? <Skeleton className="inline-block h-6 w-28 align-middle" /> : cityName}
         <span className="ml-2 font-mono text-base font-normal text-slate">{destination}</span>
@@ -161,7 +161,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
       <SearchSummary params={new URLSearchParams(p.filterString)} />
 
       {missing && (
-        <div className="rounded-sm border border-line bg-white px-5 py-6">
+        <div className="surface px-5 py-6">
           <p className="mb-2 font-semibold">Your search is missing {missing}</p>
           <p className="mb-3 text-sm text-slate">Pick it on the search page and we will look up the prices.</p>
           <DrillLink href="/search" className="text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
@@ -185,7 +185,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
                 <button
                   type="button"
                   onClick={() => setRetry((n) => n + 1)}
-                  className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                  className="btn btn-primary"
                 >
                   Try again
                 </button>
@@ -195,7 +195,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
             {!isMonth && !listLoading && !compare.error && openJawData && <OpenJawContent data={openJawData} p={p} />}
 
             {!isMonth && !listLoading && !compare.error && !openJawData && fares.length === 0 && (
-              <div className="rounded-sm border border-line bg-white px-5 py-6">
+              <div className="surface px-5 py-6">
                 <p className="mb-2 font-semibold">No cached prices found for this search</p>
                 <p className="mb-3 text-sm text-slate">
                   Cached data is thin for small routes and exact days. Things that usually help:

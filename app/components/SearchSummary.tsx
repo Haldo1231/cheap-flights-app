@@ -7,7 +7,7 @@ export default function SearchSummary({ params, from }: { params: URLSearchParam
   return (
     <ul className="mb-6 flex flex-wrap gap-2" aria-label="Your search">
       {chips.map((chip) => (
-        <li key={chip} className="rounded-sm border border-line bg-white px-2.5 py-1 font-mono text-xs text-slate">
+        <li key={chip} className="rounded-full border border-line bg-white px-3 py-1 font-mono text-xs text-slate">
           {chip}
         </li>
       ))}

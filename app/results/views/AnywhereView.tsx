@@ -36,7 +36,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
     <div className="view-in">
       <ScrollTopOnArrive />
       <Breadcrumbs items={[{ label: 'Search', href: '/search' }, { label: 'Anywhere' }]} />
-      <h1 className="mb-2 text-2xl font-semibold">
+      <h1 className="h-page mb-2">
         Anywhere from {first}
         {p.originList.length > 1 ? ` +${p.originList.length - 1}` : ''}
       </h1>
@@ -72,7 +72,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
           <button
             type="button"
             onClick={() => setRetry((n) => n + 1)}
-            className="rounded-sm bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="btn btn-primary"
           >
             Try again
           </button>
@@ -93,7 +93,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
           </ul>
           <DrillLink
             href="/search"
-            className="inline-flex min-h-11 items-center rounded-sm bg-ink px-5 text-sm font-medium text-white transition-colors hover:bg-ink-hover"
+            className="btn btn-primary"
           >
             Change my search
           </DrillLink>

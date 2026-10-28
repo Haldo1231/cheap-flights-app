@@ -63,11 +63,11 @@ function legFrom(s: TripLegSnapshot, names: Map<string, string>): Leg {
 function MissingTrip() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-20 text-center">
-      <h1 className="mb-3 text-2xl font-semibold">We can&apos;t open this trip</h1>
+      <h1 className="h-page mb-3">We can&apos;t open this trip</h1>
       <p className="mb-6 text-slate">
         The link is missing some trip details. Start from the search and pick a flight again.
       </p>
-      <Link href="/search" className="inline-block rounded-sm bg-ink px-5 py-3 font-medium text-white hover:bg-ink-hover">
+      <Link href="/search" className="btn btn-primary btn-lg">
         Go to search
       </Link>
     </div>
@@ -158,7 +158,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
       <div className="view-in">
         <ScrollTopOnArrive />
         <Breadcrumbs items={crumbs} />
-        <h1 className="mb-1 text-2xl font-semibold">
+        <h1 className="h-page mb-1">
           {cityName}
           <span className="ml-2 font-mono text-base font-normal text-slate">
             {trip.inbound ? `${formatNights(nights)}` : 'one way'}
@@ -172,7 +172,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
 
         <div className="flex flex-col gap-8 lg:flex-row">
           <div className="min-w-0 flex-1 space-y-8">
-            <section aria-labelledby="your-flights" className="rounded-sm border border-line bg-white p-4 sm:p-5">
+            <section aria-labelledby="your-flights" className="surface p-4 sm:p-5">
               <h2 id="your-flights" className="mb-1 text-lg font-semibold">
                 Your flights
               </h2>
@@ -243,7 +243,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                     <h3 className="mb-1 text-sm font-semibold">
                       {cityLabel(homeOut)} → {cityName} · {formatDay(trip.outbound.date)}
                     </h3>
-                    <ul className="mb-5 divide-y divide-line rounded-sm border border-line bg-white px-4">
+                    <ul className="mb-5 surface divide-y divide-line px-4">
                       {outOthers.map((f) => (
                         <li key={`${f.price}-${f.departureTime}-${f.gate}`}>
                           <FlightLeg
@@ -271,7 +271,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                     <h3 className="mb-1 text-sm font-semibold">
                       {cityName} → {cityLabel(homeBack ?? homeOut)} · {formatDay(trip.inbound.date)}
                     </h3>
-                    <ul className="divide-y divide-line rounded-sm border border-line bg-white px-4">
+                    <ul className="surface divide-y divide-line px-4">
                       {backOthers.map((f) => (
                         <li key={`${f.price}-${f.departureTime}-${f.gate}`}>
                           <FlightLeg

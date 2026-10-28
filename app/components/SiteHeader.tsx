@@ -20,6 +20,9 @@ export default function SiteHeader() {
           href="/"
           className="num -ml-2 inline-flex min-h-12 items-center rounded-sm px-2 text-base font-semibold tracking-tight focus-visible:outline-white sm:text-lg"
         >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="mr-1.5 h-5 w-5 text-amber" fill="currentColor">
+            <path d="M3.4 20.4 21 12 3.4 3.6l-.9 6.6L14 12 2.5 13.8l.9 6.6Z" />
+          </svg>
           cheap<span className="text-amber">flights</span>
         </Link>
         <ul className="flex items-center">

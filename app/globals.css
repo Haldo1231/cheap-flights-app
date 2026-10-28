@@ -74,13 +74,22 @@ body {
   to { transform: none; }
 }
 
+/* Cards rise into place one after another. Used on small leaf elements only (a
+   transform kept on a big container would break position:fixed inside it), and
+   "backwards" means no transform is left behind once the animation is over. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
 .view-in { animation: view-in 180ms ease-out; }
 .fade-in { animation: fade-in 160ms ease-out both; }
+.rise-in { animation: rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 .drawer-panel { animation: drawer-in-bottom 220ms ease-out both; }
 @media (min-width: 640px) {
   .drawer-panel { animation-name: drawer-in-right; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .view-in, .fade-in, .drawer-panel { animation: none; }
+  .view-in, .fade-in, .rise-in, .drawer-panel { animation: none; }
 }

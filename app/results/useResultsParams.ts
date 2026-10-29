@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { parseDays, serializeDays } from '../weekdays'
-import { filtersOnly, withParams } from '../lib/resultsUrl'
+import { dataFilters, filtersOnly, withParams } from '../lib/resultsUrl'
+import { budgetParams, parseBudget, parseLevel } from '../lib/budget'
+import type { LevelKey } from '../budgetConfig'
 
 /** Everything the results screens read from the URL, parsed once. */
 export function useResultsParams() {
@@ -19,6 +21,13 @@ export function useResultsParams() {
   const backDays = useMemo(() => parseDays(backDaysParam), [backDaysParam])
 
   const filterString = useMemo(() => filtersOnly(searchString).toString(), [searchString])
+  /** The same without the budget settings: the address price requests use (see dataFilters). */
+  const dataString = useMemo(() => dataFilters(searchString).toString(), [searchString])
+
+  const budget = parseBudget(searchParams.get('budget'))
+  const level = parseLevel(searchParams.get('level'))
+  // "Only within budget" means nothing without a budget.
+  const withinOnly = budget !== null && searchParams.get('within') === 'true'
 
   /** The address we have asked for but the router has not shown yet. Two quick taps (for
    * example Thursday, then Tuesday) must both survive, so the second change builds on the
@@ -51,10 +60,22 @@ export function useResultsParams() {
     [setParams]
   )
 
+  /** Change the budget and/or the spending style. A cleared budget also clears "only within budget". */
+  const setBudget = useCallback(
+    (nextBudget: number | null, nextLevel: LevelKey) =>
+      setParams({ ...budgetParams(nextBudget, nextLevel), ...(nextBudget === null ? { within: null } : {}) }),
+    [setParams]
+  )
+  const setWithinOnly = useCallback((on: boolean) => setParams({ within: on ? 'true' : null }), [setParams])
+
   return {
     searchParams,
     searchString,
     filterString,
+    dataString,
+    budget,
+    level,
+    withinOnly,
     isAnywhere: searchParams.get('anywhere') === 'true',
     country: searchParams.get('country') || '',
     destination: searchParams.get('destination') || '',
@@ -75,6 +96,8 @@ export function useResultsParams() {
     setParams,
     setOutDays,
     setBackDays,
+    setBudget,
+    setWithinOnly,
   }
 }
 

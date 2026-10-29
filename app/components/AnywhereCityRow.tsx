@@ -1,6 +1,8 @@
 import type { AnywhereCity, Leg } from '../tripTypes'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
+import BudgetBadge from './BudgetBadge'
+import type { TripEstimate } from '../lib/budget'
 
 type Props = {
   city: AnywhereCity
@@ -8,6 +10,8 @@ type Props = {
   href: string
   /** Emphasize the row (the city that decided the country's price). */
   highlight?: boolean
+  /** Budget estimate for this city's trip (flight + stay). Only set when a budget is. */
+  estimate?: TripEstimate | null
 }
 
 function legPrice(leg: Leg & { price?: number | null }) {
@@ -16,7 +20,7 @@ function legPrice(leg: Leg & { price?: number | null }) {
 
 /** One city inside an Anywhere country: its trip (when it was checked against
  * the filters) or, otherwise, one real cached example fare marked as unfiltered. */
-export default function AnywhereCityRow({ city, href, highlight = false }: Props) {
+export default function AnywhereCityRow({ city, href, highlight = false, estimate = null }: Props) {
   const trip = city.trip
   const example = city.example
 
@@ -48,12 +52,20 @@ export default function AnywhereCityRow({ city, href, highlight = false }: Props
               <p className="text-xs text-slate">
                 {trip.inbound ? (trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
               </p>
+              {estimate?.total != null && <p className="mt-0.5 font-mono text-xs font-semibold text-ink">~€{estimate.total} total</p>}
             </>
           ) : (
             <p className="font-mono text-base tabular-nums text-slate">~€{city.roughPrice}</p>
           )}
         </div>
       </div>
+
+      {trip && estimate && estimate.status !== 'none' && (
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-line pt-2 text-xs text-slate">
+          <BudgetBadge estimate={estimate} />
+          {estimate.total !== null && <span>flight + {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay, estimate</span>}
+        </p>
+      )}
 
       {trip && (
         <div className="mt-2 divide-y divide-line border-t border-line">

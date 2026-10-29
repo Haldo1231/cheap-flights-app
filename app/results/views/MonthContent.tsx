@@ -5,9 +5,13 @@ import CalendarGrid from '../../components/CalendarGrid'
 import DayFlightRow from '../../components/DayFlightRow'
 import Drawer from '../../components/Drawer'
 import FlightLeg from '../../components/FlightLeg'
-import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
-import FilterDisclosure from '../../components/FilterDisclosure'
-import { describeFilters } from '../../lib/searchSummary'
+import WeekdayFilterBox from '../WeekdayFilterBox'
+import BudgetBox from '../BudgetBox'
+import BudgetEmpty from '../BudgetEmpty'
+import BudgetBadge from '../../components/BudgetBadge'
+import type { DestInfo } from '../../components/CostOfStay'
+import { affordableText, levelLabel, type TripEstimate } from '../../lib/budget'
+import { useMonthBudget } from './useMonthBudget'
 import { CalendarSkeleton, FareListSkeleton } from '../../components/Skeleton'
 import { calendarDayToFare } from '../../lib/trip'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
@@ -18,7 +22,7 @@ import type { MonthTrip } from './useMonthTrip'
 
 type Combo = MonthTrip['bestCombinations'][number]
 
-export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip }) {
+export default function MonthContent({ p, m, info, infoReady }: { p: ResultsParams; m: MonthTrip; info: DestInfo | null; infoReady: boolean }) {
   const [drawer, setDrawer] = useState<'out' | 'back' | null>(null)
   const { destination, oneWay, departMonth, returnMonth } = p
 
@@ -26,7 +30,10 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
   const minMonth = todayString().slice(0, 7)
   const maxMonth = shiftMonth(minMonth, 11)
 
-  const loading = m.calOut.loading || m.calBack.loading
+  const mb = useMonthBudget(p, m, info)
+  const { budget, level } = p
+  const loading = m.calOut.loading || m.calBack.loading || (budget !== null && !infoReady)
+  const place = info?.name ?? destination
   const failed = m.calOut.error || m.calBack.error
 
   function pickDay(leg: 'out' | 'back', date: string) {
@@ -48,6 +55,11 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
     setDrawer(null)
   }
 
+  // The pairs shown: with a budget, the ranked list (within budget first); otherwise the cheapest flights.
+  const listRows: { combo: Combo; estimate: TripEstimate | null }[] = mb
+    ? mb.shown.slice(0, 10)
+    : m.bestCombinations.map((combo) => ({ combo, estimate: null }))
+
   const drawerFares = drawer === 'out' ? m.outFares : m.backFares
   const drawerSelected = drawer === 'out' ? m.selectedOutFare : m.selectedBackFare
   const drawerDate = drawer === 'out' ? m.outDate : m.backDate
@@ -55,20 +67,8 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
 
   return (
     <div>
-      <FilterDisclosure summary={describeFilters(new URLSearchParams(p.filterString))}>
-        <WeekdayFilterPanel
-          bare
-          outDays={p.outDays}
-          backDays={p.backDays}
-          oneWay={oneWay}
-          minNights={p.minNights}
-          maxNights={p.maxNights}
-          onChangeOutDays={p.setOutDays}
-          onChangeBackDays={p.setBackDays}
-          onChangeMinNights={(v) => p.setParams({ minNights: v })}
-          onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
-        />
-      </FilterDisclosure>
+      <WeekdayFilterBox p={p} />
+      <BudgetBox p={p} />
 
       {failed && (
         <div role="alert" className="mb-6 rounded-sm border border-danger-line bg-danger-bg px-5 py-4 text-sm text-ink">
@@ -82,6 +82,20 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
             Best combinations
           </h2>
           {loading && <FareListSkeleton count={2} label="Finding the best day pairs" />}
+          {!loading && mb && mb.rows.length > 0 && (
+            <p className="mb-3 text-sm text-slate" aria-live="polite">
+              {!mb.dataOk ? (
+                <>No cost data for {place}: flight prices only, nothing is counted as within your €{budget} budget.</>
+              ) : (
+                <>
+                  <span className="font-semibold text-ink">
+                    {mb.withinCount} of {mb.rows.length}
+                  </span>{' '}
+                  day pair{mb.rows.length === 1 ? '' : 's'} fit your €{budget} budget ({levelLabel(level)} style, flights plus stay), best first.
+                </>
+              )}
+            </p>
+          )}
           {!loading && m.bestCombinations.length === 0 && (
             <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
               {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
@@ -93,12 +107,22 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                   }.`}
             </p>
           )}
-          {!loading && m.bestCombinations.length > 0 && (
+          {!loading && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
+            <BudgetEmpty
+              p={p}
+              cheapestTotal={mb.cheapestTotal}
+              ultraHelps={mb.ultraHelps}
+              noData={!mb.dataOk}
+              noun="day pairs"
+            />
+          )}
+          {!loading && listRows.length > 0 && (
             <ul className="space-y-2">
-              {m.bestCombinations.map((combo, i) => {
+              {listRows.map(({ combo, estimate }, i) => {
                 const outLeg = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination).outbound
                 const backLeg = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin).outbound
                 const picked = m.outDate === combo.outDate && m.backDate === combo.backDate
+                const hint = estimate ? affordableText(estimate, place, false, budget) : null
                 return (
                   <li key={`${combo.outDate}-${combo.backDate}`}>
                     <button
@@ -110,16 +134,24 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {i === 0 && (
                             <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">
-                              Cheapest
+                              {estimate && estimate.status === 'within' ? 'Best for your budget' : 'Cheapest'}
                             </span>
                           )}
                           <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
+                          {estimate && <BudgetBadge estimate={estimate} />}
                         </div>
                         <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
                         <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
+                        {estimate && (estimate.total !== null || hint) && (
+                          <p className="mt-1 text-xs text-slate">
+                            {estimate.total !== null && <span className="font-medium text-ink">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}
+                            {estimate.total !== null && hint ? ' · ' : ''}
+                            {hint}
+                          </p>
+                        )}
                       </div>
                       <p className={`whitespace-nowrap font-mono text-xl font-semibold tabular-nums ${i === 0 ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{combo.total}</p>
                     </button>
@@ -148,6 +180,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
             selectedDate={m.outDate ?? undefined}
             onSelectDay={(date: string) => pickDay('out', date)}
             allowedDays={p.outDays}
+            marks={mb?.outMarks}
             minMonth={minMonth}
             maxMonth={maxMonth}
           />
@@ -161,6 +194,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
               selectedDate={m.backDate ?? undefined}
               onSelectDay={(date: string) => pickDay('back', date)}
               allowedDays={p.backDays}
+              marks={mb?.backMarks}
               minMonth={minMonth}
               maxMonth={maxMonth}
             />
@@ -181,6 +215,16 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
         <li className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-sm bg-sand" /> Not one of your weekdays / no price
         </li>
+        {mb && mb.dataOk && (
+          <>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="font-bold text-ink">✓</span> The whole trip fits your €{budget} budget
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="font-mono text-slate">€12</span> Grey price: over budget
+            </li>
+          </>
+        )}
       </ul>
 
       <Drawer

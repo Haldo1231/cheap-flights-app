@@ -23,6 +23,8 @@ type Props = {
   selectedDate: string | undefined
   onSelectDay: (date: string, day: CalendarDay) => void
   allowedDays?: number[]
+  /** Budget marks by date: "fits" = the whole trip fits the budget, "over" = it does not. */
+  marks?: Record<string, 'fits' | 'over'>
   /** Earliest / latest month the arrows may reach (YYYY-MM). */
   minMonth?: string
   maxMonth?: string
@@ -39,6 +41,7 @@ export default function CalendarGrid({
   selectedDate,
   onSelectDay,
   allowedDays = ALL_WEEKDAYS,
+  marks,
   minMonth,
   maxMonth,
 }: Props) {
@@ -96,11 +99,12 @@ export default function CalendarGrid({
           const isSelected = selectedDate === dateStr
           const isGood = usable && avg !== null && entry.price < avg
           const airline = entry?.airlineName || entry?.airlineCode
+          const mark = usable ? marks?.[dateStr] : undefined
           // Read out by screen readers in addition to the visible day number and price.
           const spoken = !isAllowedDay
             ? `${formatDay(dateStr)}, not one of your selected weekdays.`
             : entry
-            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}.`
+            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}${mark === 'fits' ? ', the whole trip fits your budget' : mark === 'over' ? ', the whole trip is over your budget' : ''}.`
             : `${formatDay(dateStr)}, no cached price.`
           const detail = entry ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${airline ? ` · ${airline}` : ''}` : undefined
 
@@ -112,7 +116,7 @@ export default function CalendarGrid({
               aria-pressed={usable ? isSelected : undefined}
               onClick={() => usable && onSelectDay(dateStr, entry)}
               title={!isAllowedDay ? 'Not one of your selected weekdays' : usable ? detail : undefined}
-              className={`flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
+              className={`relative flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
                 !isAllowedDay
                   ? 'cursor-not-allowed border-transparent bg-sand text-faint line-through opacity-60'
                   : isSelected
@@ -125,8 +129,13 @@ export default function CalendarGrid({
               } ${isCheapest && !isSelected ? 'outline outline-2 outline-amber' : ''}`}
             >
               <span className="sr-only">{spoken}</span>
+              {mark === 'fits' && (
+                <span aria-hidden="true" className="absolute right-0.5 top-0 text-[11px] font-bold leading-none text-ink">
+                  ✓
+                </span>
+              )}
               <span>{day}</span>
-              {usable && <span className="font-mono tabular-nums">€{entry.price}</span>}
+              {usable && <span className={`font-mono tabular-nums ${mark === 'over' ? 'text-slate' : ''}`}>€{entry.price}</span>}
             </button>
           )
         })}

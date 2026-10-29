@@ -45,60 +45,87 @@
   --shadow-lift: 0 2px 4px rgb(20 33 61 / 0.06), 0 18px 36px -14px rgb(20 33 61 / 0.3);
 }
 
-/* Dark theme: the same names with dark values, so every class keeps working.
-   It follows the phone/computer setting, unless the header switch chose a side
-   (data-theme on <html>, saved in localStorage). The values appear twice on purpose:
-   once for "follow the system", once for "dark chosen by hand". */
+/* ===== DARK THEME VALUES: the only place to change how dark the dark mode is =====
+   Lighter or darker overall: move --dark-paper, --dark-surface, --dark-sand and --dark-line
+   together (each a little lighter than the one before it, so page < card < inner box keeps its
+   separation). --dark-deep is the header, footer and hero bands. --dark-slate is secondary
+   text: keep it light enough to stay readable (4.5:1 against the card colour or better).
+   Earlier, darker values were: paper #0B1220, surface #131C30, sand #1A2540, line #27324D,
+   slate #A4ADBE, deep #08101F, navy #2C4170. */
+:root {
+  --dark-ink: #EDEAE2;
+  --dark-paper: #141E36;
+  --dark-surface: #1D2944;
+  --dark-sand: #27355A;
+  --dark-line: #364565;
+  --dark-faint: #7C8AA8;
+  --dark-slate: #B4BCCD;
+  --dark-amber-soft: #382E1C;
+  --dark-amber-soft-hover: #43361F;
+  --dark-danger: #FF9F92;
+  --dark-danger-bg: #42221F;
+  --dark-danger-line: #8A4339;
+  --dark-ok-bg: #173A2C;
+  --dark-ok-line: #357A50;
+  --dark-deep: #0E172D;
+  --dark-deep-2: #0A1224;
+  --dark-navy: #36518A;
+  --dark-navy-hover: #4563A0;
+}
+
+/* The dark values are applied under two conditions: "follow the phone/computer setting", unless
+   the header switch chose a side (data-theme on <html>, saved in localStorage), and "dark chosen
+   by hand". Same names as the light theme, so every class keeps working. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-ink: #EDEAE2;
-    --color-paper: #0B1220;
-    --color-surface: #131C30;
-    --color-sand: #1A2540;
-    --color-line: #27324D;
-    --color-faint: #6B7894;
-    --color-slate: #A4ADBE;
-    --color-amber-ink: #FCA311;
-    --color-amber-soft: #2B2314;
-    --color-amber-soft-hover: #352A18;
-    --color-danger: #FF9F92;
-    --color-danger-bg: #3A1C1A;
-    --color-danger-line: #7B3B34;
-    --color-ok-bg: #12301F;
-    --color-ok-line: #2F6B47;
-    --color-deep: #08101F;
-    --color-deep-2: #050B16;
-    --color-navy: #2C4170;
-    --color-navy-hover: #3A5490;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px -10px rgb(0 0 0 / 0.5);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 36px -14px rgb(0 0 0 / 0.7);
+    --color-ink: var(--dark-ink);
+    --color-paper: var(--dark-paper);
+    --color-surface: var(--dark-surface);
+    --color-sand: var(--dark-sand);
+    --color-line: var(--dark-line);
+    --color-faint: var(--dark-faint);
+    --color-slate: var(--dark-slate);
+    --color-amber-ink: var(--color-amber);
+    --color-amber-soft: var(--dark-amber-soft);
+    --color-amber-soft-hover: var(--dark-amber-soft-hover);
+    --color-danger: var(--dark-danger);
+    --color-danger-bg: var(--dark-danger-bg);
+    --color-danger-line: var(--dark-danger-line);
+    --color-ok-bg: var(--dark-ok-bg);
+    --color-ok-line: var(--dark-ok-line);
+    --color-deep: var(--dark-deep);
+    --color-deep-2: var(--dark-deep-2);
+    --color-navy: var(--dark-navy);
+    --color-navy-hover: var(--dark-navy-hover);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 18px -10px rgb(0 0 0 / 0.45);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 18px 36px -14px rgb(0 0 0 / 0.6);
     --skeleton-shine: rgb(255 255 255 / 0.07);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-ink: #EDEAE2;
-  --color-paper: #0B1220;
-  --color-surface: #131C30;
-  --color-sand: #1A2540;
-  --color-line: #27324D;
-  --color-faint: #6B7894;
-  --color-slate: #A4ADBE;
-  --color-amber-ink: #FCA311;
-  --color-amber-soft: #2B2314;
-  --color-amber-soft-hover: #352A18;
-  --color-danger: #FF9F92;
-  --color-danger-bg: #3A1C1A;
-  --color-danger-line: #7B3B34;
-  --color-ok-bg: #12301F;
-  --color-ok-line: #2F6B47;
-  --color-deep: #08101F;
-  --color-deep-2: #050B16;
-  --color-navy: #2C4170;
-  --color-navy-hover: #3A5490;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px -10px rgb(0 0 0 / 0.5);
-  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 36px -14px rgb(0 0 0 / 0.7);
+  --color-ink: var(--dark-ink);
+  --color-paper: var(--dark-paper);
+  --color-surface: var(--dark-surface);
+  --color-sand: var(--dark-sand);
+  --color-line: var(--dark-line);
+  --color-faint: var(--dark-faint);
+  --color-slate: var(--dark-slate);
+  --color-amber-ink: var(--color-amber);
+  --color-amber-soft: var(--dark-amber-soft);
+  --color-amber-soft-hover: var(--dark-amber-soft-hover);
+  --color-danger: var(--dark-danger);
+  --color-danger-bg: var(--dark-danger-bg);
+  --color-danger-line: var(--dark-danger-line);
+  --color-ok-bg: var(--dark-ok-bg);
+  --color-ok-line: var(--dark-ok-line);
+  --color-deep: var(--dark-deep);
+  --color-deep-2: var(--dark-deep-2);
+  --color-navy: var(--dark-navy);
+  --color-navy-hover: var(--dark-navy-hover);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 18px -10px rgb(0 0 0 / 0.45);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 18px 36px -14px rgb(0 0 0 / 0.6);
   --skeleton-shine: rgb(255 255 255 / 0.07);
 }
 :root[data-theme="light"] {
@@ -261,3 +288,23 @@ footer :focus-visible,
   .view-in, .fade-in, .rise-in, .flap-in, .reveal, .drawer-panel, .skeleton { animation: none; }
   *, *::before, *::after { scroll-behavior: auto !important; }
 }
+
+/* Text of trip reports and guides (rendered from Markdown). */
+.article { overflow-wrap: anywhere; font-size: 1.0625rem; line-height: 1.75; color: var(--color-ink); }
+.article > * + * { margin-top: 1.1em; }
+.article h2 { margin-top: 2em; font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
+.article h3 { margin-top: 1.6em; font-size: 1.2rem; font-weight: 600; }
+.article h4 { margin-top: 1.4em; font-weight: 600; }
+.article a { text-decoration: underline; text-decoration-color: var(--color-amber); text-decoration-thickness: 2px; text-underline-offset: 3px; font-weight: 500; }
+.article a:hover { color: var(--color-amber-ink); }
+.article ul, .article ol { padding-left: 1.4em; }
+.article ul { list-style: disc; }
+.article ol { list-style: decimal; }
+.article li + li { margin-top: 0.35em; }
+.article blockquote { border-left: 4px solid var(--color-amber); padding: 0.1em 0 0.1em 1em; color: var(--color-slate); }
+.article code { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.92em; background: var(--color-sand); border-radius: 4px; padding: 0.1em 0.35em; }
+.article pre { overflow-x: auto; background: var(--color-sand); border-radius: 8px; padding: 1em; }
+.article pre code { background: none; padding: 0; }
+.article hr { border: 0; border-top: 1px solid var(--color-line); margin: 2em 0; }
+.article table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+.article th, .article td { border-bottom: 1px solid var(--color-line); padding: 0.5em 0.6em; text-align: left; }

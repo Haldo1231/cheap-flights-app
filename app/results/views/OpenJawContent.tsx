@@ -2,19 +2,41 @@
 
 import FlightLeg from '../../components/FlightLeg'
 import DrillLink from '../../components/DrillLink'
+import BudgetBadge from '../../components/BudgetBadge'
+import type { DestInfo } from '../../components/CostOfStay'
+import { affordableText, compareEstimates, estimateTrip, levelLabel, type TripEstimate } from '../../lib/budget'
+import { nightsBetweenDates } from '../../lib/format'
 import { snapshotFromLegs } from '../../lib/trip'
 import { tripHref } from '../../lib/tripUrl'
-import type { CompareResponse } from '../../tripTypes'
+import type { CompareResponse, OpenJawCombo } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
+import BudgetEmpty from '../BudgetEmpty'
 
 export type OpenJawResponse = Extract<CompareResponse, { openJaw: true }>
 
 const BOOK_BUTTON = 'btn btn-amber'
 
+/** The combinations in the order they are shown, with each one's budget estimate. With a budget:
+ * within budget first (cheapest total first); without one: cheapest flights first (as delivered). */
+export function arrangeCombos(combos: OpenJawCombo[], p: ResultsParams, info: DestInfo | null) {
+  const { budget, level, withinOnly } = p
+  const estimate = (c: OpenJawCombo): TripEstimate =>
+    estimateTrip({ flight: c.total, nights: nightsBetweenDates(c.outbound.date, c.inbound.date), info, level, budget })
+  const rows = combos.map((combo) => ({ combo, estimate: estimate(combo) }))
+  if (budget !== null) rows.sort((a, b) => compareEstimates(a.estimate, b.estimate))
+  const shown = withinOnly ? rows.filter((r) => r.estimate.status === 'within') : rows
+  return { rows, shown, withinCount: rows.filter((r) => r.estimate.status === 'within').length }
+}
+
 /** Fly out from one airport and back to another. Each flight has its own cached
  * price; a trip with a missing leg is never shown as a complete round trip. */
-export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: ResultsParams }) {
-  const { destination } = p
+export default function OpenJawContent({ data, p, info }: { data: OpenJawResponse; p: ResultsParams; info: DestInfo | null }) {
+  const { destination, budget, level } = p
+  const { rows, shown, withinCount } = arrangeCombos(data.results, p, info)
+  const totals = rows.flatMap((r) => (r.estimate.total !== null ? [r.estimate.total] : []))
+  const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
+  const noData = budget !== null && rows.length > 0 && totals.length === 0
+  const ultraHelps = budget !== null && data.results.some((c) => estimateTrip({ flight: c.total, nights: nightsBetweenDates(c.outbound.date, c.inbound.date), info, level: 'ultra', budget }).status === 'within')
   const nothing = data.results.length === 0 && !data.missingOutbound && !data.missingReturn
 
   return (
@@ -49,9 +71,27 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
         </ul>
       )}
 
-      {data.results.length > 0 && (
+      {budget !== null && data.results.length > 0 && (
+        <p className="mb-3 text-sm text-slate" aria-live="polite">
+          {noData ? (
+            <>No cost data for {info?.name ?? 'this destination'}: flight prices only, nothing is counted as within your €{budget} budget.</>
+          ) : (
+            <>
+              <span className="font-semibold text-ink">
+                {withinCount} of {rows.length}
+              </span>{' '}
+              combination{rows.length === 1 ? '' : 's'} fit your €{budget} budget ({levelLabel(level)} style, flights plus stay).
+            </>
+          )}
+        </p>
+      )}
+      {budget !== null && data.results.length > 0 && shown.length === 0 && (
+        <BudgetEmpty p={p} cheapestTotal={cheapestTotal} ultraHelps={ultraHelps} noData={noData} noun="combinations" />
+      )}
+
+      {shown.length > 0 && (
         <ul className="space-y-3">
-          {data.results.map((combo, i) => (
+          {shown.map(({ combo, estimate }, i) => (
             <li
               key={`${combo.outbound.origin}-${combo.inbound.destination}-${combo.total}-${i}`}
               className={`rounded-lg border bg-surface shadow-card transition-shadow duration-200 hover:shadow-lift motion-reduce:transition-none ${i === 0 ? 'border-amber ring-1 ring-amber' : 'border-line'}`}
@@ -73,6 +113,13 @@ export default function OpenJawContent({ data, p }: { data: OpenJawResponse; p: 
                   </div>
                   <p className="font-mono text-3xl font-semibold leading-none tabular-nums">€{combo.total}</p>
                 </div>
+                {budget !== null && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    <BudgetBadge estimate={estimate} />
+                    {estimate.total !== null && <span className="text-slate">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}
+                    {affordableText(estimate, info?.name ?? destination, false, budget) && <span className="text-slate">{affordableText(estimate, info?.name ?? destination, false, budget)}</span>}
+                  </div>
+                )}
                 <div className="mt-2 divide-y divide-line">
                   <FlightLeg label="Outbound" leg={combo.outbound} price={combo.outbound.price} />
                   <FlightLeg label="Return" leg={combo.inbound} price={combo.inbound.price} />

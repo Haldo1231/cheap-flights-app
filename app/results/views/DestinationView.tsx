@@ -19,9 +19,11 @@ import { AIRPORTS } from '../../airportsList'
 import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
+import WeekdayFilterBox from '../WeekdayFilterBox'
 import MonthContent from './MonthContent'
-import FareListContent, { splitFares } from './FareListContent'
-import OpenJawContent from './OpenJawContent'
+import FareListContent, { arrangeFares } from './FareListContent'
+import OpenJawContent, { arrangeCombos } from './OpenJawContent'
+import BudgetBox from '../BudgetBox'
 
 type PlaceResponse = { city: { code: string; name: string } | null; country: { code: string; name: string } | null }
 type InfoResponse = { destination: DestInfo | null }
@@ -48,7 +50,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     (dateMode === 'range' && !p.searchParams.get('rangeStart') && 'a start date') ||
     null
 
-  const listParams = new URLSearchParams(p.filterString)
+  const listParams = new URLSearchParams(p.dataString)
   listParams.set('destination', destination)
   const compare = useJson<CompareResponse>(!isMonth && !missing ? `/api/compare?${listParams}` : null, retry)
   const place = useJson<PlaceResponse>(`/api/place?city=${encodeURIComponent(destination)}`)
@@ -87,20 +89,23 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     returnDate = oneWay ? null : month.selectedBackFare?.outbound.date ?? null
     flightNote = oneWay ? 'one way' : 'outbound + return'
   } else if (openJaw && openJawData?.results[0]) {
-    const combo = openJawData.results[0]
-    flightPrice = combo.total
-    departDate = combo.outbound.date
-    returnDate = combo.inbound.date
-    flightNote = 'cheapest outbound + return'
+    // The first combination in the list (the cheapest flights, or with a budget the best one within it).
+    const first = arrangeCombos(openJawData.results, p, info).shown[0]?.combo ?? openJawData.results[0]
+    flightPrice = first.total
+    departDate = first.outbound.date
+    returnDate = first.inbound.date
+    flightNote = p.budget !== null ? 'best outbound + return for your budget' : 'cheapest outbound + return'
   } else {
-    const { primary, secondary } = splitFares(fares, oneWay)
-    const cheapest = primary[0] ?? secondary[0]
-    const shown = fares.find((f) => f.id === previewedId) ?? cheapest
+    // The fare the panel shows: the one under the pointer, otherwise the first one in the list (the
+    // cheapest flight, or with a budget the best one within budget), so panel and list always agree.
+    const arranged = arrangeFares(fares, p, info)
+    const visible = [...arranged.shownPrimary, ...arranged.shownSecondary]
+    const shown = visible.find((f) => f.id === previewedId) ?? arranged.defaultFare
     if (shown) {
       flightPrice = shown.price
       departDate = shown.outbound.date
       returnDate = shown.inbound?.date ?? null
-      flightNote = `${shown.kind === 'round-trip' ? 'round trip, both flights' : 'one way'}${shown.id === cheapest?.id ? ' · cheapest shown' : ''}`
+      flightNote = `${shown.kind === 'round-trip' ? 'round trip, both flights' : 'one way'}${shown.id === arranged.cheapestId ? ' · cheapest shown' : ''}`
     }
   }
 
@@ -133,6 +138,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         : undefined
       : undefined,
     days: stayDays,
+    level: p.level,
+    budget: p.budget,
+    oneWay,
     dates: departDate ? `${formatShortDate(departDate)}${returnDate ? ` → ${formatShortDate(returnDate)}` : ''}` : null,
     summary: isMonth ? (
       <TripSummary
@@ -148,7 +156,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     ) : undefined,
   }
 
-  const listLoading = !isMonth && !missing && compare.loading
+  const listLoading = !isMonth && !missing && (compare.loading || (p.budget !== null && !infoReady))
   const showCost = infoReady && !missing && !(compare.error && !isMonth)
 
   return (
@@ -184,7 +192,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
           {/* No items-start on this row: the cost column must stretch to the full
               height of the results so the sticky card has room to travel. */}
           <div className="min-w-0 flex-1">
-            {isMonth && <MonthContent p={p} m={month} />}
+            {isMonth && <MonthContent p={p} m={month} info={info} infoReady={infoReady} />}
+            {dateMode === 'range' && <WeekdayFilterBox p={p} />}
+            {!isMonth && <BudgetBox p={p} />}
 
             {listLoading && <FareListSkeleton count={4} label="Searching cached flights" />}
 
@@ -201,7 +211,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               </div>
             )}
 
-            {!isMonth && !listLoading && !compare.error && openJawData && <OpenJawContent data={openJawData} p={p} />}
+            {!isMonth && !listLoading && !compare.error && openJawData && <OpenJawContent data={openJawData} p={p} info={info} />}
 
             {!isMonth && !listLoading && !compare.error && !openJawData && fares.length === 0 && (
               <div className="surface px-5 py-6">
@@ -210,6 +220,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
                   Cached data is thin for small routes and exact days. Things that usually help:
                 </p>
                 <ul className="list-disc space-y-1 pl-5 text-sm text-slate">
+                  {dateMode === 'range' && (p.outDays.length < 7 || (!oneWay && p.backDays.length < 7)) && (
+                    <li>allow more weekdays (your day limits may be hiding cached fares)</li>
+                  )}
                   <li>use Whole month or a wider date range instead of one exact day</li>
                   <li>add more home airports (Vienna and Budapest have the most data)</li>
                   <li>try a more popular destination</li>

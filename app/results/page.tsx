@@ -5,7 +5,7 @@ import { PageHeaderSkeleton, FareListSkeleton } from '../components/Skeleton'
 import { pageMetadata } from '../lib/seo'
 import type { OgCard } from '../lib/ogCard'
 import { countryShareCard, destinationShareCard } from '../lib/shareData'
-import { filtersOnly } from '../lib/resultsUrl'
+import { dataFilters } from '../lib/resultsUrl'
 
 export async function generateMetadata({
   searchParams,
@@ -47,7 +47,7 @@ export async function generateMetadata({
  * the screen requests (see AnywhereView and CountryView), or the early copy is simply not used. */
 function dataAddressFor(params: URLSearchParams): string | null {
   if (params.get('anywhere') !== 'true' || params.get('destination')) return null
-  const filters = filtersOnly(params)
+  const filters = dataFilters(params)
   const country = params.get('country')
   if (country) {
     filters.set('country', country)

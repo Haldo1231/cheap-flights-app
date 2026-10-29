@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
-import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
-import FilterDisclosure from '../../components/FilterDisclosure'
-import { describeFilters } from '../../lib/searchSummary'
+import WeekdayFilterBox from '../WeekdayFilterBox'
+import BudgetBox from '../BudgetBox'
+import BudgetEmpty from '../BudgetEmpty'
 import CountryCard from '../../components/CountryCard'
 import DrillLink from '../../components/DrillLink'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
@@ -15,6 +15,8 @@ import { useJson } from '../../lib/useJson'
 import Flag from '../../components/Flag'
 import { CompassIcon } from '../../components/Icons'
 import { withParams } from '../../lib/resultsUrl'
+import { useDestinationCosts } from '../../lib/useDestinationCosts'
+import { estimateTrip, groupByBudget, levelLabel, tripNights, type TripEstimate } from '../../lib/budget'
 import type { AnywhereCountry } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 
@@ -30,11 +32,48 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
   // Country photos come from Unsplash's image server: open that connection while the prices load.
   preconnect('https://images.unsplash.com')
   const [retry, setRetry] = useState(0)
-  const { data, loading, error } = useJson<AnywhereResponse>(`/api/anywhere-by-country?${p.filterString}`, retry)
+  const { data, loading: pricesLoading, error } = useJson<AnywhereResponse>(`/api/anywhere-by-country?${p.dataString}`, retry)
+  // Cost numbers are only needed (and only requested) when a budget is set.
+  const { costs, loading: costsLoading } = useDestinationCosts(p.budget !== null)
+  const loading = pricesLoading || (p.budget !== null && costsLoading)
+  const { budget, level, withinOnly } = p
 
   const countries = data?.countries ?? []
   const unmatched = data?.unmatchedCountries ?? []
   const first = p.originList[0]
+
+  // With a budget: each country's trip (its cheapest-looking city, checked against your filters) gets a
+  // total of flight + stay at the chosen style. A country whose city has no cost data cannot be checked.
+  const estimateOf = (c: AnywhereCountry): TripEstimate => {
+    const trip = c.verifiedCity?.trip
+    return estimateTrip({
+      flight: c.price ?? 0,
+      nights: trip && !p.oneWay ? tripNights(trip) : null,
+      info: c.verifiedCity ? costs[c.verifiedCity.code] : null,
+      level,
+      budget,
+    })
+  }
+  const groups = budget !== null ? groupByBudget(countries, estimateOf) : null
+  const totals = groups ? countries.flatMap((c) => (estimateOf(c).total !== null ? [estimateOf(c).total as number] : [])) : []
+  const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
+  const ultraHelps =
+    groups !== null &&
+    countries.some((c) => {
+      const trip = c.verifiedCity?.trip
+      return estimateTrip({ flight: c.price ?? 0, nights: trip && !p.oneWay ? tripNights(trip) : null, info: c.verifiedCity ? costs[c.verifiedCity.code] : null, level: 'ultra', budget }).status === 'within'
+    })
+  const card = (country: AnywhereCountry, i: number, cheapest: boolean) => (
+    <CountryCard
+      key={country.code}
+      country={country}
+      href={withParams(p.searchString, { country: country.code })}
+      cheapest={cheapest}
+      eager={i < 3}
+      index={i}
+      estimate={budget !== null ? estimateOf(country) : null}
+    />
+  )
 
   return (
     <div className="view-in">
@@ -46,22 +85,8 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />
 
-      {p.dateMode === 'month' && (
-        <FilterDisclosure summary={describeFilters(new URLSearchParams(p.filterString))}>
-          <WeekdayFilterPanel
-            bare
-            outDays={p.outDays}
-            backDays={p.backDays}
-            oneWay={p.oneWay}
-            minNights={p.minNights}
-            maxNights={p.maxNights}
-            onChangeOutDays={p.setOutDays}
-            onChangeBackDays={p.setBackDays}
-            onChangeMinNights={(v) => p.setParams({ minNights: v })}
-            onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
-          />
-        </FilterDisclosure>
-      )}
+      <WeekdayFilterBox p={p} />
+      <BudgetBox p={p} />
 
       {loading && (
         <>
@@ -122,24 +147,62 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
             the booking site.
           </p>
 
-          {countries.length > 0 && (
+          {countries.length > 0 && !groups && (
             <section aria-labelledby="country-grid-title">
               <h2 id="country-grid-title" className="sr-only">
                 Countries, cheapest first
               </h2>
-              <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-                {countries.map((country, i) => (
-                  <CountryCard
-                    key={country.code}
-                    country={country}
-                    href={withParams(p.searchString, { country: country.code })}
-                    cheapest={i === 0}
-                    eager={i < 3}
-                    index={i}
-                  />
-                ))}
-              </ol>
+              <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{countries.map((country, i) => card(country, i, i === 0))}</ol>
             </section>
+          )}
+
+          {countries.length > 0 && groups && (
+            <>
+              <p className="mb-4 text-sm text-slate" aria-live="polite">
+                <span className="font-semibold text-ink">
+                  {groups.within.length} of {countries.length}
+                </span>{' '}
+                countr{countries.length === 1 ? 'y has' : 'ies have'} a trip within your €{budget} budget ({levelLabel(level)} style: flight plus stay,
+                an estimate). Ranked by total cost.
+              </p>
+
+              {groups.within.length === 0 && (
+                <BudgetEmpty p={p} cheapestTotal={cheapestTotal} ultraHelps={ultraHelps} noData={groups.over.length === 0 && groups.nodata.length > 0} noun="countries" />
+              )}
+
+              {groups.within.length > 0 && (
+                <section aria-labelledby="within-title">
+                  <h2 id="within-title" className="mb-3 text-base font-semibold">
+                    Within your budget
+                  </h2>
+                  <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{groups.within.map((country, i) => card(country, i, i === 0))}</ol>
+                </section>
+              )}
+
+              {!withinOnly && groups.over.length > 0 && (
+                <section className="mt-8" aria-labelledby="over-title">
+                  <h2 id="over-title" className="mb-1 text-base font-semibold">
+                    Over your budget
+                  </h2>
+                  <p className="mb-3 text-xs text-slate">These cost more than €{budget} in total, cheapest first.</p>
+                  <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{groups.over.map((country, i) => card(country, i + groups.within.length, false))}</ol>
+                </section>
+              )}
+
+              {!withinOnly && groups.nodata.length > 0 && (
+                <section className="mt-8" aria-labelledby="nodata-title">
+                  <h2 id="nodata-title" className="mb-1 text-base font-semibold">
+                    No cost data
+                  </h2>
+                  <p className="mb-3 text-xs text-slate">
+                    We have no cost-of-stay numbers for these cities, so only the flight price is shown and they are not counted as within budget.
+                  </p>
+                  <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+                    {groups.nodata.map((country, i) => card(country, i + groups.within.length + groups.over.length, false))}
+                  </ol>
+                </section>
+              )}
+            </>
           )}
 
           {unmatched.length > 0 && (

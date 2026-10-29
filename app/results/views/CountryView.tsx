@@ -9,9 +9,14 @@ import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
 import DrillLink from '../../components/DrillLink'
 import CountryPhoto, { PhotoCredit } from '../../components/CountryPhoto'
 import ShareButton from '../../components/ShareButton'
+import WeekdayFilterBox from '../WeekdayFilterBox'
+import BudgetBox from '../BudgetBox'
+import BudgetEmpty from '../BudgetEmpty'
 import { RowListSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
+import { useDestinationCosts } from '../../lib/useDestinationCosts'
+import { estimateTrip, groupByBudget, levelLabel, tripNights, type TripEstimate } from '../../lib/budget'
 import type { CountryImage } from '../../lib/countryImage'
 import type { AnywhereCity } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
@@ -28,9 +33,26 @@ export default function CountryView({ p }: { p: ResultsParams }) {
   preconnect('https://images.unsplash.com')
   const [retry, setRetry] = useState(0)
   const [photoFailed, setPhotoFailed] = useState(false)
-  const params = new URLSearchParams(p.filterString)
+  const params = new URLSearchParams(p.dataString)
   params.set('country', p.country)
-  const { data, loading, error } = useJson<CountryResponse>(`/api/anywhere-country?${params.toString()}`, retry)
+  const { data, loading: pricesLoading, error } = useJson<CountryResponse>(`/api/anywhere-country?${params.toString()}`, retry)
+  const { costs, loading: costsLoading } = useDestinationCosts(p.budget !== null)
+  const loading = pricesLoading || (p.budget !== null && costsLoading)
+  const { budget, level, withinOnly } = p
+
+  const estimateOf = (city: AnywhereCity, forLevel = level): TripEstimate =>
+    estimateTrip({
+      flight: city.trip?.price ?? 0,
+      nights: city.trip && !p.oneWay ? tripNights(city.trip) : null,
+      info: costs[city.code],
+      level: forLevel,
+      budget,
+    })
+  const cities = data?.cities ?? []
+  const groups = budget !== null ? groupByBudget(cities, (c) => estimateOf(c)) : null
+  const totals = groups ? cities.flatMap((c) => (estimateOf(c).total !== null ? [estimateOf(c).total as number] : [])) : []
+  const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
+  const ultraHelps = groups !== null && cities.some((c) => estimateOf(c, 'ultra').status === 'within')
 
   const countryName = data?.country?.name ?? p.country
   const anywhereHref = withParams(p.searchString, { country: null })
@@ -75,6 +97,8 @@ export default function CountryView({ p }: { p: ResultsParams }) {
         )}
       </div>
       <SearchSummary params={new URLSearchParams(p.filterString)} from={p.originList.join(', ')} />
+      <WeekdayFilterBox p={p} />
+      <BudgetBox p={p} />
 
       {loading && <RowListSkeleton count={4} label="Checking the cities in this country" />}
 
@@ -117,7 +141,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
             </div>
           )}
 
-          {data.cities.length > 0 && (
+          {data.cities.length > 0 && !groups && (
             <ol className="space-y-3">
               {data.cities.map((city, i) => (
                 <li key={city.code}>
@@ -125,6 +149,66 @@ export default function CountryView({ p }: { p: ResultsParams }) {
                 </li>
               ))}
             </ol>
+          )}
+
+          {data.cities.length > 0 && groups && (
+            <>
+              <p className="mb-4 text-sm text-slate" aria-live="polite">
+                <span className="font-semibold text-ink">
+                  {groups.within.length} of {data.cities.length}
+                </span>{' '}
+                cit{data.cities.length === 1 ? 'y fits' : 'ies fit'} your €{budget} budget ({levelLabel(level)} style: flight plus stay, an estimate). Ranked by total cost.
+              </p>
+              {groups.within.length === 0 && (
+                <BudgetEmpty p={p} cheapestTotal={cheapestTotal} ultraHelps={ultraHelps} noData={groups.over.length === 0 && groups.nodata.length > 0} noun="cities" />
+              )}
+              {groups.within.length > 0 && (
+                <section aria-labelledby="within-cities">
+                  <h2 id="within-cities" className="mb-2 text-base font-semibold">
+                    Within your budget
+                  </h2>
+                  <ol className="space-y-3">
+                    {groups.within.map((city, i) => (
+                      <li key={city.code}>
+                        <AnywhereCityRow city={city} href={cityHref(city.code)} highlight={i === 0} estimate={estimateOf(city)} />
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+              {!withinOnly && groups.over.length > 0 && (
+                <section className="mt-8" aria-labelledby="over-cities">
+                  <h2 id="over-cities" className="mb-1 text-base font-semibold">
+                    Over your budget
+                  </h2>
+                  <p className="mb-3 text-xs text-slate">These cost more than €{budget} in total, cheapest first.</p>
+                  <ol className="space-y-3">
+                    {groups.over.map((city) => (
+                      <li key={city.code}>
+                        <AnywhereCityRow city={city} href={cityHref(city.code)} estimate={estimateOf(city)} />
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+              {!withinOnly && groups.nodata.length > 0 && (
+                <section className="mt-8" aria-labelledby="nodata-cities">
+                  <h2 id="nodata-cities" className="mb-1 text-base font-semibold">
+                    No cost data
+                  </h2>
+                  <p className="mb-3 text-xs text-slate">
+                    We have no cost-of-stay numbers for these cities, so only the flight price is shown and they are not counted as within budget.
+                  </p>
+                  <ol className="space-y-3">
+                    {groups.nodata.map((city) => (
+                      <li key={city.code}>
+                        <AnywhereCityRow city={city} href={cityHref(city.code)} estimate={estimateOf(city)} />
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+            </>
           )}
 
           {data.unmatchedCities.length > 0 && (

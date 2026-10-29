@@ -9,6 +9,19 @@ import type { ResultsParams } from '../useResultsParams'
 
 const EMPTY: CalendarDayMap = {}
 
+/** The fare the address asks for. A pair chosen from "Best combinations" names the calendar's own fare
+ * ("cal|FROM|TO|date|price"); when the day's flight list already holds that same fare under another id,
+ * the one with the same airports and price is the one meant (not just the cheapest flight of the day),
+ * so the cost panel shows exactly the pair that was clicked. */
+function pickFare(fares: Fare[], id: string | null): Fare | undefined {
+  if (!id) return undefined
+  const exact = fares.find((f) => f.id === id)
+  if (exact) return exact
+  const [kind, from, to, , price] = id.split('|')
+  if (kind !== 'cal') return undefined
+  return fares.find((f) => f.outbound.origin === from && f.outbound.destination === to && f.price === Number(price))
+}
+
 type CalendarResponse = { data: CalendarDayMap }
 type CompareResponse = { results: Fare[] }
 
@@ -69,8 +82,18 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
     [backFlights.data, backDay, backDate, destination]
   )
 
-  const selectedOutFare = outDate ? outFares.find((f) => f.id === outFlightId) ?? outFares[0] ?? null : null
-  const selectedBackFare = backDate ? backFares.find((f) => f.id === backFlightId) ?? backFares[0] ?? null : null
+  // The fares the address asks for. A pair chosen from "Best combinations" names the calendar's own fare
+  // ("cal|FROM|TO|date|price"); when the day's flight list already holds that same fare under another id,
+  // the one with the same airports and price is the one meant (not just the cheapest flight of the day),
+  // so the cost panel shows exactly the pair that was clicked.
+  const selectedOutFare = useMemo(
+    () => (outDate ? pickFare(outFares, outFlightId) ?? outFares[0] ?? null : null),
+    [outDate, outFares, outFlightId]
+  )
+  const selectedBackFare = useMemo(
+    () => (backDate ? pickFare(backFares, backFlightId) ?? backFares[0] ?? null : null),
+    [backDate, backFares, backFlightId]
+  )
 
   const outLoading = !!outDate && (outFlights.loading || (calOut.loading && outFares.length === 0))
   const backLoading = !!backDate && (backFlights.loading || (calBack.loading && backFares.length === 0))

@@ -244,3 +244,47 @@ so they cannot be forged), meta tags on every page, bolder type and copy, mobile
 Status: done. Lighthouse (mobile, throttled): accessibility 100, best practices 100, SEO 100 (results pages
 are deliberately `noindex`), performance 85-91, CLS 0. The Anywhere price data is now requested as soon as
 the page arrives (preload) instead of after the scripts start.
+
+# Content section (branch `feature/trips-and-guides`)
+
+What it is: trip reports (`/trips`) and guides (`/guides`) written as Markdown files in `content/`, plus About and
+Affiliate disclosure pages, so the site becomes a real travel-content site (needed for affiliate approval and Google).
+
+- Content system: zod-checked front matter (build stops and names the file + field when something is missing, a photo has
+  no `alt`, a photo file does not exist, the slug differs from the file name, or a picture is placed inside the text).
+  Drafts exist only in development. Safe Markdown (raw HTML and inline images are escaped).
+- No real content was written. Only `content/trips/sample-trip.md` exists: a fake, `draft: true`, "SAMPLE, NOT REAL".
+- Pages: trips list and detail (facts box, tips, "what I would do differently", gallery, "compare with our estimate"
+  only where both numbers exist, search buttons), guides list and detail (related destinations with cached cheapest fare),
+  home preview (only when something is published), Trips/Guides in the header (phone menu) and footer.
+- Photos: `npm run optimize-photos -- <slug>` resizes to 2000 px WebP and removes EXIF/GPS (verified on a test photo with GPS).
+- SEO and trust: titles, canonical links, Open Graph, Article + BreadcrumbList data, `sitemap.xml`, `robots.txt`
+  (published entries only), About page with marked TODO boxes (kept out of search until written), disclosure page.
+- Checks run: production build + lint, desktop/phone/dark-mode browser sweeps (5 widths, accessibility rules, broken images,
+  console errors), header menu test, link crawl, build-failure cases, production server with and without published entries.
+- Fixes found while testing: very long words pushed the page wider than a phone; compare-table headers broke mid-word;
+  two homepage links were too small to tap; the longer footer made the sticky cost panel on results scroll off the bottom.
+- Not re-run: the country-photo tests (t7, t7c, t12, t13) because they swap `data/country-images.json`, which another
+  session is working on. Country photo code was not touched.
+
+# Budget and polish (branch `feature/budget-and-polish`)
+
+## Task 1: Weekday filters in date range mode
+Done. Same "Only specific days" panel as Whole Month (without the nights fields: a range has its own "days away"), in the search form
+and above the results. `outDays` / `backDays` live in the address. The date-range search (`/api/compare`) and Anywhere (every city, both
+the country list and the country page) keep only fares whose departure (and, for a round trip, return) weekday matches, using one shared
+rule (`matchesWeekdays`). Exact dates ignore weekdays because the day was picked. Whole Month is unchanged.
+
+## Task 2: Dark mode a little lighter
+Done. Page, cards, inner boxes and borders each moved up one small step (for example page #0B1220 -> #141E36, cards #131C30 -> #1D2944)
+and the dark values now live once, as `--dark-*` variables. Text, focus rings and amber keep AA contrast (checked with axe on every page).
+
+## Task 3: Budget feature
+Done, see the README. Totals are the same function everywhere; lists, calendars, the Anywhere ranking and the sticky cost panel agree.
+
+## Task 4: Review
+Found and fixed while testing: faded "over budget" calendar prices had too little contrast (now secondary text colour); picking a best day pair
+in Whole Month could show the cheapest flight of the day instead of the clicked pair (cost panel total differed); a one-way Anywhere search that
+returned a round-trip fare counted its nights (now 1 day, as specified).
+Known limits: most Anywhere cities have no cost data yet; a country is judged by its cheapest-looking city; "over budget" uses our own style
+multipliers (assumptions, not quotes); the weekday rule treats a round-trip fare with an unknown return date as not matching when return days are limited.

@@ -1,5 +1,6 @@
 import { ALL_WEEKDAYS, WEEKDAY_BUTTONS, parseDays } from '../weekdays'
 import { formatDay, formatMonth, formatShortDate } from './format'
+import { levelLabel, parseBudget, parseLevel } from './budget'
 
 function dayNames(days: number[]): string {
   return WEEKDAY_BUTTONS.filter((d) => days.includes(d.value)).map((d) => d.label).join(', ')
@@ -32,7 +33,18 @@ export function describeSearch(params: URLSearchParams): string[] {
     const to = params.get('rangeEnd')
     if (from && to) out.push(`${formatShortDate(from)} – ${formatShortDate(to)}`)
     if (!oneWay) out.push(`${params.get('minDays') || 2}–${params.get('maxDays') || 10} days`)
+    const outDays = parseDays(params.get('outDays'))
+    if (outDays.length < ALL_WEEKDAYS.length) out.push(`Depart ${dayNames(outDays)}`)
+    if (!oneWay) {
+      const backDays = parseDays(params.get('backDays'))
+      if (backDays.length < ALL_WEEKDAYS.length) out.push(`Return ${dayNames(backDays)}`)
+    }
   }
+
+  const budget = parseBudget(params.get('budget'))
+  const level = parseLevel(params.get('level'))
+  if (budget !== null) out.push(`Budget €${budget} · ${levelLabel(level)}`)
+  else if (level !== 'middle') out.push(`${levelLabel(level)} style`)
   return out
 }
 
@@ -45,7 +57,8 @@ export function describeFilters(params: URLSearchParams): string {
   if (!oneWay) {
     const backDays = parseDays(params.get('backDays'))
     parts.push(backDays.length < ALL_WEEKDAYS.length ? `Return ${dayNames(backDays)}` : 'Return any day')
-    parts.push(`${params.get('minNights') || 1}–${params.get('maxNights') || 14} nights`)
+    // Whole Month has its own nights limits; a date range has "days away" (shown in the search chips).
+    if (params.get('dateMode') !== 'range') parts.push(`${params.get('minNights') || 1}–${params.get('maxNights') || 14} nights`)
   }
   return parts.join(' · ')
 }

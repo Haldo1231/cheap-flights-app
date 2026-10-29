@@ -41,7 +41,7 @@ export const viewport: Viewport = {
   // The colour of the browser bar on phones follows the theme.
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#14213D' },
-    { media: '(prefers-color-scheme: dark)', color: '#08101F' },
+    { media: '(prefers-color-scheme: dark)', color: '#0E172D' },
   ],
   colorScheme: 'light dark',
 }

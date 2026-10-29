@@ -43,7 +43,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
   const estimateOf = (city: AnywhereCity, forLevel = level): TripEstimate =>
     estimateTrip({
       flight: city.trip?.price ?? 0,
-      nights: city.trip ? tripNights(city.trip) : null,
+      nights: city.trip && !p.oneWay ? tripNights(city.trip) : null,
       info: costs[city.code],
       level: forLevel,
       budget,

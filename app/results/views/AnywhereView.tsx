@@ -48,7 +48,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
     const trip = c.verifiedCity?.trip
     return estimateTrip({
       flight: c.price ?? 0,
-      nights: trip ? tripNights(trip) : null,
+      nights: trip && !p.oneWay ? tripNights(trip) : null,
       info: c.verifiedCity ? costs[c.verifiedCity.code] : null,
       level,
       budget,
@@ -61,7 +61,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
     groups !== null &&
     countries.some((c) => {
       const trip = c.verifiedCity?.trip
-      return estimateTrip({ flight: c.price ?? 0, nights: trip ? tripNights(trip) : null, info: c.verifiedCity ? costs[c.verifiedCity.code] : null, level: 'ultra', budget }).status === 'within'
+      return estimateTrip({ flight: c.price ?? 0, nights: trip && !p.oneWay ? tripNights(trip) : null, info: c.verifiedCity ? costs[c.verifiedCity.code] : null, level: 'ultra', budget }).status === 'within'
     })
   const card = (country: AnywhereCountry, i: number, cheapest: boolean) => (
     <CountryCard

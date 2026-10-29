@@ -30,9 +30,10 @@ export function splitFares(fares: Fare[], oneWay: boolean) {
   return { primary, secondary }
 }
 
-/** Nights the stay estimate counts for a fare (a one-way fare, or a same-day return, counts 1 day). */
-function fareNights(fare: Fare): number {
-  return fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 1
+/** Nights the stay estimate counts for a fare. A one-way search counts 1 day, even when the only cached
+ * fare happens to be a round-trip one; a same-day return also counts 1 day (see stayDays). */
+function fareNights(fare: Fare, oneWay: boolean): number {
+  return !oneWay && fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 1
 }
 
 /** Everything the list and the cost panel need to agree on: the two groups of fares in the order they
@@ -41,7 +42,7 @@ function fareNights(fare: Fare): number {
 export function arrangeFares(fares: Fare[], p: ResultsParams, info: DestInfo | null) {
   const { oneWay, budget, level, withinOnly } = p
   const estimates = new Map<string, TripEstimate>()
-  for (const f of fares) estimates.set(f.id, estimateTrip({ flight: f.price, nights: fareNights(f), info, level, budget }))
+  for (const f of fares) estimates.set(f.id, estimateTrip({ flight: f.price, nights: fareNights(f, oneWay), info, level, budget }))
   const est = (f: Fare) => estimates.get(f.id) as TripEstimate
 
   const { primary, secondary } = splitFares(fares, oneWay)
@@ -100,7 +101,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
   const noData = budget !== null && fares.length > 0 && totals.length === 0
   const ultraHelps =
     budget !== null &&
-    fares.some((f) => estimateTrip({ flight: f.price, nights: fareNights(f), info, level: 'ultra', budget }).status === 'within')
+    fares.some((f) => estimateTrip({ flight: f.price, nights: fareNights(f, oneWay), info, level: 'ultra', budget }).status === 'within')
 
   return (
     <>

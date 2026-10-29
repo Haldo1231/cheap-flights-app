@@ -43,6 +43,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
         isPreviewed={fare.id === shownId}
         onPreview={() => onPreview(fare.id)}
         detailsHref={tripHref(p.searchString, p.destination, snapshotFromFare(fare))}
+        shareTitle={info?.name}
         stayLine={
           stay && stay.tripTotal !== null
             ? `≈ €${stay.tripTotal} with ${nights} day${nights === 1 ? '' : 's'} of stay costs in ${info?.name}`
@@ -55,13 +56,13 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
   return (
     <>
       {primary.length === 0 && oneWay && (
-        <p className="mb-3 rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
+        <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
           No one-way fare is cached for this search. Only round-trip fares (which include a return flight) were found,
           shown below.
         </p>
       )}
       {primary.length === 0 && !oneWay && requestedReturn && (
-        <p className="mb-3 rounded-sm border border-line bg-white px-4 py-3 text-sm text-slate">
+        <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
           No cached fare found for your exact return date ({formatDay(requestedReturn)}). These fares leave on your
           departure day with a different return date:
         </p>

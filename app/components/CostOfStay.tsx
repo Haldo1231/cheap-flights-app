@@ -128,7 +128,7 @@ export function CostMobileBar(props: CostProps) {
   const total = info ? costOfStayNumbers(info, flightPrice, days).tripTotal : flightPrice
 
   return (
-    <div data-mobile-bar className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white shadow-[0_-4px_12px_rgba(20,33,61,0.10)] lg:hidden">
+    <div data-mobile-bar className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface shadow-[0_-4px_12px_rgba(20,33,61,0.10)] lg:hidden">
       {expanded && (
         <div id={panelId} className="max-h-[60vh] overflow-y-auto border-b border-line px-4 py-4">
           <CostBreakdown {...props} />

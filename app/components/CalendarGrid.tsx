@@ -63,7 +63,7 @@ export default function CalendarGrid({
           onClick={onPrev}
           disabled={!!minMonth && month <= minMonth}
           aria-label={`Previous month, ${title}`}
-          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
+          className="min-h-10 min-w-10 rounded-sm border border-line bg-surface text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
         >
           ←
         </button>
@@ -75,7 +75,7 @@ export default function CalendarGrid({
           onClick={onNext}
           disabled={!!maxMonth && month >= maxMonth}
           aria-label={`Next month, ${title}`}
-          className="min-h-10 min-w-10 rounded-sm border border-line bg-white text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
+          className="min-h-10 min-w-10 rounded-sm border border-line bg-surface text-sm hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
         >
           →
         </button>

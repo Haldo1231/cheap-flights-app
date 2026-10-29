@@ -184,7 +184,7 @@ Status: done, but the photos themselves still need to be fetched (needs your key
 
 - `scripts/fetch-country-images.mjs` finds one landscape photo per country (skipping photos
   that mention people) and saves it in `data/country-images.json`. Run it with
-  `npm run images:fetch` after adding `UNSPLASH_ACCESS_KEY=...` to `.env.local`.
+  `npm run images` after adding `UNSPLASH_ACCESS_KEY=...` to `.env.local`.
 - A new Unsplash app is limited to 50 requests an hour (2 per country), so each run does
   about 25 countries, most likely destinations first, and then stops politely. Run it again
   later and it continues. Applying for "production" status in the Unsplash dashboard lifts
@@ -209,3 +209,38 @@ moving is switched off for people who ask for reduced motion.
 
 ## Task 4: Review
 Status: done. See the final report in the chat for what was fixed and what was left.
+
+# Photos and polish — `feature/photos-and-gen-z-polish` branch
+
+## Task 1: Why the cards only showed gradients
+Status: code ready; the photos themselves still need your key (see README)
+
+Cause: `data/country-images.json` was empty because the fetch script had never run with a real key.
+The cloud workspace has no `.env.local` and cannot reach Unsplash, Pexels or Travelpayouts, so it could
+not be run there. Nothing is wrong in the site code: with a photo in the file the card shows it
+(tested with placeholder pictures for every country, including slow loading, a broken picture and no
+layout shift).
+
+What changed: `npm run images` waits between requests, reads the rate-limit headers, stops politely
+(or waits for the next hour with `--wait`) and resumes; it takes the country list from Travelpayouts
+(the same list the site uses), tries up to 3 search terms per country, skips photos that mention
+people, remembers countries with no good photo, and writes `data/country-images-review.md` to skim.
+If Unsplash is unavailable (wrong key / limit) and `PEXELS_API_KEY` exists, it carries on with Pexels.
+Tested against a fake Unsplash/Pexels server only.
+
+## Task 2: Flags
+Status: done. 254 SVG flags in `public/flags/` (from flag-icons, MIT). Flag emoji are gone from the app;
+unknown codes show a neutral globe. Flags now also appear in search suggestions, breadcrumbs and titles.
+
+## Task 3: Weekday filters
+Status: done. Off by default; "Only specific days" switch for departure and return; starts empty so one
+tap on Thu = only Thursday; Weekends / Weekdays / Select all / Clear. Quick taps no longer overwrite each other.
+
+## Task 4: Gen Z design
+Status: done. Dark mode (system + header switch), Share buttons, link-preview pictures (`/api/og`, signed
+so they cannot be forged), meta tags on every page, bolder type and copy, mobile bottom search button.
+
+## Task 5: Review
+Status: done. Lighthouse (mobile, throttled): accessibility 100, best practices 100, SEO 100 (results pages
+are deliberately `noindex`), performance 85-91, CLS 0. The Anywhere price data is now requested as soon as
+the page arrives (preload) instead of after the scripts start.

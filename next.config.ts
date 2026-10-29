@@ -2,11 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Country photos come from Unsplash's own image server. The cards load them
-    // straight from there (see unsplashLoader in app/lib/countryImage.ts), as
-    // Unsplash asks; this allow-list is the safety net if next/image's built-in
-    // optimizer is ever used for them.
-    remotePatterns: [{ protocol: 'https', hostname: 'images.unsplash.com' }],
+    // Country photos come straight from the photo site's own image server (Unsplash,
+    // or Pexels as the fallback). The cards load them from there with photoLoader in
+    // app/lib/countryImage.ts, as Unsplash asks. This allow-list is what lets
+    // next/image accept those hosts if its built-in optimizer is ever used for them.
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'images.pexels.com' },
+    ],
   },
   async headers() {
     return [

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { parseDays, serializeDays } from '../weekdays'
 import { filtersOnly, withParams } from '../lib/resultsUrl'
@@ -20,29 +20,35 @@ export function useResultsParams() {
 
   const filterString = useMemo(() => filtersOnly(searchString).toString(), [searchString])
 
+  /** The address we have asked for but the router has not shown yet. Two quick taps (for
+   * example Thursday, then Tuesday) must both survive, so the second change builds on the
+   * first instead of on the older address that is still on screen. */
+  const pending = useRef<string | null>(null)
+  useEffect(() => {
+    pending.current = null
+  }, [searchString])
+
   /** Change params without leaving the screen (filters, selections). Does not
    * touch scroll, and replaces the history entry so Back is not a pile of filter clicks. */
   const setParams = useCallback(
     (changes: Record<string, string | null>) => {
-      router.replace(withParams(searchString, changes), { scroll: false })
+      const next = withParams(pending.current ?? searchString, changes)
+      pending.current = next.includes('?') ? next.slice(next.indexOf('?') + 1) : ''
+      router.replace(next, { scroll: false })
     },
     [router, searchString]
   )
 
-  const toggleOutDay = useCallback(
-    (day: number) => {
-      const next = outDays.includes(day) ? outDays.filter((d) => d !== day) : [...outDays, day]
-      setParams({ outDays: serializeDays(next) })
-    },
-    [outDays, setParams]
+  /** Allow only these departure days. All seven (or none) means no restriction, so the
+   * parameter disappears from the address. */
+  const setOutDays = useCallback(
+    (days: number[]) => setParams({ outDays: days.length === 0 || days.length === 7 ? null : serializeDays(days) }),
+    [setParams]
   )
 
-  const toggleBackDay = useCallback(
-    (day: number) => {
-      const next = backDays.includes(day) ? backDays.filter((d) => d !== day) : [...backDays, day]
-      setParams({ backDays: serializeDays(next) })
-    },
-    [backDays, setParams]
+  const setBackDays = useCallback(
+    (days: number[]) => setParams({ backDays: days.length === 0 || days.length === 7 ? null : serializeDays(days) }),
+    [setParams]
   )
 
   return {
@@ -67,8 +73,8 @@ export function useResultsParams() {
     minNights: parseInt(searchParams.get('minNights') || '1', 10),
     maxNights: parseInt(searchParams.get('maxNights') || '14', 10),
     setParams,
-    toggleOutDay,
-    toggleBackDay,
+    setOutDays,
+    setBackDays,
   }
 }
 

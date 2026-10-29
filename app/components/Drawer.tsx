@@ -66,7 +66,7 @@ export default function Drawer({ open, onClose, title, subtitle, children }: Pro
         aria-label="Close"
         tabIndex={-1}
         onClick={onClose}
-        className="fade-in absolute inset-0 h-full w-full cursor-default bg-ink/40"
+        className="fade-in absolute inset-0 h-full w-full cursor-default bg-black/50"
       />
       <div
         ref={panelRef}
@@ -75,7 +75,7 @@ export default function Drawer({ open, onClose, title, subtitle, children }: Pro
         aria-labelledby={titleId}
         className="drawer-panel absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-md bg-paper shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[30rem] sm:max-w-full sm:rounded-none"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line bg-white px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-line bg-surface px-5 py-4">
           <div className="min-w-0">
             <h2 id={titleId} className="text-lg font-semibold text-ink">
               {title}

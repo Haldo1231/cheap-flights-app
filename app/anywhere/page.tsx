@@ -3,15 +3,18 @@ import Link from 'next/link'
 import { getCheapestDestinations } from '../cheapDestinations'
 import FareCard from '../components/FareCard'
 import PageHero from '../components/PageHero'
+import { pageMetadata } from '../lib/seo'
 
 // Prices come from 1-hour cached data, so refresh this page about as often.
 export const revalidate = 3600
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Where can I fly cheaply?',
+  previewTitle: 'Cheapest escape from your airports',
   description:
     'The cheapest cached flights right now to popular city breaks from Bratislava, Vienna, Budapest, Košice and Prague, sorted by price.',
-}
+  path: '/anywhere',
+})
 
 export default async function AnywherePage() {
   const results = await getCheapestDestinations()
@@ -20,7 +23,7 @@ export default async function AnywherePage() {
     <div>
       <PageHero
         eyebrow="Anywhere"
-        title="Where can I fly cheaply?"
+        title="Cheapest escape from your airports"
         actions={
           <Link href="/search?to=ANYWHERE" className="btn btn-amber btn-lg">
             Search anywhere with your own dates
@@ -48,6 +51,8 @@ export default async function AnywherePage() {
                 key={destination.code}
                 fare={fare}
                 isCheapest={i === 0}
+                shareHref={`/destinations/${destination.slug}`}
+                shareTitle={destination.name}
                 heading={
                   <Link href={`/destinations/${destination.slug}`} className="hover:underline">
                     {i + 1}. {destination.name}

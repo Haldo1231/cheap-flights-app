@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import PageHero from './components/PageHero'
+import Flag from './components/Flag'
 import { HOME_AIRPORTS } from './homeAirports'
 import { AIRPORTS } from './airportsList'
 import { DESTINATIONS } from './destinationsList'
@@ -100,7 +101,10 @@ function DepartureBoard() {
                 </span>
                 <span className="font-medium">{airport?.city}</span>
               </span>
-              <span className="num text-xs uppercase tracking-wide text-white/60">{airport?.country}</span>
+              <span className="num flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+                {airport?.country}
+                <Flag code={airport?.countryCode} size="sm" eager />
+              </span>
             </li>
           )
         })}
@@ -117,7 +121,7 @@ export default function Home() {
         eyebrow={HOME_AIRPORTS.join(' · ')}
         title={
           <>
-            Find the <span className="text-amber">cheapest</span> way to fly
+            Where to this <span className="text-amber">weekend</span>?
           </>
         }
         actions={
@@ -126,15 +130,15 @@ export default function Home() {
               Search flights
             </Link>
             <Link href="/anywhere" className="btn btn-outline-light btn-lg">
-              Where can I fly cheaply?
+              Surprise me
             </Link>
           </>
         }
         aside={<DepartureBoard />}
       >
         <p>
-          One search compares Vienna, Bratislava, Budapest, Košice and Prague — so you stop checking five sites
-          separately.
+          <strong className="font-semibold text-white">Cheapest escape from your airports.</strong> One search compares
+          Vienna, Bratislava, Budapest, Košice and Prague, so you stop checking five sites.
         </p>
         <p className="mt-4 text-sm text-white/70 sm:text-base">
           Or{' '}
@@ -148,13 +152,13 @@ export default function Home() {
       </PageHero>
 
       <section className="mx-auto max-w-5xl px-4 py-14 sm:px-6" aria-labelledby="how">
-        <p className="eyebrow mb-2">Simple</p>
+        <p className="eyebrow mb-2">3 steps</p>
         <h2 id="how" className="h-section mb-8">
           How it works
         </h2>
         <ol className="grid gap-8 sm:grid-cols-3">
           {STEPS.map((step) => (
-            <li key={step.n} className="border-t-2 border-ink pt-4">
+            <li key={step.n} className="reveal border-t-2 border-ink pt-4">
               <p className="num mb-2 text-3xl font-semibold text-amber-ink">{step.n}</p>
               <p className="mb-1 text-lg font-semibold">{step.title}</p>
               <p className="text-slate">{step.text}</p>
@@ -163,7 +167,7 @@ export default function Home() {
         </ol>
       </section>
 
-      <section className="border-y border-line bg-white" aria-labelledby="features">
+      <section className="border-y border-line bg-surface" aria-labelledby="features">
         <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
           <p className="eyebrow mb-2">Why it is different</p>
           <h2 id="features" className="h-section mb-8">
@@ -173,9 +177,9 @@ export default function Home() {
             {FEATURES.map((f) => (
               <li
                 key={f.title}
-                className="group rounded-lg border border-line bg-paper p-5 transition duration-200 hover:-translate-y-0.5 hover:border-ink/40 hover:shadow-card motion-reduce:transition-none motion-reduce:hover:transform-none"
+                className="reveal group rounded-lg border border-line bg-paper p-5 transition duration-200 hover:-translate-y-0.5 hover:border-ink/40 hover:shadow-card motion-reduce:transition-none motion-reduce:hover:transform-none"
               >
-                <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-ink text-amber">
+                <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-navy text-amber">
                   <Icon name={f.icon} />
                 </span>
                 <p className="mb-1 font-semibold">{f.title}</p>
@@ -197,7 +201,7 @@ export default function Home() {
             <li key={d.slug}>
               <Link
                 href={`/destinations/${d.slug}`}
-                className="pill border-line bg-white hover:border-ink hover:bg-ink hover:text-white"
+                className="pill border-line bg-surface hover:border-navy hover:bg-navy hover:text-white"
               >
                 {d.name}
                 <span className="num text-xs opacity-75">{d.code}</span>
@@ -208,15 +212,15 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 pb-6 sm:px-6" aria-labelledby="cta">
-        <div className="hero-surface flex flex-col items-start justify-between gap-5 rounded-lg px-6 py-8 text-white sm:flex-row sm:items-center sm:px-10">
+        <div className="reveal hero-surface flex flex-col items-start justify-between gap-5 rounded-lg px-6 py-8 text-white sm:flex-row sm:items-center sm:px-10">
           <div>
-            <h2 id="cta" className="text-2xl font-semibold tracking-tight">
-              Not sure where to go?
+            <h2 id="cta" className="text-3xl font-semibold tracking-tight">
+              No plans? Perfect.
             </h2>
             <p className="mt-1 text-white/75">Give us your dates and home airports. We show the cheapest countries first.</p>
           </div>
           <Link href="/search?to=ANYWHERE" className="btn btn-amber btn-lg shrink-0">
-            Search anywhere
+            Search anywhere →
           </Link>
         </div>
       </section>

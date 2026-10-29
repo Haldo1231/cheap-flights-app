@@ -3,8 +3,10 @@
 import { useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AirportPicker from '../components/AirportPicker'
+import Flag from '../components/Flag'
+import { CloseIcon, PlaneIcon } from '../components/Icons'
 import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
-import { AIRPORTS } from '../airportsList'
+import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { HOME_AIRPORTS } from '../homeAirports'
 import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
 import { formatMonth } from '../lib/format'
@@ -45,8 +47,8 @@ function Chip({
       <span
         className={`pill min-h-11 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
           tone === 'navy'
-            ? 'border-line bg-white text-ink hover:border-ink peer-checked:border-ink peer-checked:bg-ink peer-checked:text-white'
-            : 'border-line bg-white text-ink hover:border-ink peer-checked:border-amber peer-checked:bg-amber-soft'
+            ? 'border-line bg-surface text-ink hover:border-ink peer-checked:border-ink peer-checked:bg-navy peer-checked:text-white'
+            : 'border-line bg-surface text-ink hover:border-ink peer-checked:border-amber peer-checked:bg-amber-soft'
         }`}
       >
         {children}
@@ -58,7 +60,7 @@ function Chip({
 function Heading({ n, id, children }: { n: number; id: string; children: React.ReactNode }) {
   return (
     <h2 id={id} className="mb-3 flex items-center gap-3 text-base font-semibold">
-      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs text-white">{n}</span>
+      <span className="num inline-flex h-6 w-6 items-center justify-center rounded-full bg-navy text-xs text-white">{n}</span>
       {children}
     </h2>
   )
@@ -187,9 +189,6 @@ export default function SearchForm() {
   const isAnywhere = destinationCode === 'ANYWHERE'
   const errorList = Object.values(errors)
 
-  const toggleIn = (setter: React.Dispatch<React.SetStateAction<number[]>>) => (day: number) =>
-    setter((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]))
-
   function toggleAirport(code: string) {
     setSelectedAirports((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
   }
@@ -255,9 +254,10 @@ export default function SearchForm() {
     } else if (dateMode === 'month') {
       params.set('month', month)
       if (!oneWay) params.set('returnMonth', returnMonth || month)
-      params.set('outDays', serializeDays(outDays))
+      // Weekday limits are only written when the person chose some; no limit = any day.
+      if (outDays.length < ALL_WEEKDAYS.length) params.set('outDays', serializeDays(outDays))
       if (!oneWay) {
-        params.set('backDays', serializeDays(backDays))
+        if (backDays.length < ALL_WEEKDAYS.length) params.set('backDays', serializeDays(backDays))
         params.set('minNights', String(minNights))
         params.set('maxNights', String(maxNights))
       }
@@ -301,6 +301,7 @@ export default function SearchForm() {
               const a = AIRPORTS.find((x) => x.code === code)
               return (
                 <Chip key={code} type="checkbox" name="origin" checked={selectedAirports.includes(code)} onChange={() => toggleAirport(code)}>
+                  <Flag code={a?.countryCode} size="xs" className="mr-2" eager />
                   <span className="num">{code}</span>
                   <span className="ml-2">{a?.city}</span>
                 </Chip>
@@ -314,11 +315,10 @@ export default function SearchForm() {
                 aria-label={`Remove ${o.city}`}
                 className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
               >
+                <Flag code={airportCountryCode(o.code)} size="xs" className="mr-2" eager />
                 <span className="num">{o.code}</span>
                 <span className="ml-2">{o.city}</span>
-                <span aria-hidden="true" className="ml-2">
-                  ✕
-                </span>
+                <CloseIcon className="ml-2 h-3.5 w-3.5" />
               </button>
             ))}
           </div>
@@ -342,18 +342,17 @@ export default function SearchForm() {
             >
               {isAnywhere ? (
                 <>
-                  <span aria-hidden="true">✈️</span>
+                  <PlaneIcon className="h-4 w-4 text-amber-ink" />
                   <span className="ml-2">Anywhere</span>
                 </>
               ) : (
                 <>
+                  <Flag code={airportCountryCode(destinationCode)} size="xs" className="mr-2" eager />
                   <span className="num">{destinationCode}</span>
                   <span className="ml-2">{destinationCity}</span>
                 </>
               )}
-              <span aria-hidden="true" className="ml-2">
-                ✕
-              </span>
+              <CloseIcon className="ml-2 h-3.5 w-3.5" />
             </button>
           ) : (
             <AirportPicker
@@ -477,8 +476,8 @@ export default function SearchForm() {
                   oneWay={oneWay}
                   minNights={minNights}
                   maxNights={maxNights}
-                  onToggleOutDay={toggleIn(setOutDays)}
-                  onToggleBackDay={toggleIn(setBackDays)}
+                  onChangeOutDays={setOutDays}
+                  onChangeBackDays={setBackDays}
                   onChangeMinNights={(v) => setMinNights(v === '' ? NaN : Number(v))}
                   onChangeMaxNights={(v) => setMaxNights(v === '' ? NaN : Number(v))}
                 />
@@ -510,12 +509,12 @@ export default function SearchForm() {
           )}
         </section>
 
-        <button
-          type="submit"
-          className="btn btn-amber btn-lg w-full sm:w-auto"
-        >
-          Search flights
-        </button>
+        {/* On phones the main button stays at the bottom of the screen while you scroll the form. */}
+        <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-paper/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+          <button type="submit" className="btn btn-amber btn-lg w-full sm:w-auto">
+            Search flights
+          </button>
+        </div>
       </form>
     </div>
   )

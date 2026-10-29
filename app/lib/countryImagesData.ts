@@ -4,22 +4,29 @@
 // 'use client' file: the API routes add the photo to their answer instead.
 
 import imagesFile from '../../data/country-images.json'
-import type { CountryImage } from './countryImage'
+import { PHOTO_SITES, type CountryImage, type PhotoSource } from './countryImage'
 
 type ImagesFile = { images: Record<string, Partial<CountryImage> | undefined> }
 
 const images = (imagesFile as unknown as ImagesFile).images ?? {}
 
+/** Photos saved before Pexels was added have no `source`: they are Unsplash photos. */
+function sourceOf(image: Partial<CountryImage>): PhotoSource {
+  return image.source === 'pexels' ? 'pexels' : 'unsplash'
+}
+
+/** A photo is only shown when its image and credit links really point at the photo site it names. */
 function isUsable(image: Partial<CountryImage> | undefined): image is CountryImage {
+  if (!image) return false
+  const site = PHOTO_SITES[sourceOf(image)]
   return (
-    !!image &&
     typeof image.raw === 'string' &&
-    image.raw.startsWith('https://images.unsplash.com/') &&
+    image.raw.startsWith(`https://${site.imageHost}/`) &&
     typeof image.photographer === 'string' &&
     typeof image.photographerUrl === 'string' &&
-    image.photographerUrl.startsWith('https://unsplash.com/') &&
+    image.photographerUrl.startsWith(site.pageHost) &&
     typeof image.photoUrl === 'string' &&
-    image.photoUrl.startsWith('https://unsplash.com/')
+    image.photoUrl.startsWith(site.pageHost)
   )
 }
 
@@ -28,6 +35,7 @@ export function getCountryImage(code: string): CountryImage | null {
   const image = images[code.toUpperCase()]
   if (!isUsable(image)) return null
   return {
+    source: sourceOf(image),
     raw: image.raw,
     alt: image.alt || '',
     color: typeof image.color === 'string' ? image.color : null,

@@ -1,7 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { countryFlag, unsplashLoader, UNSPLASH_HOME, withUnsplashUtm, type CountryImage } from '../lib/countryImage'
+import { photoLoader, creditLink, PHOTO_SITES, type CountryImage } from '../lib/countryImage'
+import Flag from './Flag'
 
 type PhotoProps = {
   code: string
@@ -19,13 +20,13 @@ type PhotoProps = {
  * height or aspect ratio (so nothing jumps when the picture arrives). With no
  * photo, or a photo that does not load, it shows a gradient with the flag. */
 export default function CountryPhoto({ code, image, failed, onFail, sizes, eager = false }: PhotoProps) {
-  if (!image || failed) return <FallbackArt code={code} />
+  if (!image || failed) return <FallbackArt code={code} eager={eager} />
 
   return (
     // The photo's main colour shows while it loads.
     <div className="absolute inset-0" style={{ backgroundColor: image.color ?? 'var(--color-ink)' }}>
       <Image
-        loader={unsplashLoader}
+        loader={photoLoader}
         src={image.raw}
         alt=""
         fill
@@ -45,9 +46,8 @@ function seed(code: string): number {
 }
 
 /** Navy-to-amber gradient with the flag and the country code as a big watermark. */
-function FallbackArt({ code }: { code: string }) {
+function FallbackArt({ code, eager }: { code: string; eager: boolean }) {
   const x = 15 + (seed(code) % 70)
-  const flag = countryFlag(code)
   return (
     <div
       aria-hidden="true"
@@ -59,21 +59,22 @@ function FallbackArt({ code }: { code: string }) {
       <span className="num absolute -bottom-6 right-2 select-none text-[9rem] font-semibold leading-none text-white/[0.07]">
         {code}
       </span>
-      {flag && <span className="absolute left-4 top-3 text-5xl leading-none drop-shadow-sm">{flag}</span>}
+      <Flag code={code} size="xl" className="absolute left-4 top-4 shadow-lg" eager={eager} />
     </div>
   )
 }
 
-/** "Photo by NAME on Unsplash", linked the way Unsplash's guidelines ask. A very long
+/** "Photo by NAME on Unsplash" (or Pexels), linked the way the photo site asks. A very long
  * name is shortened with "…" so the "on Unsplash" part always stays visible. */
 export function PhotoCredit({ image, className = '' }: { image: CountryImage; className?: string }) {
+  const site = PHOTO_SITES[image.source]
   const link =
     'inline-block underline decoration-current/40 underline-offset-2 hover:decoration-current focus-visible:outline-offset-1'
   return (
     <p className={`overflow-hidden whitespace-nowrap text-[11px] leading-6 ${className}`}>
       Photo by{' '}
       <a
-        href={withUnsplashUtm(image.photographerUrl)}
+        href={creditLink(image.source, image.photographerUrl)}
         target="_blank"
         rel="noopener noreferrer"
         className={`${link} max-w-[10.5rem] truncate align-bottom`}
@@ -81,8 +82,8 @@ export function PhotoCredit({ image, className = '' }: { image: CountryImage; cl
         {image.photographer}
       </a>{' '}
       on{' '}
-      <a href={withUnsplashUtm(UNSPLASH_HOME)} target="_blank" rel="noopener noreferrer" className={link}>
-        Unsplash
+      <a href={creditLink(image.source, site.home)} target="_blank" rel="noopener noreferrer" className={link}>
+        {site.name}
       </a>
     </p>
   )

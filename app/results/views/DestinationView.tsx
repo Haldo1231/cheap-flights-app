@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Flag from '../../components/Flag'
+import { airportCountryCode } from '../../airportsList'
 import Breadcrumbs, { type Crumb } from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
@@ -155,7 +157,14 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
       <Breadcrumbs items={crumbs} />
       <h1 className="h-page mb-2">
         {originLabel(p.originList)} →{' '}
-        {place.loading ? <Skeleton className="inline-block h-6 w-28 align-middle" /> : cityName}
+        {place.loading ? (
+          <Skeleton className="inline-block h-6 w-28 align-middle" />
+        ) : (
+          <>
+            <Flag code={p.fromCountry || airportCountryCode(destination)} size="md" className="mr-2 -translate-y-0.5" eager />
+            {cityName}
+          </>
+        )}
         <span className="ml-2 font-mono text-base font-normal text-slate">{destination}</span>
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />

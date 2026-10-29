@@ -2,6 +2,7 @@ import type { Fare } from '../tripTypes'
 import { formatNights, nightsBetweenDates } from '../lib/format'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
+import ShareButton from './ShareButton'
 
 type Props = {
   fare: Fare
@@ -16,11 +17,16 @@ type Props = {
   stayLine?: string | null
   /** A title shown at the top of the card (e.g. the destination's name). */
   heading?: React.ReactNode
+  /** Where a "Share" button sends people (defaults to the trip details). No address, no button. */
+  shareHref?: string
+  /** Name used in the share sheet, e.g. "Rome". */
+  shareTitle?: string
 }
 
 /** One cached fare. A round-trip fare shows BOTH flights; its single price
  * covers them together, which the card says plainly. */
-export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, heading }: Props) {
+export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, heading, shareHref, shareTitle }: Props) {
+  const shareTarget = shareHref ?? detailsHref
   const isRoundTrip = fare.kind === 'round-trip' && fare.inbound
   const nights = fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 0
   // Nothing about the flights themselves is known: say it once for the whole fare.
@@ -41,7 +47,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {isCheapest && (
-            <span className="rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-ink">
+            <span className="rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-deep">
               Cheapest
             </span>
           )}
@@ -73,10 +79,10 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
       onFocus={onPreview}
       className={`relative overflow-hidden rounded-lg border shadow-card transition duration-200 motion-reduce:transition-none ${
         isPreviewed
-          ? 'border-amber bg-white shadow-lift'
+          ? 'border-amber bg-surface shadow-lift'
           : isCheapest
-          ? 'border-amber/70 bg-gradient-to-br from-amber-soft to-white'
-          : 'border-line bg-white hover:border-ink/25 hover:shadow-lift'
+          ? 'border-amber/70 bg-gradient-to-br from-amber-soft to-surface'
+          : 'border-line bg-surface hover:border-ink/25 hover:shadow-lift'
       }`}
     >
       {isCheapest && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-amber" />}
@@ -106,6 +112,13 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
           >
             Trip details →
           </DrillLink>
+        )}
+        {shareTarget && (
+          <ShareButton
+            href={shareTarget}
+            title={shareTitle ?? 'this flight'}
+            text={`${shareTitle ?? 'Flight'} from €${fare.price}${isRoundTrip ? ' round trip' : ''} — found on cheapflights`}
+          />
         )}
         {fare.inbound && (
           <a

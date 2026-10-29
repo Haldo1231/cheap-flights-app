@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
 import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
@@ -11,7 +12,8 @@ import DrillLink from '../../components/DrillLink'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
 import { CountryGridSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
-import { countryFlag } from '../../lib/countryImage'
+import Flag from '../../components/Flag'
+import { CompassIcon } from '../../components/Icons'
 import { withParams } from '../../lib/resultsUrl'
 import type { AnywhereCountry } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
@@ -25,6 +27,8 @@ type AnywhereResponse = {
 }
 
 export default function AnywhereView({ p }: { p: ResultsParams }) {
+  // Country photos come from Unsplash's image server: open that connection while the prices load.
+  preconnect('https://images.unsplash.com')
   const [retry, setRetry] = useState(0)
   const { data, loading, error } = useJson<AnywhereResponse>(`/api/anywhere-by-country?${p.filterString}`, retry)
 
@@ -51,8 +55,8 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
             oneWay={p.oneWay}
             minNights={p.minNights}
             maxNights={p.maxNights}
-            onToggleOutDay={p.toggleOutDay}
-            onToggleBackDay={p.toggleBackDay}
+            onChangeOutDays={p.setOutDays}
+            onChangeBackDays={p.setBackDays}
             onChangeMinNights={(v) => p.setParams({ minNights: v })}
             onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
           />
@@ -80,8 +84,8 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && countries.length === 0 && unmatched.length === 0 && (
-        <div className="rounded-lg border border-line bg-white px-5 py-8 text-center sm:px-8">
-          <p className="mb-2 text-3xl" aria-hidden="true">🧭</p>
+        <div className="rounded-lg border border-line bg-surface px-5 py-8 text-center sm:px-8">
+          <CompassIcon className="mx-auto mb-3 h-10 w-10 text-amber-ink" />
           <p className="mb-2 text-lg font-semibold">No cached destinations for this search</p>
           <p className="mx-auto mb-4 max-w-md text-sm text-slate">
             We have no cached prices from your selected airports yet. Cached data is thin for small airports — loosening
@@ -101,7 +105,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       )}
 
       {!loading && !error && countries.length === 0 && unmatched.length > 0 && (
-        <div className="mb-6 rounded-lg border border-line bg-white px-5 py-6 sm:px-8">
+        <div className="mb-6 rounded-lg border border-line bg-surface px-5 py-6 sm:px-8">
           <p className="mb-1 text-lg font-semibold">No country has a day that fits your filters</p>
           <p className="text-sm text-slate">
             Try loosening them: allow more weekdays, a wider range of nights, or another month. The countries below do
@@ -152,10 +156,10 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
                   <li key={c.code}>
                     <DrillLink
                       href={withParams(p.searchString, { country: c.code })}
-                      className="flex items-center justify-between rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+                      className="flex items-center justify-between rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
                     >
                       <span className="font-medium text-ink">
-                        <span aria-hidden="true" className="mr-2">{countryFlag(c.code)}</span>
+                        <Flag code={c.code} className="mr-2" />
                         {c.name}
                       </span>
                       <span>

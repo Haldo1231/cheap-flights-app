@@ -28,7 +28,7 @@ export default function PageHero({ eyebrow, title, children, actions, aside, siz
           {eyebrow && <p className="mb-4 font-mono text-xs font-medium uppercase tracking-[0.2em] text-amber">{eyebrow}</p>}
           <h1
             className={`font-semibold tracking-tight text-balance ${
-              big ? 'text-4xl leading-[1.05] sm:text-6xl' : 'text-3xl leading-tight sm:text-5xl'
+              big ? 'text-5xl leading-[0.98] tracking-tighter sm:text-7xl lg:text-[5.25rem]' : 'text-4xl leading-[1.02] tracking-tighter sm:text-6xl'
             }`}
           >
             {title}

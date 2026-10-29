@@ -3,12 +3,14 @@ import { Suspense } from 'react'
 import PageHero from '../components/PageHero'
 import { Skeleton } from '../components/Skeleton'
 import SearchForm from './SearchForm'
+import { pageMetadata } from '../lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Search cheap flights',
   description:
     'Compare cached flight prices from Bratislava, Vienna, Budapest, Košice and Prague. Search one city, or anywhere, with exact dates, a whole month, or a date range.',
-}
+  path: '/search',
+})
 
 /** Same footprint as the first form cards, so the page does not jump when the form arrives. */
 function FormPlaceholder() {
@@ -33,8 +35,8 @@ function FormPlaceholder() {
 export default function SearchPage() {
   return (
     <div>
-      <PageHero eyebrow="Search" title="Compare cheap flights">
-        <p>Pick where you can fly from, where you want to go, and how flexible your dates are.</p>
+      <PageHero eyebrow="Plan it" title="Compare cheap flights">
+        <p>Pick your airports, pick a place (or anywhere), pick your dates. We do the boring part.</p>
       </PageHero>
       <Suspense fallback={<FormPlaceholder />}>
         <SearchForm />

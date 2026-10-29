@@ -24,7 +24,7 @@ export default function AnywhereCityRow({ city, href, highlight = false }: Props
     <DrillLink
       href={href}
       className={`block rounded-lg border px-3 py-3 shadow-card transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink sm:px-4 ${
-        highlight ? 'border-amber bg-amber-soft hover:bg-amber-soft-hover' : 'border-line bg-white hover:border-ink/30 hover:bg-paper'
+        highlight ? 'border-amber bg-amber-soft hover:bg-amber-soft-hover' : 'border-line bg-surface hover:border-ink/30 hover:bg-paper'
       }`}
     >
       <div className="flex items-start justify-between gap-3">

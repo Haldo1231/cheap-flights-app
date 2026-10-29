@@ -21,11 +21,11 @@ export default function DayFlightRow({ fare, rank, isSelected, onSelect }: Props
       onClick={onSelect}
       aria-pressed={isSelected}
       className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink motion-reduce:transition-none ${
-        isSelected ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-white hover:border-ink/40 hover:bg-paper'
+        isSelected ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-surface hover:border-ink/40 hover:bg-paper'
       }`}
     >
       <div className="min-w-0">
-        {rank === 0 && <span className="mb-0.5 inline-block rounded-full bg-amber px-2 py-px font-mono text-[10px] font-semibold uppercase tracking-wide text-ink">Cheapest</span>}
+        {rank === 0 && <span className="mb-0.5 inline-block rounded-full bg-amber px-2 py-px font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">Cheapest</span>}
         <p className="text-sm">
           {leg.time && <span className="font-mono text-base font-semibold tabular-nums text-ink">{leg.time} </span>}
           <span className="font-semibold text-ink">{formatDay(leg.date)}</span>

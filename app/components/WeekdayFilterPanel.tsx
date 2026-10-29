@@ -17,6 +17,8 @@ type Props = {
   onChangeMaxNights: (value: string) => void
   /** No card around it (when it already sits inside another box). */
   bare?: boolean
+  /** Show the min/max nights fields (Whole Month). The date-range search has its own trip length. */
+  showNights?: boolean
 }
 
 const WEEKENDS = [6, 0]
@@ -183,6 +185,7 @@ export default function WeekdayFilterPanel({
   onChangeMinNights,
   onChangeMaxNights,
   bare = false,
+  showNights = true,
 }: Props) {
   return (
     <div className={bare ? '' : 'surface mb-6 p-4'}>
@@ -190,10 +193,12 @@ export default function WeekdayFilterPanel({
       {!oneWay && (
         <>
           <DaySection label="Return days" days={backDays} onChange={onChangeBackDays} />
-          <div className="flex flex-wrap items-end gap-3">
-            <NightsInput id="min-nights" label="Min nights" value={minNights} onChange={onChangeMinNights} />
-            <NightsInput id="max-nights" label="Max nights" value={maxNights} onChange={onChangeMaxNights} />
-          </div>
+          {showNights && (
+            <div className="flex flex-wrap items-end gap-3">
+              <NightsInput id="min-nights" label="Min nights" value={minNights} onChange={onChangeMinNights} />
+              <NightsInput id="max-nights" label="Max nights" value={maxNights} onChange={onChangeMaxNights} />
+            </div>
+          )}
         </>
       )}
     </div>

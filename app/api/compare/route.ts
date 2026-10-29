@@ -1,5 +1,6 @@
 import { getDayFlights, getRangeFlights, getCheapestLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
+import { matchesWeekdays, parseDays } from '../../weekdays'
 import { HOME_AIRPORTS } from '../../homeAirports'
 import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate, cleanInt, cleanMonth } from '../../lib/apiParams'
 import type { CompareResponse, Fare, OpenJawCombo, PricedLeg } from '../../tripTypes'
@@ -83,7 +84,10 @@ export async function GET(request: Request) {
     const perOrigin = await Promise.all(
       origins.map((origin) => getRangeFlights(origin, destination, rangeStart, rangeEnd, minDays, maxDays, token, { oneWay }))
     )
-    allFlights = perOrigin.flat()
+    // Weekday limits (off unless the address has them): the same rule Anywhere uses.
+    const outDays = parseDays(searchParams.get('outDays'))
+    const backDays = parseDays(searchParams.get('backDays'))
+    allFlights = perOrigin.flat().filter((f) => matchesWeekdays(f, outDays, backDays, oneWay))
   } else {
     // exact-date mode (and the fallback for any other non-openJaw mode)
     const departDate = cleanDate(searchParams.get('departDate'))

@@ -5,9 +5,7 @@ import CalendarGrid from '../../components/CalendarGrid'
 import DayFlightRow from '../../components/DayFlightRow'
 import Drawer from '../../components/Drawer'
 import FlightLeg from '../../components/FlightLeg'
-import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
-import FilterDisclosure from '../../components/FilterDisclosure'
-import { describeFilters } from '../../lib/searchSummary'
+import WeekdayFilterBox from '../WeekdayFilterBox'
 import { CalendarSkeleton, FareListSkeleton } from '../../components/Skeleton'
 import { calendarDayToFare } from '../../lib/trip'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
@@ -55,20 +53,7 @@ export default function MonthContent({ p, m }: { p: ResultsParams; m: MonthTrip 
 
   return (
     <div>
-      <FilterDisclosure summary={describeFilters(new URLSearchParams(p.filterString))}>
-        <WeekdayFilterPanel
-          bare
-          outDays={p.outDays}
-          backDays={p.backDays}
-          oneWay={oneWay}
-          minNights={p.minNights}
-          maxNights={p.maxNights}
-          onChangeOutDays={p.setOutDays}
-          onChangeBackDays={p.setBackDays}
-          onChangeMinNights={(v) => p.setParams({ minNights: v })}
-          onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
-        />
-      </FilterDisclosure>
+      <WeekdayFilterBox p={p} />
 
       {failed && (
         <div role="alert" className="mb-6 rounded-sm border border-danger-line bg-danger-bg px-5 py-4 text-sm text-ink">

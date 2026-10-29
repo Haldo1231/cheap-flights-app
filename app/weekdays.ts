@@ -38,6 +38,21 @@ export function serializeDays(days: number[]): string {
   return days.slice().sort().join(',')
 }
 
+/** Does a cached fare leave and (for a round trip) return on the allowed weekdays? One shared rule
+ * for the date-range search and Anywhere. A one-way fare only has a departure day. A round-trip
+ * fare whose return date is unknown can never be proven to match a return-day limit, so it only
+ * passes when return days are not limited. */
+export function matchesWeekdays(
+  fare: { departureDate: string; returnDate: string | null },
+  outDays: number[],
+  backDays: number[],
+  oneWay: boolean
+): boolean {
+  if (!outDays.includes(dayOfWeek(fare.departureDate))) return false
+  if (oneWay || backDays.length === ALL_WEEKDAYS.length) return true
+  return fare.returnDate !== null && backDays.includes(dayOfWeek(fare.returnDate))
+}
+
 export type DayPrice = { price: number; origin: string }
 export type DayPriceMap = Record<string, DayPrice>
 

@@ -79,6 +79,8 @@ export function validateSearch(s: SearchInput): SearchErrors {
         s.maxDays <= MAX_RANGE_DAYS
       if (!okDays) errors.days = `Trip length must be between 1 and ${MAX_RANGE_DAYS} days, and the maximum can't be lower than the minimum.`
     }
+    if (s.outDays.length === 0) errors.outDays = 'Pick at least one departure day.'
+    if (!s.oneWay && s.backDays.length === 0) errors.backDays = 'Pick at least one return day.'
   }
 
   return errors

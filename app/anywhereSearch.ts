@@ -19,7 +19,7 @@ import {
 } from './flightSources'
 import { getCityInfoForCodes } from './geoData'
 import { getAirlineNames } from './airlines'
-import { parseDays, findBestCombinations } from './weekdays'
+import { parseDays, findBestCombinations, matchesWeekdays } from './weekdays'
 import { calendarDayToFare } from './lib/trip'
 import { mapWithLimit } from './lib/pool'
 import type { AnywhereCity, AnywhereTrip, CalendarDay, Fare, Leg } from './tripTypes'
@@ -187,8 +187,10 @@ async function checkCityFromOrigin(
       origin, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
       params.minDays, params.maxDays, token, { enrich: false, oneWay: params.oneWay }
     )
-    if (flights.length === 0) return null
-    const [winner] = await completeFlights([flights[0]], token)
+    // Only fares on the chosen weekdays count (cheapest first, so the first one left is the winner).
+    const matching = flights.filter((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay))
+    if (matching.length === 0) return null
+    const [winner] = await completeFlights([matching[0]], token)
     return tripFromFare(flightToFare(winner))
   }
 

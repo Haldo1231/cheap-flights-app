@@ -266,6 +266,9 @@ export default function SearchForm() {
       params.set('rangeEnd', rangeEnd)
       params.set('minDays', String(minDays))
       params.set('maxDays', String(maxDays))
+      // Same weekday limits as Whole Month: only written when the person chose some.
+      if (outDays.length < ALL_WEEKDAYS.length) params.set('outDays', serializeDays(outDays))
+      if (!oneWay && backDays.length < ALL_WEEKDAYS.length) params.set('backDays', serializeDays(backDays))
     }
 
     router.push(`/results?${params.toString()}`)
@@ -502,6 +505,24 @@ export default function SearchForm() {
                 </div>
               )}
               <FieldError id="days-error" message={errors.days} />
+              <div className="mt-5">
+                <p className="mb-1 text-sm text-slate">Optional: only fly on certain weekdays.</p>
+                <WeekdayFilterPanel
+                  bare
+                  showNights={false}
+                  outDays={outDays}
+                  backDays={backDays}
+                  oneWay={oneWay}
+                  minNights={minNights}
+                  maxNights={maxNights}
+                  onChangeOutDays={setOutDays}
+                  onChangeBackDays={setBackDays}
+                  onChangeMinNights={() => {}}
+                  onChangeMaxNights={() => {}}
+                />
+                <FieldError id="range-outDays-error" message={errors.outDays} />
+                <FieldError id="range-backDays-error" message={errors.backDays} />
+              </div>
               <p className="mt-3 text-xs text-slate">
                 Experimental — fewer cached results may be available than the other two modes.
               </p>

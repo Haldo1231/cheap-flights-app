@@ -4,9 +4,7 @@ import { useState } from 'react'
 import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
-import WeekdayFilterPanel from '../../components/WeekdayFilterPanel'
-import FilterDisclosure from '../../components/FilterDisclosure'
-import { describeFilters } from '../../lib/searchSummary'
+import WeekdayFilterBox from '../WeekdayFilterBox'
 import CountryCard from '../../components/CountryCard'
 import DrillLink from '../../components/DrillLink'
 import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
@@ -46,22 +44,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />
 
-      {p.dateMode === 'month' && (
-        <FilterDisclosure summary={describeFilters(new URLSearchParams(p.filterString))}>
-          <WeekdayFilterPanel
-            bare
-            outDays={p.outDays}
-            backDays={p.backDays}
-            oneWay={p.oneWay}
-            minNights={p.minNights}
-            maxNights={p.maxNights}
-            onChangeOutDays={p.setOutDays}
-            onChangeBackDays={p.setBackDays}
-            onChangeMinNights={(v) => p.setParams({ minNights: v })}
-            onChangeMaxNights={(v) => p.setParams({ maxNights: v })}
-          />
-        </FilterDisclosure>
-      )}
+      <WeekdayFilterBox p={p} />
 
       {loading && (
         <>

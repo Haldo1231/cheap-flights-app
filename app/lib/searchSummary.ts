@@ -32,6 +32,12 @@ export function describeSearch(params: URLSearchParams): string[] {
     const to = params.get('rangeEnd')
     if (from && to) out.push(`${formatShortDate(from)} – ${formatShortDate(to)}`)
     if (!oneWay) out.push(`${params.get('minDays') || 2}–${params.get('maxDays') || 10} days`)
+    const outDays = parseDays(params.get('outDays'))
+    if (outDays.length < ALL_WEEKDAYS.length) out.push(`Depart ${dayNames(outDays)}`)
+    if (!oneWay) {
+      const backDays = parseDays(params.get('backDays'))
+      if (backDays.length < ALL_WEEKDAYS.length) out.push(`Return ${dayNames(backDays)}`)
+    }
   }
   return out
 }
@@ -45,7 +51,8 @@ export function describeFilters(params: URLSearchParams): string {
   if (!oneWay) {
     const backDays = parseDays(params.get('backDays'))
     parts.push(backDays.length < ALL_WEEKDAYS.length ? `Return ${dayNames(backDays)}` : 'Return any day')
-    parts.push(`${params.get('minNights') || 1}–${params.get('maxNights') || 14} nights`)
+    // Whole Month has its own nights limits; a date range has "days away" (shown in the search chips).
+    if (params.get('dateMode') !== 'range') parts.push(`${params.get('minNights') || 1}–${params.get('maxNights') || 14} nights`)
   }
   return parts.join(' · ')
 }

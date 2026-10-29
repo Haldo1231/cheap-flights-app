@@ -19,6 +19,7 @@ import { AIRPORTS } from '../../airportsList'
 import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
+import WeekdayFilterBox from '../WeekdayFilterBox'
 import MonthContent from './MonthContent'
 import FareListContent, { splitFares } from './FareListContent'
 import OpenJawContent from './OpenJawContent'
@@ -185,6 +186,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               height of the results so the sticky card has room to travel. */}
           <div className="min-w-0 flex-1">
             {isMonth && <MonthContent p={p} m={month} />}
+            {dateMode === 'range' && <WeekdayFilterBox p={p} />}
 
             {listLoading && <FareListSkeleton count={4} label="Searching cached flights" />}
 
@@ -210,6 +212,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
                   Cached data is thin for small routes and exact days. Things that usually help:
                 </p>
                 <ul className="list-disc space-y-1 pl-5 text-sm text-slate">
+                  {dateMode === 'range' && (p.outDays.length < 7 || (!oneWay && p.backDays.length < 7)) && (
+                    <li>allow more weekdays (your day limits may be hiding cached fares)</li>
+                  )}
                   <li>use Whole month or a wider date range instead of one exact day</li>
                   <li>add more home airports (Vienna and Budapest have the most data)</li>
                   <li>try a more popular destination</li>

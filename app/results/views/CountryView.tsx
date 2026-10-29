@@ -9,6 +9,7 @@ import ScrollTopOnArrive from '../../components/ScrollTopOnArrive'
 import DrillLink from '../../components/DrillLink'
 import CountryPhoto, { PhotoCredit } from '../../components/CountryPhoto'
 import ShareButton from '../../components/ShareButton'
+import WeekdayFilterBox from '../WeekdayFilterBox'
 import { RowListSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
@@ -75,6 +76,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
         )}
       </div>
       <SearchSummary params={new URLSearchParams(p.filterString)} from={p.originList.join(', ')} />
+      <WeekdayFilterBox p={p} />
 
       {loading && <RowListSkeleton count={4} label="Checking the cities in this country" />}
 

@@ -30,13 +30,31 @@ export default function SiteFooter() {
                 This week&apos;s deals
               </Link>
             </li>
+            <li>
+              <Link href="/trips" className="inline-flex min-h-9 items-center hover:text-amber">
+                Trip reports
+              </Link>
+            </li>
+            <li>
+              <Link href="/guides" className="inline-flex min-h-9 items-center hover:text-amber">
+                Guides
+              </Link>
+            </li>
+            <li>
+              <Link href="/about" className="inline-flex min-h-9 items-center hover:text-amber">
+                About
+              </Link>
+            </li>
           </ul>
         </nav>
         <div>
           <p className="mb-2 font-mono text-xs uppercase tracking-wide text-white/60">Good to know</p>
           <p>
             Prices come from cached data and can be out of date — always confirm the final price on the booking site. We
-            earn a small commission when you book through our links, at no extra cost to you.
+            earn a small commission when you book through our links, at no extra cost to you.{' '}
+            <Link href="/disclosure" className="underline decoration-amber underline-offset-4 hover:text-amber">
+              Affiliate disclosure
+            </Link>
           </p>
         </div>
       </div>

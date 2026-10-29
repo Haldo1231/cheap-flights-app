@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import PageHero from './components/PageHero'
 import Flag from './components/Flag'
+import ContentPreview from './components/content/ContentPreview'
 import { HOME_AIRPORTS } from './homeAirports'
 import { AIRPORTS } from './airportsList'
 import { DESTINATIONS } from './destinationsList'
@@ -210,6 +211,8 @@ export default function Home() {
           ))}
         </ul>
       </section>
+
+      <ContentPreview />
 
       <section className="mx-auto max-w-5xl px-4 pb-6 sm:px-6" aria-labelledby="cta">
         <div className="reveal hero-surface flex flex-col items-start justify-between gap-5 rounded-lg px-6 py-8 text-white sm:flex-row sm:items-center sm:px-10">

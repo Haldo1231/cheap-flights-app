@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The trip reports and guides are Markdown files read from disk. This makes sure they travel
+  // with the pages that read them when the site is deployed.
+  outputFileTracingIncludes: {
+    '/': ['./content/**/*'],
+    '/trips': ['./content/**/*'],
+    '/trips/[slug]': ['./content/**/*'],
+    '/guides': ['./content/**/*'],
+    '/guides/[slug]': ['./content/**/*'],
+    '/sitemap.xml': ['./content/**/*'],
+  },
   images: {
     // Country photos come straight from the photo site's own image server (Unsplash,
     // or Pexels as the fallback). The cards load them from there with photoLoader in

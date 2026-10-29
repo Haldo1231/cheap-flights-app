@@ -15,16 +15,32 @@ type Input = {
   /** Title shown in the preview when it should differ from the page title. */
   previewTitle?: string
   noindex?: boolean
+  /** A ready-made preview picture (for example a cover photo); used instead of the signed card. */
+  image?: { url: string; alt: string }
+  /** "article" for trip reports and guides. */
+  type?: 'website' | 'article'
+  /** Article dates (YYYY-MM-DD). */
+  publishedTime?: string
 }
 
-export function pageMetadata({ title, description, path, card, previewTitle, noindex }: Input): Metadata {
-  const image = { url: ogImagePath(card ?? null), width: 1200, height: 630, alt: previewTitle ?? title }
+export function pageMetadata({ title, description, path, card, previewTitle, noindex, image: given, type = 'website', publishedTime }: Input): Metadata {
+  const image = given ? { url: given.url, alt: given.alt } : { url: ogImagePath(card ?? null), width: 1200, height: 630, alt: previewTitle ?? title }
   const shown = `${previewTitle ?? title} — cheapflights`
   return {
     title,
     description,
     ...(noindex ? { robots: { index: false } } : {}),
-    openGraph: { type: 'website', siteName: 'cheapflights', title: shown, description, ...(path ? { url: path } : {}), images: [image] },
+    // The canonical address tells search engines which one address is "the" page.
+    ...(path && !noindex ? { alternates: { canonical: path } } : {}),
+    openGraph: {
+      type,
+      siteName: 'cheapflights',
+      title: shown,
+      description,
+      ...(path ? { url: path } : {}),
+      ...(type === 'article' && publishedTime ? { publishedTime } : {}),
+      images: [image],
+    },
     twitter: { card: 'summary_large_image', title: shown, description, images: [image.url] },
   }
 }

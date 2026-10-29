@@ -1,6 +1,6 @@
 import { ALL_WEEKDAYS, WEEKDAY_BUTTONS, parseDays } from '../weekdays'
 import { formatDay, formatMonth, formatShortDate } from './format'
-import { levelLabel, parseBudget, parseLevel } from './budget'
+import { levelLabel, readBudget } from './budget'
 
 function dayNames(days: number[]): string {
   return WEEKDAY_BUTTONS.filter((d) => days.includes(d.value)).map((d) => d.label).join(', ')
@@ -41,8 +41,7 @@ export function describeSearch(params: URLSearchParams): string[] {
     }
   }
 
-  const budget = parseBudget(params.get('budget'))
-  const level = parseLevel(params.get('level'))
+  const { budget, level } = readBudget(params, oneWay)
   if (budget !== null) out.push(`Budget €${budget} · ${levelLabel(level)}`)
   else if (level !== 'middle') out.push(`${levelLabel(level)} style`)
   return out

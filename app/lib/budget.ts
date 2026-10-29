@@ -139,6 +139,20 @@ export function budgetParams(budget: number | null, level: LevelKey): Record<'bu
   return { budget: budget === null ? null : String(budget), level: level === DEFAULT_LEVEL ? null : level }
 }
 
+/** A budget (the amount and the ultra cheap / middle / rich style) only makes sense for a trip that
+ * comes back: a round trip, and an open-jaw trip (it always has a return). A one-way trip has no
+ * length of stay to budget for, so the budget feature is not offered there. */
+export function budgetApplies(oneWay: boolean): boolean {
+  return !oneWay
+}
+
+/** The budget settings of an address. For a one-way trip they are ignored (an old link or a
+ * bookmark may still carry them), so a hidden budget can never filter or rank the results. */
+export function readBudget(params: { get(name: string): string | null }, oneWay: boolean): { budget: number | null; level: LevelKey } {
+  if (!budgetApplies(oneWay)) return { budget: null, level: DEFAULT_LEVEL }
+  return { budget: parseBudget(params.get('budget')), level: parseLevel(params.get('level')) }
+}
+
 export function levelLabel(level: LevelKey): string {
   return LEVELS[level].label
 }

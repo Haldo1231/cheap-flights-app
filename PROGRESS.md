@@ -266,3 +266,25 @@ Affiliate disclosure pages, so the site becomes a real travel-content site (need
   two homepage links were too small to tap; the longer footer made the sticky cost panel on results scroll off the bottom.
 - Not re-run: the country-photo tests (t7, t7c, t12, t13) because they swap `data/country-images.json`, which another
   session is working on. Country photo code was not touched.
+
+# Budget and polish (branch `feature/budget-and-polish`)
+
+## Task 1: Weekday filters in date range mode
+Done. Same "Only specific days" panel as Whole Month (without the nights fields: a range has its own "days away"), in the search form
+and above the results. `outDays` / `backDays` live in the address. The date-range search (`/api/compare`) and Anywhere (every city, both
+the country list and the country page) keep only fares whose departure (and, for a round trip, return) weekday matches, using one shared
+rule (`matchesWeekdays`). Exact dates ignore weekdays because the day was picked. Whole Month is unchanged.
+
+## Task 2: Dark mode a little lighter
+Done. Page, cards, inner boxes and borders each moved up one small step (for example page #0B1220 -> #141E36, cards #131C30 -> #1D2944)
+and the dark values now live once, as `--dark-*` variables. Text, focus rings and amber keep AA contrast (checked with axe on every page).
+
+## Task 3: Budget feature
+Done, see the README. Totals are the same function everywhere; lists, calendars, the Anywhere ranking and the sticky cost panel agree.
+
+## Task 4: Review
+Found and fixed while testing: faded "over budget" calendar prices had too little contrast (now secondary text colour); picking a best day pair
+in Whole Month could show the cheapest flight of the day instead of the clicked pair (cost panel total differed); a one-way Anywhere search that
+returned a round-trip fare counted its nights (now 1 day, as specified).
+Known limits: most Anywhere cities have no cost data yet; a country is judged by its cheapest-looking city; "over budget" uses our own style
+multipliers (assumptions, not quotes); the weekday rule treats a round-trip fare with an unknown return date as not matching when return days are limited.

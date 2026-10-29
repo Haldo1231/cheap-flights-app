@@ -55,6 +55,47 @@ The rules of the photo sites are followed: photos are loaded straight from their
 "Photo by NAME on Unsplash" (or Pexels) with links, and each photo Unsplash picks is reported to its download endpoint.
 A country without a photo shows a gradient with its flag, so nothing ever looks broken.
 
+## Budget ("I want to go, max 300 EUR")
+
+On the search form (step 5) and above every results list there is an optional **Max total budget** and a **Spending style**.
+Results then show an estimated total (flight + what you spend there), mark trips "within budget" or "over budget" and put the
+within-budget ones first. It works for round trip and one way, in exact dates, date range, whole month and Anywhere.
+
+How a total is worked out (the same on every screen): **total = flight price + days of stay x cost of one day**.
+The flight price is the cached Travelpayouts price (both flights of a round trip). Days of stay = the nights between the two
+dates (at least 1; a one-way trip counts 1 day). The cost of one day = accommodation + food + transport + other, taken from the
+`destinations` table (`hostel_avg_price`, `food_avg_price`, `transport_avg_price`, `other_avg_price`) and multiplied for the style.
+
+The three styles live in `app/budgetConfig.ts`. They are our **assumptions**, written as multipliers on the destination's numbers:
+
+| Style | Accommodation | Food | Transport | Other | Picture |
+| --- | --- | --- | --- | --- | --- |
+| Ultra cheap | x 0.8 | x 0.6 | x 0.5 | x 0.3 | dorm bed, street food, walking, free sights |
+| Middle | x 1 | x 1 | x 1 | x 1 | exactly the current estimate (hostel, cafés, public transport) |
+| Rich | x 3 | x 2.5 | x 3 | x 3 | private room or hotel, restaurants, taxis, paid sights |
+
+Example, Rome (hostel 30, food 25, transport 5, other 10 = 70 a day): Ultra cheap 45 a day, Middle 70, Rich 198.
+To make a style cheaper or dearer, change its numbers in `app/budgetConfig.ts` (nothing else needs touching). The quick budget
+buttons (150, 300, 500, 1000) are `BUDGET_CHIPS` in the same file.
+
+Things to know:
+- A destination that is missing any of the four cost numbers (or is not in the `destinations` table at all) has **no cost data**:
+  the page shows the flight price only, says "No cost data" and never counts it as within budget. Only the 12 destinations in
+  `app/destinationsList.ts` have cost data today, so many Anywhere cities show "No cost data".
+- Not included in the estimate: activities and tours, shopping, travel insurance, bag and seat fees. Flight prices are cached.
+- In the Anywhere country list, each country is judged by its cheapest-looking city (the one that is checked against your dates).
+  Open a country to see every one of its cities ranked by total cost.
+- The budget is kept in the address (`budget=300`, `level=ultra`, `within=true`) so links can be shared. It is not sent to the price
+  provider, so changing it never causes new price requests.
+
+## Dark mode colours
+
+All dark colours are `--dark-*` variables in one block in `app/globals.css` (look for "DARK THEME VALUES"). For a lighter dark mode
+raise `--dark-paper`, `--dark-surface`, `--dark-sand` and `--dark-line` together (each a bit lighter than the one before, so the page,
+the cards and the borders stay clearly separate). For a darker one, lower them. `--dark-deep` is the header, footer and top bands.
+Keep `--dark-slate` (secondary text) light enough to read: it should stay above a 4.5:1 contrast against `--dark-surface`.
+The previous, darker values are written in the comment above the block.
+
 ## Flags
 
 Flags are small SVG pictures in `public/flags/` (they come from the `flag-icons` package, MIT licence), so they also

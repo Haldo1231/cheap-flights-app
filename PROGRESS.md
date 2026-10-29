@@ -180,7 +180,7 @@ breadcrumbs as before; the country screen now has a photo banner. Loading shows 
 cards; empty results suggest loosening the filters.
 
 ## Task 2: Photos from Unsplash
-Status: done, but the photos themselves still need to be fetched (needs your key)
+Status: done. Photos are fetched in batches; the current state is in "Country photos: batch 1" at the bottom of this file.
 
 - `scripts/fetch-country-images.mjs` finds one landscape photo per country (skipping photos
   that mention people) and saves it in `data/country-images.json`. Run it with
@@ -213,7 +213,7 @@ Status: done. See the final report in the chat for what was fixed and what was l
 # Photos and polish — `feature/photos-and-gen-z-polish` branch
 
 ## Task 1: Why the cards only showed gradients
-Status: code ready; the photos themselves still need your key (see README)
+Status: done. The first batch of photos is fetched; see "Country photos: batch 1" at the bottom of this file.
 
 Cause: `data/country-images.json` was empty because the fetch script had never run with a real key.
 The cloud workspace has no `.env.local` and cannot reach Unsplash, Pexels or Travelpayouts, so it could
@@ -288,3 +288,26 @@ in Whole Month could show the cheapest flight of the day instead of the clicked 
 returned a round-trip fare counted its nights (now 1 day, as specified).
 Known limits: most Anywhere cities have no cost data yet; a country is judged by its cheapest-looking city; "over budget" uses our own style
 multipliers (assumptions, not quotes); the weekday rule treats a round-trip fare with an unknown return date as not matching when return days are limited.
+
+# Country photos: batch 1 (branch `claude/sharp-bohr-wp9ovg`)
+
+Status: first batch done and ready to merge. 25 countries have a photo, the rest still show the gradient with the flag.
+
+- **Fetched** with `npm run images` on 2026-10-29: Italy, Spain, France, United Kingdom, Germany, Netherlands, Portugal, Greece, Croatia,
+  Poland, Austria, Switzerland, Belgium, Ireland, Czech Republic, Hungary, Denmark, Sweden, Norway, Finland, Iceland, Malta, Cyprus,
+  Türkiye, Egypt. They are the likeliest destinations first, because the script works through a priority list.
+- **Left:** 232 of the 257 entries in the script's country list. That list comes from the `flag-icons` package, because the cloud
+  workspace could not reach Travelpayouts' country list (run on your own computer it uses the real list). It also holds entries that are
+  not countries (Europe, United Nations, Unknown ...), which will never get a photo. All of these show the navy-to-amber gradient with the flag.
+- **Why only 25:** a new Unsplash app is in "demo" mode, 50 requests an hour, and a country needs 2 to 4. One run ended exactly at that limit.
+  "Production" status (Unsplash dashboard) lifts it to 5000 an hour and would finish everything in one run.
+- **Checks done on the 25 entries:** every entry is from Unsplash, has an `https://images.unsplash.com` picture address, a photographer name,
+  and a photographer and photo link on unsplash.com. The file stores plain links; the site adds `utm_source=cheapflights&utm_medium=referral`
+  when it shows the credit (`creditLink` in `app/lib/countryImage.ts`, tested on all 25). `npm run lint` and `npm run build` pass.
+  Not tested: that the pictures actually load, because the cloud workspace cannot reach `images.unsplash.com`. Check this on the Vercel preview.
+- **How the next batches get added:** on your own computer, with `UNSPLASH_ACCESS_KEY` in `.env.local`, run `npm run images`
+  (or `npm run images -- --wait` and leave the window open: it waits for each new hour and carries on). It continues where it stopped.
+  Then commit `data/country-images.json` and `data/country-images-review.md` and push. Skim the review file for any bad pick.
+- **Tried and switched off:** an hourly automatic Claude task (named "Country photos hourly") ran several times on 2026-10-29. It fetched photos
+  but could not push them to GitHub (the automatic sessions had no access to this repository), so nothing it fetched was saved. It is paused.
+  It could be turned on again only after giving it push access to the repository.

@@ -2,6 +2,8 @@
 // chose lives in the URL (filters, drill-down level, selected days), so Back,
 // refresh and sharing all work.
 
+import { BUDGET_KEYS } from '../budgetConfig'
+
 /** Query keys that hold a chosen day/flight in Whole Month mode. */
 export const SELECTION_KEYS = ['out', 'of', 'back', 'bf'] as const
 
@@ -30,5 +32,14 @@ export function filtersOnly(current: URLSearchParams | string): URLSearchParams 
   for (const key of [...params.keys()]) {
     if (/^(tk|tp|tg|[otdasp][12]|h2)$/.test(key)) params.delete(key)
   }
+  return params
+}
+
+/** The filters as the PRICE requests need them: without the budget settings. A budget does not
+ * change a cached flight price, so leaving it out means changing the budget never asks the price
+ * provider for anything new (the address of every price request stays the same). */
+export function dataFilters(current: URLSearchParams | string): URLSearchParams {
+  const params = filtersOnly(current)
+  for (const key of BUDGET_KEYS) params.delete(key)
   return params
 }

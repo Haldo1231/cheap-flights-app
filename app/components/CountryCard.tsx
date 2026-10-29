@@ -6,7 +6,9 @@ import FlightLeg from './FlightLeg'
 import CountryPhoto, { PhotoCredit } from './CountryPhoto'
 import Flag from './Flag'
 import ShareButton from './ShareButton'
+import BudgetBadge from './BudgetBadge'
 import type { AnywhereCountry } from '../tripTypes'
+import type { TripEstimate } from '../lib/budget'
 
 type Props = {
   country: AnywhereCountry
@@ -18,13 +20,15 @@ type Props = {
   eager?: boolean
   /** Position in the grid (only used to stagger the entrance). */
   index?: number
+  /** Budget estimate for the trip behind the price (flight + stay). Only set when a budget is. */
+  estimate?: TripEstimate | null
 }
 
 const PHOTO_SIZES = '(min-width: 1024px) 320px, (min-width: 640px) 45vw, 100vw'
 
 /** One country as a photo card: picture, name, "from €X", how many destinations,
  * and (under the picture) the cheapest trip that matches the filters. */
-export default function CountryCard({ country, href, cheapest = false, eager = false, index = 0 }: Props) {
+export default function CountryCard({ country, href, cheapest = false, eager = false, index = 0, estimate = null }: Props) {
   const [failed, setFailed] = useState(false)
   const city = country.verifiedCity
   const trip = city?.trip
@@ -60,6 +64,11 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
               <p className="num text-2xl font-semibold leading-none text-amber [text-shadow:0_1px_8px_rgba(0,0,0,0.45)]">
                 €{country.price ?? '—'}
               </p>
+              {estimate?.total != null && (
+                <p className="mt-1 font-mono text-xs font-semibold text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.5)]">
+                  ~€{estimate.total} total
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -71,6 +80,12 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
               <p className="mb-1 text-xs text-slate">
                 Cheapest match: <span className="font-medium text-ink">{city.name}</span> from {city.origin} · {kind}
               </p>
+              {estimate && (
+                <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate">
+                  <BudgetBadge estimate={estimate} />
+                  {estimate.total !== null && <span>flight + {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay, estimate</span>}
+                </p>
+              )}
               <div className="divide-y divide-line">
                 <FlightLeg compact label="Out" leg={trip.outbound} price={trip.outbound.price} />
                 {trip.inbound && <FlightLeg compact label="Back" leg={trip.inbound} price={trip.inbound.price} />}

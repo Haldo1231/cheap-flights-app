@@ -15,6 +15,8 @@ type Props = {
   isPreviewed?: boolean
   /** One line with the fare plus the stay, e.g. "≈ €328 with 5 days of stay costs". */
   stayLine?: string | null
+  /** Budget line (badge + hint), shown under the stay line when a budget is set. */
+  budgetNote?: React.ReactNode
   /** A title shown at the top of the card (e.g. the destination's name). */
   heading?: React.ReactNode
   /** Where a "Share" button sends people (defaults to the trip details). No address, no button. */
@@ -25,7 +27,7 @@ type Props = {
 
 /** One cached fare. A round-trip fare shows BOTH flights; its single price
  * covers them together, which the card says plainly. */
-export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, heading, shareHref, shareTitle }: Props) {
+export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, heading, shareHref, shareTitle }: Props) {
   const shareTarget = shareHref ?? detailsHref
   const isRoundTrip = fare.kind === 'round-trip' && fare.inbound
   const nights = fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 0
@@ -69,6 +71,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
       <div className="mt-1 space-y-1 text-xs text-slate">
         {notes.length > 0 && <p>{notes.join(' · ')}.</p>}
         {stayLine && <p className="font-medium text-ink">{stayLine}</p>}
+        {budgetNote}
       </div>
     </div>
   )

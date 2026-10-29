@@ -6,6 +6,9 @@ import AirportPicker from '../components/AirportPicker'
 import Flag from '../components/Flag'
 import { CloseIcon, PlaneIcon } from '../components/Icons'
 import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
+import BudgetPanel from '../components/BudgetPanel'
+import { DEFAULT_LEVEL, type LevelKey } from '../budgetConfig'
+import { budgetParams } from '../lib/budget'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { HOME_AIRPORTS } from '../homeAirports'
 import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
@@ -181,6 +184,9 @@ export default function SearchForm() {
   const [minNights, setMinNights] = useState(1)
   const [maxNights, setMaxNights] = useState(14)
 
+  const [budget, setBudget] = useState<number | null>(null)
+  const [level, setLevel] = useState<LevelKey>(DEFAULT_LEVEL)
+
   const [errors, setErrors] = useState<SearchErrors>({})
   const summaryRef = useRef<HTMLDivElement>(null)
 
@@ -270,6 +276,9 @@ export default function SearchForm() {
       if (outDays.length < ALL_WEEKDAYS.length) params.set('outDays', serializeDays(outDays))
       if (!oneWay && backDays.length < ALL_WEEKDAYS.length) params.set('backDays', serializeDays(backDays))
     }
+
+    // Budget (optional): only written when set, and the spending style only when it is not the usual one.
+    for (const [key, value] of Object.entries(budgetParams(budget, level))) if (value !== null) params.set(key, value)
 
     router.push(`/results?${params.toString()}`)
   }
@@ -528,6 +537,26 @@ export default function SearchForm() {
               </p>
             </div>
           )}
+        </section>
+
+        <section className={CARD} aria-labelledby="h-budget">
+          <Heading n={5} id="h-budget">
+            Budget <span className="text-sm font-normal text-slate">(optional)</span>
+          </Heading>
+          <BudgetPanel
+            bare
+            delay={0}
+            budget={budget}
+            level={level}
+            onChange={(nextBudget, nextLevel) => {
+              setBudget(nextBudget)
+              setLevel(nextLevel)
+            }}
+          />
+          <p className="mt-3 text-xs text-slate">
+            With a budget, results show an estimated total (flight plus what you spend there) and which trips fit. Flight prices are
+            cached; the rest are estimates.
+          </p>
         </section>
 
         {/* On phones the main button stays at the bottom of the screen while you scroll the form. */}

@@ -2,12 +2,13 @@ import type { MetadataRoute } from 'next'
 import { DESTINATIONS } from './destinationsList'
 import { getGuides, getTrips } from './lib/content/load'
 import { absoluteUrl } from './lib/site'
+import { ABOUT_HAS_TODO } from './lib/aboutStatus'
 
 // The list of pages for search engines. Trip reports and guides are included only when they are
 // published (getTrips/getGuides leave drafts out in production builds). The About page is left
-// out while it still has TODO text. Search results and trip detail pages are not listed on purpose.
+// out while it still has TODO text (see lib/aboutStatus.ts). Search results and trip detail pages are not listed on purpose.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const fixed = ['/', '/search', '/anywhere', '/deals', '/trips', '/guides', '/disclosure'].map((path) => ({
+  const fixed = ['/', '/search', '/anywhere', '/deals', '/trips', '/guides', '/disclosure', ...(ABOUT_HAS_TODO ? [] : ['/about'])].map((path) => ({
     url: absoluteUrl(path),
     changeFrequency: 'weekly' as const,
     priority: path === '/' ? 1 : 0.7,

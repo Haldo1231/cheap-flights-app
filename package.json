@@ -9,6 +9,7 @@
     "lint": "eslint",
     "images": "node scripts/fetch-country-images.mjs",
     "flags": "node scripts/copy-flags.mjs",
+    "optimize-photos": "node scripts/optimize-photos.mjs",
     "images:fetch": "node scripts/fetch-country-images.mjs"
   },
   "dependencies": {

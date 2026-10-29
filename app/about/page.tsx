@@ -2,16 +2,14 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import PageHero from '../components/PageHero'
 import { pageMetadata } from '../lib/seo'
+import { ABOUT_HAS_TODO } from '../lib/aboutStatus'
 
-// While any TODO below is still unwritten the page is kept out of search engines.
-// When the personal text is written, delete the TODO box and set this to false.
-const HAS_TODO = true
 
 export const metadata: Metadata = pageMetadata({
   title: 'About',
   description: 'Who builds cheapflights, why, and how the prices on the site work.',
   path: '/about',
-  noindex: HAS_TODO,
+  noindex: ABOUT_HAS_TODO,
 })
 
 /** A clearly marked gap for text only the site's owner can write. */

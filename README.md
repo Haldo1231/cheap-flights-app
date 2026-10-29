@@ -60,6 +60,101 @@ A country without a photo shows a gradient with its flag, so nothing ever looks 
 Flags are small SVG pictures in `public/flags/` (they come from the `flag-icons` package, MIT licence), so they also
 show on Windows, where flag emoji turn into letters. To refresh them after updating the package: `npm run flags`.
 
+## Trip reports and guides (the content section)
+
+The site has two kinds of articles. They are plain text files in the `content/` folder, so there is no database and
+nothing to log into:
+
+- **Trips** (`/trips`): your real trips, with what they really cost. Files go in `content/trips/`.
+- **Guides** (`/guides`): articles such as "Where to fly from: Košice vs Vienna vs Budapest". Files go in `content/guides/`.
+
+The only trip that exists today is `content/trips/sample-trip.md`. It is a **fake sample** (marked `draft: true` and
+"SAMPLE, NOT REAL"). It shows up when you run the site on your computer and is hidden on the live site.
+Delete it when you have your first real trip.
+
+### How to add a new trip
+
+1. Copy `content/_templates/trip.md` to `content/trips/<your-slug>.md`. The file name must be the slug plus `.md`
+   (for example `rome-with-a-friend.md`) and the `slug:` line inside must be the same word.
+2. Fill in every line at the top (between the two `---` lines). The numbers are euro, per person.
+   Below the second `---` write your story in Markdown (`## Heading`, `**bold**`, `- list`).
+3. Add photos (see the next part). Every photo needs `alt:` (one sentence describing it, for blind visitors and Google).
+4. Look at it on your computer: `npm run dev`, then open http://localhost:3000/trips. Drafts show up there with a
+   "Draft, development only" label.
+5. To publish: change `draft: true` to `draft: false` (or delete the line), run `npm run build`, commit and push.
+   The live site only changes after you push, because the files are part of the website.
+
+If a line is missing or misspelled, `npm run build` stops and tells you which file and which field, for example
+`content/trips/rome.md: field "nights" is missing`. Nothing broken can go live.
+
+The lines of a trip file:
+
+| Line | Needed? | What it is |
+| --- | --- | --- |
+| `title`, `slug`, `date`, `country` | yes | name of the page, the web address word, `YYYY-MM-DD`, the country |
+| `nights` | yes | number of nights (1 or more) |
+| `days` | no | number of days; if left out it is nights + 1 |
+| `travellers` | yes | for example `solo` or `with a friend` |
+| `origin` | yes | 3-letter airport code you flew from, for example `KSC` |
+| `airline` | yes | the airline you flew with |
+| `flightPricePerPerson` | yes | euro, both ways, per person |
+| `accommodationPerNight`, `foodPerDay`, `transportPerDay` | yes | euro per night / per day |
+| `otherPerDay` | no | euro per day for tickets, tours, souvenirs |
+| `destination` | no | one of the 12 destination words (rome, milan, ...). Turns on the "compare with our estimate" box and the flight search buttons |
+| `description` | no | one sentence for Google and link previews (max 200 characters) |
+| `tips`, `mistakes` | no | lists: "tips" and "what I would do differently" |
+| `cover` | no | `src` (file name) and `alt` (description) |
+| `photos` | no | list of `src`, `alt` (required), `caption` (optional) |
+| `draft` | no | `true` hides it on the live site. Default is `false` |
+| `language` | no | `en`, `sk`, `de` ... (default `en`) |
+
+How the total is counted, so your numbers are easy to check:
+
+- accommodation = price per night × nights
+- food, transport and other = price per day × days
+- total = flight + accommodation + food + transport + other, per person
+
+The "Compare with our estimate" box on a trip page only shows a row when both your number and our estimate exist.
+Nothing is guessed or filled in.
+
+### How to add a new guide
+
+Copy `content/_templates/guide.md` to `content/guides/<your-slug>.md`, fill in the lines (`title`, `slug`,
+`description`, `date` are needed; `tags`, `relatedDestinations`, `cover`, `draft`, `language` are optional) and write the
+article below the second `---`. Publishing works the same way as for trips. The `relatedDestinations` list adds a block
+under the article with each destination's cheapest cached fare and a link to search flights.
+
+### Photos for trips and guides
+
+Your own photos go in `public/trips/<slug>/` (for guides `public/guides/<slug>/`). Phone photos are big and carry
+hidden information, including **the GPS place where you took them**. The script below makes them website-sized and
+removes that hidden information. Steps:
+
+1. Create the folder `photos-inbox/<slug>/` and copy your original photos into it. This folder is ignored by git,
+   so the originals are never uploaded.
+2. Run `npm run optimize-photos -- <slug>` (for a guide add `--kind=guides`).
+3. The ready photos (WebP, longest side 2000 px) appear in `public/trips/<slug>/`, and the script prints the lines to
+   paste into your file under `photos:`. Replace each `TODO` alt text with a real description.
+4. Anytime you want to double-check a folder: `npm run optimize-photos -- <slug> --check` says if any photo still contains
+   location data.
+
+If a photo listed in a file is missing in the folder, or has no `alt`, `npm run build` fails and names it.
+
+Checklist before you publish a trip:
+
+- [ ] No recognisable faces of other people without their consent (crop, blur or choose another photo).
+- [ ] No car number plates, boarding passes, tickets, passport pages or the address of where you sleep.
+- [ ] Every photo has a real description (`alt`).
+- [ ] You ran `npm run optimize-photos` (no GPS data) and `npm run build` passes.
+- [ ] The photos are yours, or you have permission to use them.
+
+### Other things in this section
+
+- The About page (`/about`) has marked TODO boxes where **you** write about yourself. While a TODO remains, the page is
+  hidden from search engines and left out of the sitemap. Once it is written, delete the boxes and set `ABOUT_HAS_TODO` to `false` in `app/lib/aboutStatus.ts`: the page then appears in search engines and the sitemap.
+- `/disclosure` explains that some flight links are affiliate links. A short note is also in the footer.
+- `/sitemap.xml` and `/robots.txt` are generated; they list only published (not draft) trips and guides.
+
 ## Where things are
 
 See `AGENTS.md` for the map of the code, and `PROGRESS.md` for what was changed and why.

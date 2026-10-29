@@ -284,8 +284,12 @@ async function request(provider, url, headers) {
   if (new URL(url).origin !== new URL(provider.api).origin) throw new Error(`Refusing to send a key to ${new URL(url).origin}`)
   if (provider.delay) await sleep(provider.delay)
   const res = await fetch(url, { headers })
+  // Unsplash caches search answers for 24 hours, and a cached answer still carries the quota number from the
+  // moment it was first made (for example "2 left" at the end of an earlier run). That number is out of date and
+  // such an answer used no quota, so only a fresh answer may tell how many requests are really left.
+  const cached = Number(res.headers.get('age') || 0) > 0 || /\bhit\b/i.test(res.headers.get('x-cache') || '')
   const left = res.headers.get('x-ratelimit-remaining')
-  if (left !== null && left !== '') provider.remaining = Number(left)
+  if (!cached && left !== null && left !== '') provider.remaining = Number(left)
   if (res.status === 401) throw new BadKey(`${provider.label} rejected the key (401).`)
   if (res.status === 403 || res.status === 429) throw new RateLimited(`${provider.label} says the request limit is used up.`)
   if (!res.ok) throw new Error(`${provider.label} answered HTTP ${res.status}`)

@@ -311,3 +311,22 @@ Status: first batch done and ready to merge. 25 countries have a photo, the rest
 - **Tried and switched off:** an hourly automatic Claude task (named "Country photos hourly") ran several times on 2026-10-29. It fetched photos
   but could not push them to GitHub (the automatic sessions had no access to this repository), so nothing it fetched was saved. It is paused.
   It could be turned on again only after giving it push access to the repository.
+
+# Price accuracy (branch `claude/price-accuracy`)
+
+Status: code done, built and tested against FAKE Travelpayouts answers; not tested against the real API (not reachable from the cloud). Check on the Vercel preview first (see the PR for the exact list).
+
+**What was wrong (found by reading the code):**
+- Whole Month added the out-day price and the back-day price. Each calendar price can be a round-trip fare (one price for both flights), so the trip was counted twice. With the same cached data (out 9th and back 13th, both round-trip fares of €63) the old code showed €126; it now shows €63. Same sum was used in Best combinations, the budget ranking and Anywhere's Whole Month mode.
+- `getCheapestLeg` took the FIRST entry the API listed, not the lowest. It feeds every "from €X" (home, destinations, deals, share cards) and the open-jaw legs.
+- Nothing used `found_at` / `actual` / `expires_at`: an old or no-longer-valid price could win as "cheapest" and nothing showed how old a price was.
+- Not changed because it cannot be checked from here: the exact-date lookup asks `v2/prices/latest` for the 1000 cheapest fares of the whole route and keeps the chosen date afterwards; a date outside those 1000 would be missing (this can only make a price look higher).
+
+**What changed:**
+- One rule for totals (`monthTripPrice`, `findBestCombinations`): two one-way prices are added; a round-trip fare is a whole trip on its own and is never added to another price; no exact total means the page says so.
+- `fetchMonthDays`: the month calendar now also uses the "latest" list asked for one-way fares, so the legs of an out + back trip are one-way prices where the cache has them (a round-trip calendar entry is replaced by the day's one-way price).
+- "Cheapest" is the lowest VALID, fresh price (`compareFlights`, `pickCheapest`). Prices flagged expired / no longer valid, or found more than 72 hours ago, are listed after valid ones and labelled; nothing is hidden.
+- "price seen 6 h ago" on fare cards, Whole Month pairs and totals, Anywhere cards and the trip page; "age not in data" where the source does not say (only `v2/prices/latest` has `found_at`).
+- Currency was already `eur` on every price call (checked, unchanged). Wording stays "from €X".
+
+**Still cannot be accurate, and why:** the free Data API is a cache of other people's searches, not live prices, so a fare can be older or dearer than what Aviasales shows right now; the airline and time are often missing; and the cache has no one-way price for many routes and days.

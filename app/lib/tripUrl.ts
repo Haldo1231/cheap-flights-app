@@ -24,9 +24,11 @@ export type TripSnapshot = {
   /** Total price of the flights. */
   price: number
   gate: string | null
+  /** When the cache found the price (ISO time); null = the data does not say. */
+  foundAt?: string | null
 }
 
-const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg']
+const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg', 'tf']
 
 /** URL of the trip page for a trip, keeping all the current search params. */
 export function tripHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot): string {
@@ -46,6 +48,8 @@ export function tripHref(current: URLSearchParams | string, destination: string,
     p2: trip.inbound && trip.inbound.price !== null ? String(trip.inbound.price) : null,
     tp: String(trip.price),
     tg: trip.gate,
+    // When the cache found the price, in whole seconds, so the trip page can say how old it is.
+    tf: trip.foundAt ? String(Math.floor(Date.parse(trip.foundAt) / 1000)) : null,
   }
   return withParams(current, changes, '/trip')
 }
@@ -119,7 +123,14 @@ export function parseTrip(get: (key: string) => string | null | undefined): Trip
   }
 
   const gate = (get('tg') || '').slice(0, 40)
-  return { kind: kindParam, outbound, inbound, price, gate: gate || null }
+  return { kind: kindParam, outbound, inbound, price, gate: gate || null, foundAt: foundAtFromSeconds(get('tf')) }
+}
+
+/** A "found at" time from whole seconds; anything that is not a plausible past time (edited URL) is "not in the data". */
+function foundAtFromSeconds(value: string | null | undefined): string | null {
+  if (!value || !/^\d{9,11}$/.test(value)) return null
+  const ms = Number(value) * 1000
+  return ms >= Date.UTC(2015, 0, 1) && ms <= Date.now() + 86_400_000 ? new Date(ms).toISOString() : null
 }
 
 export { SELECTION_KEYS }

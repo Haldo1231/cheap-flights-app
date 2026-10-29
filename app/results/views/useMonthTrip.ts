@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { findBestCombinations } from '../../weekdays'
 import { useJson } from '../../lib/useJson'
-import { calendarDayToFare, withCalendarFare } from '../../lib/trip'
+import { calendarDayToFare, defaultMonthFare, monthTripPrice, withCalendarFare } from '../../lib/trip'
 import type { CalendarDay, CalendarDayMap, Fare } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 
@@ -86,12 +86,13 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
   // ("cal|FROM|TO|date|price"); when the day's flight list already holds that same fare under another id,
   // the one with the same airports and price is the one meant (not just the cheapest flight of the day),
   // so the cost panel shows exactly the pair that was clicked.
+  // With nothing picked by id, a day shows its cheapest ONE-WAY fare: the building block of an out + back trip.
   const selectedOutFare = useMemo(
-    () => (outDate ? pickFare(outFares, outFlightId) ?? outFares[0] ?? null : null),
+    () => (outDate ? pickFare(outFares, outFlightId) ?? defaultMonthFare(outFares) : null),
     [outDate, outFares, outFlightId]
   )
   const selectedBackFare = useMemo(
-    () => (backDate ? pickFare(backFares, backFlightId) ?? backFares[0] ?? null : null),
+    () => (backDate ? pickFare(backFares, backFlightId) ?? defaultMonthFare(backFares) : null),
     [backDate, backFares, backFlightId]
   )
 
@@ -103,8 +104,9 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
     return findBestCombinations(outboundData, inboundData, p.outDays, p.backDays, p.minNights, p.maxNights, 10)
   }, [enabled, oneWay, outboundData, inboundData, p.outDays, p.backDays, p.minNights, p.maxNights])
 
-  const complete = !!selectedOutFare && (oneWay || !!selectedBackFare)
-  const total = complete ? selectedOutFare.price + (oneWay ? 0 : selectedBackFare?.price ?? 0) : null
+  // The total follows the one-price rule (see monthTripPrice): a round-trip fare is never added to another price.
+  const { total, returnIncluded } = monthTripPrice(selectedOutFare, selectedBackFare, backDate, oneWay)
+  const complete = total !== null
 
   return {
     calOut,
@@ -122,6 +124,8 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
     bestCombinations,
     complete,
     total,
+    /** True when the picked outbound fare is a round-trip fare whose own return day is the picked return day. */
+    returnIncluded,
   }
 }
 

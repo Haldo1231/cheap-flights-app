@@ -20,6 +20,7 @@
 
 import { getAirlineNames } from './airlines'
 import { buildBookingLink } from './aviasalesLink'
+import { isExpired, isOutdated, parseTime } from './lib/priceAge'
 import type { Fare, Leg } from './tripTypes'
 
 export type Flight = {
@@ -35,6 +36,10 @@ export type Flight = {
   airlineName: string | null
   gate: string | null // booking site that found this fare (v2 only), for context only
   bookingUrl: string
+  /** When the cache found this price (ISO), if the source says (only "latest" does). null = not in the data. */
+  foundAt: string | null
+  /** The data flags this price as expired / no longer valid, or it was found long ago: ranked after valid prices. */
+  outdated: boolean
 }
 
 export type CheapEntry = {
@@ -42,6 +47,7 @@ export type CheapEntry = {
   airline?: string
   departure_at?: string
   return_at?: string | null
+  expires_at?: string
 }
 
 type LatestEntry = {
@@ -50,6 +56,8 @@ type LatestEntry = {
   return_date?: string | null
   gate?: string
   number_of_changes?: number
+  found_at?: string
+  actual?: boolean
 }
 
 type CalendarEntry = {
@@ -58,6 +66,7 @@ type CalendarEntry = {
   departure_at?: string
   return_at?: string | null
   transfers?: number
+  expires_at?: string
 }
 
 /** One cached fare for a departure day, as the calendar endpoint lists it. */
@@ -68,6 +77,9 @@ export type CalendarDayDetail = {
   stops: number | null
   returnDate: string | null
   returnTime: string | null
+  /** When the cache found the price (ISO), if the source says. */
+  foundAt: string | null
+  outdated: boolean
 }
 
 // Prices are cached data anyway; re-using each answer for an hour keeps us far
@@ -154,11 +166,14 @@ export function normalizeFromCheap(entry: CheapEntry, origin: string, destinatio
     airlineName: null, // resolved later, batched
     gate: null,
     bookingUrl: buildBookingLink(origin, destination, depDate, returnDate || undefined),
+    foundAt: null, // this source does not say when the price was found
+    outdated: isExpired(entry.expires_at),
   }
 }
 
 function normalizeFromLatest(entry: LatestEntry, origin: string, destination: string): Flight | null {
   if (typeof entry?.value !== 'number' || !entry?.depart_date) return null
+  const foundAt = parseTime(entry.found_at)
   return {
     origin,
     destination,
@@ -172,7 +187,33 @@ function normalizeFromLatest(entry: LatestEntry, origin: string, destination: st
     airlineName: null,
     gate: entry.gate || null,
     bookingUrl: buildBookingLink(origin, destination, entry.depart_date, entry.return_date || undefined),
+    foundAt,
+    outdated: isOutdated({ foundAt, invalid: entry.actual === false }),
   }
+}
+
+/** The order prices are listed and picked in: valid, fresh prices first (cheapest first), then
+ * prices the data flags as expired / no longer valid or that were found long ago (also cheapest first).
+ * Nothing is dropped; an old price is only never allowed to beat a valid one. */
+export function compareFlights(
+  a: { price: number; outdated?: boolean },
+  b: { price: number; outdated?: boolean }
+): number {
+  return Number(!!a.outdated) - Number(!!b.outdated) || a.price - b.price
+}
+
+/** The cheapest valid, fresh price of these; when none is valid and fresh, the cheapest of the rest.
+ * On equal prices the one found most recently wins. null for an empty list. */
+export function pickCheapest<T extends Pick<Flight, 'price' | 'outdated' | 'foundAt'>>(flights: T[]): T | null {
+  let best: T | null = null
+  for (const f of flights) {
+    if (best === null) best = f
+    else {
+      const order = compareFlights(f, best)
+      if (order < 0 || (order === 0 && (f.foundAt ?? '') > (best.foundAt ?? ''))) best = f
+    }
+  }
+  return best
 }
 
 function dedupeKey(f: Flight): string {
@@ -197,11 +238,20 @@ function dedupe(flights: Flight[], preferredReturn?: string | null): Flight[] {
   for (const f of flights) {
     const key = dedupeKey(f)
     const existing = byKey.get(key)
-    if (!existing || keepScore(f, preferredReturn) > keepScore(existing, preferredReturn)) {
-      byKey.set(key, f)
+    if (!existing) byKey.set(key, f)
+    else {
+      const [keep, other] = keepScore(f, preferredReturn) > keepScore(existing, preferredReturn) ? [f, existing] : [existing, f]
+      byKey.set(key, withAgeFrom(keep, other))
     }
   }
   return Array.from(byKey.values())
+}
+
+/** The entry we keep may come from a source that does not say when the price was found; the entry
+ * it replaced (same origin, day and price) may know. Keep that, so the age is not lost. */
+function withAgeFrom(keep: Flight, other: Flight): Flight {
+  if (keep.foundAt !== null || other.foundAt === null) return keep
+  return { ...keep, foundAt: other.foundAt, outdated: keep.outdated || other.outdated }
 }
 
 async function resolveAirlineNames(flights: Flight[]): Promise<Flight[]> {
@@ -237,12 +287,85 @@ export async function fetchMonthCalendarDetailed(
         stops: typeof entry.transfers === 'number' ? entry.transfers : null,
         returnDate: dateOnly(entry.return_at),
         returnTime: timeOnly(entry.return_at),
+        foundAt: null, // the calendar does not say when the price was found
+        outdated: isExpired(entry.expires_at),
       }
     }
     return result
   } catch {
     return {}
   }
+}
+
+/** One TRUE one-way price per departure day of a month, from the "latest" list asked for one-way
+ * fares. An entry with a return date is a round-trip fare whatever was asked, so it is ignored
+ * here. Carries when the price was found. (Same request as the exact-date lookups, so the cached
+ * answer is shared.) */
+export async function fetchMonthOneWayDays(
+  origin: string,
+  destination: string,
+  month: string,
+  token: string | undefined
+): Promise<Record<string, CalendarDayDetail>> {
+  const entries = await fetchLatest(origin, destination, token, { oneWay: true })
+  const byDay = new Map<string, Flight[]>()
+  for (const entry of entries) {
+    if (entry.return_date || !(entry.depart_date || '').startsWith(month)) continue
+    const flight = normalizeFromLatest(entry, origin, destination)
+    if (!flight) continue
+    byDay.set(flight.departureDate, [...(byDay.get(flight.departureDate) ?? []), flight])
+  }
+  const result: Record<string, CalendarDayDetail> = {}
+  for (const [date, flights] of byDay) {
+    const best = pickCheapest(flights)
+    if (!best) continue
+    result[date] = {
+      price: best.price,
+      airlineCode: null, // the "latest" list has no airline or time
+      time: null,
+      stops: best.stops,
+      returnDate: null,
+      returnTime: null,
+      foundAt: best.foundAt,
+      outdated: best.outdated,
+    }
+  }
+  return result
+}
+
+/** One entry per day for a month. The legs of an "out + back" trip must be one-way prices, so:
+ * - no calendar entry for a day: the one-way price, if there is one;
+ * - a round-trip calendar entry (it has a return date): replaced by the day's one-way price when
+ *   one is cached, otherwise kept as it is (it still carries its return date, so it is never added
+ *   to another price);
+ * - a one-way calendar entry: the cheaper of the two (the calendar has the airline and time; on
+ *   the same price it also takes the age from the one-way list). */
+export function mergeMonthDays(
+  calendar: Record<string, CalendarDayDetail>,
+  oneWay: Record<string, CalendarDayDetail>
+): Record<string, CalendarDayDetail> {
+  const result = { ...calendar }
+  for (const [date, ow] of Object.entries(oneWay)) {
+    const cal = calendar[date]
+    if (!cal || cal.returnDate || ow.price < cal.price) result[date] = ow
+    else if (ow.price === cal.price && cal.foundAt === null) result[date] = { ...cal, foundAt: ow.foundAt, outdated: cal.outdated || ow.outdated }
+  }
+  return result
+}
+
+/** What every month screen (calendar, best pairs, Anywhere) reads: the calendar's cheapest fare for
+ * each day, with true one-way prices where the cache has them (see mergeMonthDays). */
+export async function fetchMonthDays(
+  origin: string,
+  destination: string,
+  month: string,
+  token: string | undefined
+): Promise<Record<string, CalendarDayDetail>> {
+  const [calendar, oneWay] = await Promise.all([
+    fetchMonthCalendarDetailed(origin, destination, month, token),
+    fetchMonthOneWayDays(origin, destination, month, token),
+  ])
+  return mergeMonthDays(calendar, oneWay)
 }
 
 // Fill in airline/times for a /v2 fare from the calendar, but ONLY when the
@@ -298,10 +421,10 @@ async function finish(
   preferredReturn?: string | null,
   enrich = true
 ): Promise<Flight[]> {
-  const merged = dedupe(flights, preferredReturn).sort((a, b) => a.price - b.price)
+  const merged = dedupe(flights, preferredReturn).sort(compareFlights)
   const enriched = enrich ? await enrichFromCalendar(merged, token) : merged
   const withAirlines = await resolveAirlineNames(enriched)
-  return withAirlines.sort((a, b) => a.price - b.price)
+  return withAirlines.sort(compareFlights)
 }
 
 /** All distinct cached flights for one origin, departing on a specific day.
@@ -372,14 +495,12 @@ export async function getCheapestLeg(
   token: string | undefined
 ): Promise<Flight | null> {
   const entries = await fetchCheapExact(origin, destination, date, token)
-  for (const entry of entries) {
-    const flight = normalizeFromCheap(entry, origin, destination)
-    if (flight) {
-      const [named] = await resolveAirlineNames([flight])
-      return named
-    }
-  }
-  return null
+  // The lowest valid price of all entries (not just the first one the list happens to start with).
+  const flights = entries.map((e) => normalizeFromCheap(e, origin, destination)).filter((f): f is Flight => f !== null)
+  const cheapest = pickCheapest(flights)
+  if (!cheapest) return null
+  const [named] = await resolveAirlineNames([cheapest])
+  return named
 }
 
 /** The single cheapest cached round-trip/one-way fare to a destination across
@@ -390,8 +511,8 @@ export async function getCheapestFare(
   token: string | undefined
 ): Promise<Fare | null> {
   const flights = await Promise.all(origins.map((o) => getCheapestLeg(o, destination, undefined, token)))
-  const valid = flights.filter((f): f is Flight => f !== null).sort((a, b) => a.price - b.price)
-  return valid.length > 0 ? flightToFare(valid[0]) : null
+  const best = pickCheapest(flights.filter((f): f is Flight => f !== null))
+  return best ? flightToFare(best) : null
 }
 
 /** Turns one cached flight into the shape the pages use: an outbound leg and,
@@ -433,5 +554,7 @@ export function flightToFare(f: Flight, requestedReturnDate?: string | null): Fa
     gate: f.gate,
     bookingUrl: f.bookingUrl,
     returnMatchesRequest: requestedReturnDate ? f.returnDate === requestedReturnDate : null,
+    foundAt: f.foundAt,
+    outdated: f.outdated,
   }
 }

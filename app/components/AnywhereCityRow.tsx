@@ -1,5 +1,6 @@
 import type { AnywhereCity, Leg } from '../tripTypes'
 import FlightLeg from './FlightLeg'
+import PriceAge from './PriceAge'
 import DrillLink from './DrillLink'
 import BudgetBadge from './BudgetBadge'
 import type { TripEstimate } from '../lib/budget'
@@ -52,6 +53,9 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
               <p className="text-xs text-slate">
                 {trip.inbound ? (trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
               </p>
+              <p className="text-[11px]">
+                <PriceAge foundAt={trip.foundAt} />
+              </p>
               {estimate?.total != null && <p className="mt-0.5 font-mono text-xs font-semibold text-ink">~€{estimate.total} total</p>}
             </>
           ) : (
@@ -76,7 +80,9 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
 
       {!trip && example && (
         <div className="mt-2 border-t border-line pt-1">
-          <p className="mt-1 text-xs text-slate">Example of a cached fare (dates not filtered): €{example.price}</p>
+          <p className="mt-1 text-xs text-slate">
+            Example of a cached fare (dates not filtered): €{example.price} · <PriceAge foundAt={example.foundAt} />
+          </p>
           <FlightLeg compact label="Out" leg={example.outbound} />
           {example.inbound && <FlightLeg compact label="Back" leg={example.inbound} />}
         </div>

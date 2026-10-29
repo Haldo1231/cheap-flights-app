@@ -12,7 +12,8 @@ import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/Cost
 import { FareListSkeleton, Skeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
-import { snapshotFromLegs } from '../../lib/trip'
+import { snapshotFromFare, snapshotFromLegs } from '../../lib/trip'
+import { olderOf } from '../../lib/priceAge'
 import { tripHref } from '../../lib/tripUrl'
 import { formatShortDate, nightsBetweenDates } from '../../lib/format'
 import { AIRPORTS } from '../../airportsList'
@@ -86,7 +87,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
   if (isMonth) {
     flightPrice = month.total
     departDate = month.selectedOutFare?.outbound.date ?? null
-    returnDate = oneWay ? null : month.selectedBackFare?.outbound.date ?? null
+    returnDate = oneWay ? null : month.returnIncluded ? month.backDate : month.selectedBackFare?.outbound.date ?? null
     flightNote = oneWay ? 'one way' : 'outbound + return'
   } else if (openJaw && openJawData?.results[0]) {
     // The first combination in the list (the cheapest flights, or with a budget the best one within it).
@@ -116,12 +117,16 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
       ? tripHref(
           p.searchString,
           destination,
-          snapshotFromLegs(
-            { ...month.selectedOutFare.outbound, price: month.selectedOutFare.price },
-            !oneWay && month.selectedBackFare
-              ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price }
-              : null
-          )
+          // A round-trip fare that covers the picked return day is ONE fare; otherwise two one-way flights.
+          month.returnIncluded
+            ? snapshotFromFare(month.selectedOutFare)
+            : snapshotFromLegs(
+                { ...month.selectedOutFare.outbound, price: month.selectedOutFare.price },
+                !oneWay && month.selectedBackFare
+                  ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price }
+                  : null,
+                oneWay ? month.selectedOutFare.foundAt ?? null : olderOf(month.selectedOutFare.foundAt, month.selectedBackFare?.foundAt)
+              )
         )
       : null
 
@@ -135,6 +140,8 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         ? 'pick a day'
         : !oneWay && !month.selectedBackFare
         ? 'pick a return day'
+        : month.total === null
+        ? 'no exact total'
         : undefined
       : undefined,
     days: stayDays,
@@ -152,6 +159,8 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         outLoading={month.outLoading}
         backLoading={month.backLoading}
         detailsHref={monthDetailsHref}
+        total={month.total}
+        returnIncluded={month.returnIncluded}
       />
     ) : undefined,
   }

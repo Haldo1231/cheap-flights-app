@@ -18,6 +18,7 @@ import { AIRPORTS } from '../airportsList'
 import type { Leg } from '../tripTypes'
 import Breadcrumbs, { type Crumb } from '../components/Breadcrumbs'
 import FlightLeg from '../components/FlightLeg'
+import PriceAge from '../components/PriceAge'
 import HostelList, { type Hostel } from '../components/HostelList'
 import ScrollTopOnArrive from '../components/ScrollTopOnArrive'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../components/CostOfStay'
@@ -193,7 +194,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
         <p className="mb-6 text-sm text-slate">
           {cityLabel(homeOut)} {trip.inbound ? '⇄' : '→'} {cityName}
           {homeBack && homeBack !== homeOut ? ` (back to ${cityLabel(homeBack)})` : ''} · cached prices, they may change on
-          the booking site
+          the booking site · <PriceAge foundAt={trip.foundAt} />
         </p>
 
         <div className="flex flex-col gap-8 lg:flex-row">

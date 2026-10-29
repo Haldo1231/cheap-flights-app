@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import DrillLink from './DrillLink'
 import FlightLeg from './FlightLeg'
+import PriceAge from './PriceAge'
 import CountryPhoto, { PhotoCredit } from './CountryPhoto'
 import Flag from './Flag'
 import ShareButton from './ShareButton'
@@ -90,6 +91,9 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
                 <FlightLeg compact label="Out" leg={trip.outbound} price={trip.outbound.price} />
                 {trip.inbound && <FlightLeg compact label="Back" leg={trip.inbound} price={trip.inbound.price} />}
               </div>
+              <p className="mt-1 text-[11px]">
+                <PriceAge foundAt={trip.foundAt} />
+              </p>
             </>
           ) : (
             <p className="text-xs text-slate">Open to see every city and its flights.</p>

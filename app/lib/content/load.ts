@@ -53,7 +53,9 @@ function readEntries<T extends { slug: string; draft: boolean; cover?: { src: st
     if (!result.success) {
       for (const issue of result.error.issues) {
         const field = issue.path.length ? issue.path.join('.') : '(top of file)'
-        const missing = issue.code === 'invalid_type' && /received undefined/.test(issue.message)
+        // "Missing" means nothing is written at that spot in the file (a custom message would hide it otherwise).
+        const value = issue.path.reduce<unknown>((node, key) => (node == null ? undefined : (node as Record<PropertyKey, unknown>)[key]), parsed.data)
+        const missing = issue.code === 'invalid_type' && value === undefined
         problems.push(`${where}: field "${field}" ${missing ? 'is missing' : `is wrong: ${issue.message}`}`)
       }
       continue

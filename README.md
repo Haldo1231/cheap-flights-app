@@ -153,6 +153,8 @@ Checklist before you publish a trip:
 - The About page (`/about`) has marked TODO boxes where **you** write about yourself. While a TODO remains, the page is
   hidden from search engines and left out of the sitemap. Once it is written, delete the boxes and set `ABOUT_HAS_TODO` to `false` in `app/lib/aboutStatus.ts`: the page then appears in search engines and the sitemap.
 - `/disclosure` explains that some flight links are affiliate links. A short note is also in the footer.
+- Good to know: a draft page is hidden on the live site, but its photo files in `public/` can still be opened by someone who
+  knows the exact web address. Do not put photos there that you would not show publicly.
 - `/sitemap.xml` and `/robots.txt` are generated; they list only published (not draft) trips and guides.
 
 ## Where things are

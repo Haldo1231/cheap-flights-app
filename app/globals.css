@@ -263,7 +263,7 @@ footer :focus-visible,
 }
 
 /* Text of trip reports and guides (rendered from Markdown). */
-.article { font-size: 1.0625rem; line-height: 1.75; color: var(--color-ink); }
+.article { overflow-wrap: anywhere; font-size: 1.0625rem; line-height: 1.75; color: var(--color-ink); }
 .article > * + * { margin-top: 1.1em; }
 .article h2 { margin-top: 2em; font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
 .article h3 { margin-top: 1.6em; font-size: 1.2rem; font-weight: 600; }

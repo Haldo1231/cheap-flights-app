@@ -32,7 +32,7 @@ export default function CompareBox({ destinationName, destinationHref, rows, day
         </Link>
         . One trip is one person&apos;s spending, so differences are normal.
       </p>
-      <table className="w-full text-sm">
+      <table className="w-full text-sm [overflow-wrap:normal]">
         <caption className="sr-only">Real spending compared with our estimate, in euro</caption>
         <thead>
           <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
@@ -43,10 +43,13 @@ export default function CompareBox({ destinationName, destinationHref, rows, day
               This trip
             </th>
             <th scope="col" className="px-2 py-2 text-right font-medium">
-              Our estimate
+              Estimate
             </th>
             <th scope="col" className="py-2 pl-2 text-right font-medium">
-              Difference
+              <span aria-hidden="true" className="sm:hidden">
+                Diff.
+              </span>
+              <span className="sr-only sm:not-sr-only">Difference</span>
             </th>
           </tr>
         </thead>

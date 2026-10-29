@@ -40,7 +40,7 @@ export default function TripCard({ trip, eager = false }: { trip: Trip; eager?: 
           <p className="font-mono text-xs uppercase tracking-wide text-slate">
             {trip.country} · {trip.nights} night{trip.nights === 1 ? '' : 's'} · {trip.travellers}
           </p>
-          <h2 className="mt-1 text-lg font-semibold leading-snug">{trip.title}</h2>
+          <h2 className="mt-1 text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{trip.title}</h2>
           <p className="mt-auto pt-3">
             <span className="num text-2xl font-semibold text-ink underline decoration-amber decoration-[3px] underline-offset-[6px]">€{total}</span>
             <span className="ml-2 text-xs text-slate">total per person, all in</span>

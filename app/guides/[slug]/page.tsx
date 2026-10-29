@@ -68,7 +68,7 @@ export default async function GuidePage({ params }: { params: Params }) {
 
       <header className="mb-6">
         <p className="font-mono text-xs uppercase tracking-wide text-slate">{longDate(guide.date)}</p>
-        <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-5xl">{guide.title}</h1>
+        <h1 className="mt-2 [overflow-wrap:anywhere] text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-5xl">{guide.title}</h1>
         <p className="mt-3 text-lg text-slate">{guide.description}</p>
         {guide.tags.length > 0 && (
           <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Tags">

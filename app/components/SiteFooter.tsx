@@ -14,7 +14,7 @@ export default function SiteFooter() {
         </div>
         <nav aria-label="Footer">
           <p className="mb-2 font-mono text-xs uppercase tracking-wide text-white/60">Explore</p>
-          <ul className="space-y-1">
+          <ul className="space-y-1 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-1 lg:space-y-0">
             <li>
               <Link href="/search" className="inline-flex min-h-9 items-center hover:text-amber">
                 Search flights

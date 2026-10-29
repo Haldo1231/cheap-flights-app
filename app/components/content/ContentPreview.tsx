@@ -15,7 +15,7 @@ export default function ContentPreview() {
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
         <p className="eyebrow mb-2">From the blog</p>
         <h2 id="stories" className="h-section mb-6">
-          Real trips and guides
+          {trips.length > 0 && guides.length > 0 ? 'Real trips and guides' : trips.length > 0 ? 'Real trips, real costs' : 'Guides for cheaper trips'}
         </h2>
         {trips.length > 0 && (
           <>
@@ -24,8 +24,8 @@ export default function ContentPreview() {
                 <TripCard key={trip.slug} trip={trip} />
               ))}
             </ul>
-            <p className="mt-4">
-              <Link href="/trips" className="font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
+            <p className="mt-2">
+              <Link href="/trips" className="inline-flex min-h-11 items-center font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
                 All trip reports →
               </Link>
             </p>
@@ -38,8 +38,8 @@ export default function ContentPreview() {
                 <GuideCard key={guide.slug} guide={guide} />
               ))}
             </ul>
-            <p className="mt-4">
-              <Link href="/guides" className="font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
+            <p className="mt-2">
+              <Link href="/guides" className="inline-flex min-h-11 items-center font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
                 All guides →
               </Link>
             </p>

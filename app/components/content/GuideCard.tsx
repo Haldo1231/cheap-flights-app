@@ -25,7 +25,7 @@ export default function GuideCard({ guide, eager = false }: { guide: Guide; eage
             {longDate(guide.date)}
             {guide.draft && <span className="ml-2 rounded-full bg-danger-bg px-2 py-0.5 text-danger ring-1 ring-danger-line">Draft, development only</span>}
           </p>
-          <h2 className="mt-1 text-lg font-semibold leading-snug">{guide.title}</h2>
+          <h2 className="mt-1 text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{guide.title}</h2>
           <p className="mt-1 text-sm text-slate">{guide.description}</p>
           {guide.tags.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Tags">

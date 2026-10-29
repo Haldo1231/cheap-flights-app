@@ -104,7 +104,7 @@ export default async function TripPage({ params }: { params: Params }) {
         <p className="font-mono text-xs uppercase tracking-wide text-slate">
           {longDate(trip.date)} · {trip.country} · {trip.nights} night{trip.nights === 1 ? '' : 's'} · {trip.travellers}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-5xl">{trip.title}</h1>
+        <h1 className="mt-2 [overflow-wrap:anywhere] text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-5xl">{trip.title}</h1>
       </header>
 
       {trip.cover && (
@@ -114,7 +114,7 @@ export default async function TripPage({ params }: { params: Params }) {
       )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0 lg:order-1">
+        <div className="min-w-0 [overflow-wrap:anywhere] lg:order-1">
           {trip.body && <ArticleBody markdown={trip.body} lang={trip.language} />}
 
           {trip.tips.length > 0 && (

@@ -21,7 +21,7 @@ import FlightLeg from '../components/FlightLeg'
 import HostelList, { type Hostel } from '../components/HostelList'
 import ScrollTopOnArrive from '../components/ScrollTopOnArrive'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../components/CostOfStay'
-import { parseBudget, parseLevel } from '../lib/budget'
+import { readBudget } from '../lib/budget'
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
@@ -164,8 +164,7 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
     flightNote: isFare && trip.inbound ? 'round trip, both flights' : trip.inbound ? 'outbound + return' : 'one way',
     days: nights,
     // The spending style and budget the visitor chose on the results page travel in the address.
-    level: parseLevel(rawParams.get('level')),
-    budget: parseBudget(rawParams.get('budget')),
+    ...readBudget(rawParams, !trip.inbound),
     oneWay: !trip.inbound,
     dates: trip.inbound
       ? `${formatShortDate(trip.outbound.date)} → ${formatShortDate(trip.inbound.date)}`

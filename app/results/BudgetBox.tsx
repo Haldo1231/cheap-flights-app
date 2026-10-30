@@ -2,13 +2,15 @@
 
 import BudgetPanel from '../components/BudgetPanel'
 import FilterDisclosure from '../components/FilterDisclosure'
-import { levelLabel } from '../lib/budget'
+import { budgetApplies, levelLabel } from '../lib/budget'
 import type { ResultsParams } from './useResultsParams'
 
 /** The budget controls above the results: open on wide screens, folded away on phones, with a
  * one-line summary of what is set. Changing anything updates the address, so the lists and the cost
  * panel follow at once (no new price requests: a budget does not change a flight price). */
 export default function BudgetBox({ p }: { p: ResultsParams }) {
+  // Not offered for a one-way trip: there is no length of stay to budget for.
+  if (!budgetApplies(p.oneWay)) return null
   const summary = p.budget === null ? `No limit · ${levelLabel(p.level)}` : `Max €${p.budget} · ${levelLabel(p.level)}`
   return (
     <FilterDisclosure title="Budget" summary={summary}>

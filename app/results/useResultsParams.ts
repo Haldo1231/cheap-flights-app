@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { parseDays, serializeDays } from '../weekdays'
 import { dataFilters, filtersOnly, withParams } from '../lib/resultsUrl'
-import { budgetParams, parseBudget, parseLevel } from '../lib/budget'
+import { budgetParams, readBudget } from '../lib/budget'
 import type { LevelKey } from '../budgetConfig'
 
 /** Everything the results screens read from the URL, parsed once. */
@@ -24,8 +24,9 @@ export function useResultsParams() {
   /** The same without the budget settings: the address price requests use (see dataFilters). */
   const dataString = useMemo(() => dataFilters(searchString).toString(), [searchString])
 
-  const budget = parseBudget(searchParams.get('budget'))
-  const level = parseLevel(searchParams.get('level'))
+  const oneWay = searchParams.get('oneWay') === 'true'
+  // A budget only exists for a trip with a return; for a one-way trip it is always "no budget" (see readBudget).
+  const { budget, level } = readBudget(searchParams, oneWay)
   // "Only within budget" means nothing without a budget.
   const withinOnly = budget !== null && searchParams.get('within') === 'true'
 
@@ -82,7 +83,7 @@ export function useResultsParams() {
     fromCountry: searchParams.get('fromCountry') || '',
     origins,
     originList,
-    oneWay: searchParams.get('oneWay') === 'true',
+    oneWay,
     dateMode: searchParams.get('dateMode') || 'exact',
     openJaw: searchParams.get('openJaw') === 'true',
     departMonth: searchParams.get('month') || '',

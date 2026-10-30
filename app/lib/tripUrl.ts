@@ -24,9 +24,11 @@ export type TripSnapshot = {
   /** Total price of the flights. */
   price: number
   gate: string | null
+  /** When a traveller saw the price (ISO text), if the data said. null = age not in the data. */
+  seenAt: string | null
 }
 
-const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg']
+const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg', 'ts']
 
 /** URL of the trip page for a trip, keeping all the current search params. */
 export function tripHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot): string {
@@ -46,6 +48,7 @@ export function tripHref(current: URLSearchParams | string, destination: string,
     p2: trip.inbound && trip.inbound.price !== null ? String(trip.inbound.price) : null,
     tp: String(trip.price),
     tg: trip.gate,
+    ts: trip.seenAt,
   }
   return withParams(current, changes, '/trip')
 }
@@ -119,7 +122,10 @@ export function parseTrip(get: (key: string) => string | null | undefined): Trip
   }
 
   const gate = (get('tg') || '').slice(0, 40)
-  return { kind: kindParam, outbound, inbound, price, gate: gate || null }
+  // The time a traveller saw the price: only a plain date-time is kept (the address can be edited by anyone).
+  const seen = get('ts')
+  const seenAt = seen && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?$/.test(seen) ? seen : null
+  return { kind: kindParam, outbound, inbound, price, gate: gate || null, seenAt }
 }
 
 export { SELECTION_KEYS }

@@ -1,4 +1,5 @@
 import type { Fare } from '../tripTypes'
+import type { MonthSelection } from '../lib/trip'
 import { formatDay } from '../lib/format'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
@@ -15,27 +16,31 @@ type Props = {
   outLoading?: boolean
   backLoading?: boolean
   detailsHref: string | null
+  /** What the picked flights cost together (never counts a flight twice), see monthSelection. */
+  selection: MonthSelection
 }
 
 /** The flights picked so far in Whole Month mode, with what is still missing. */
-export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref }: Props) {
-  const complete = !!outbound && (oneWay || !!inbound)
-  const total = complete ? outbound.price + (oneWay ? 0 : inbound?.price ?? 0) : null
+export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, selection }: Props) {
+  const total = selection.total
+  const roundTripFare = !oneWay && !!outbound?.inbound
 
   return (
     <section aria-label="Your trip" className="mb-4 border-b border-line pb-4">
       <p className="mb-1 font-semibold text-ink">Your trip</p>
       <div className="divide-y divide-line">
         {outbound ? (
-          <FlightLeg compact label="Out" leg={outbound.outbound} price={outbound.price} />
+          <FlightLeg compact label="Out" leg={outbound.outbound} price={roundTripFare ? null : outbound.price} />
         ) : (
           <p className="py-2 text-xs text-slate">
             {outLoading ? `Loading flights on ${formatDay(outDate)}…` : 'Outbound: pick a departure day in the calendar.'}
           </p>
         )}
         {!oneWay &&
-          (inbound ? (
-            <FlightLeg compact label="Back" leg={inbound.outbound} price={inbound.price} />
+          (selection.backLeg ? (
+            <FlightLeg compact label="Back" leg={selection.backLeg} price={selection.backIncluded ? null : inbound?.price ?? null} />
+          ) : selection.problem ? (
+            <p className="py-2 text-xs text-danger">{selection.problem}</p>
           ) : (
             <p className={`py-2 text-xs ${backDate && !backLoading ? 'text-danger' : 'text-slate'}`}>
               {backLoading
@@ -49,9 +54,10 @@ export default function TripSummary({ oneWay, outbound, inbound, outDate, backDa
       {total !== null ? (
         <p className="mt-2 text-sm font-semibold">
           Flights total <span className="font-mono tabular-nums">€{total}</span>
+          {selection.backIncluded && <span className="block text-xs font-normal text-slate">One round-trip price for both flights.</span>}
         </p>
       ) : (
-        !oneWay && <p className="mt-2 text-xs text-slate">The total appears once both flights have a cached price.</p>
+        !oneWay && !selection.problem && <p className="mt-2 text-xs text-slate">The total appears once both flights have a cached price.</p>
       )}
       {detailsHref && (
         <DrillLink

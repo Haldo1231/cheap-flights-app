@@ -55,6 +55,26 @@ The rules of the photo sites are followed: photos are loaded straight from their
 "Photo by NAME on Unsplash" (or Pexels) with links, and each photo Unsplash picks is reported to its download endpoint.
 A country without a photo shows a gradient with its flag, so nothing ever looks broken.
 
+## How prices are chosen, and how old they are
+
+All prices come from the free, cached Travelpayouts Data API (always asked for in euro). What the site does with them:
+
+- **Cheapest valid price.** When a source lists several fares for the same trip (for example one per number of stops), the site takes the
+  lowest price, not the first one listed. A price whose `expires_at` has passed, or that was seen (`found_at`) more than 72 hours ago,
+  is left out. If an answer says it is not in euro, the whole answer is thrown away (a dollar price is never shown with a euro sign).
+- **Age on every price.** Fares show "price seen 6 h ago" when the data says when a traveller saw the price (`found_at`, only the
+  "latest prices" source has it). Otherwise they say "price age not in the data". Nothing is guessed.
+- **A flight is never counted twice.** A fare with a return date is a round-trip fare: ONE price that already pays for both flights. In
+  Whole Month (and in Anywhere's whole-month check) such a fare is one pair at its own price; two prices are only added when both are
+  one-way prices. The open-jaw search (fly back to another airport) adds two prices, so it only uses one-way prices.
+- **Still "from €X".** The free data is a cache of what travellers recently searched, so the real price on the booking site can differ.
+
+Checking real prices on the preview (the cloud tool that builds this code cannot reach Travelpayouts): in Vercel, add the environment
+variable `DEBUG_PRICES_KEY` (any long random text) to the Preview environment and redeploy. Then open
+`/api/debug-prices?key=YOUR_KEY&origin=BTS&destination=WAW&date=2026-11-09` on the preview address. It asks Travelpayouts live and lists,
+for each source, the fares it returned (price, return date, `found_at`, `expires_at`, whether the site would use it). Without the key the
+page does not exist (404), and the Travelpayouts token is never shown.
+
 ## Budget ("I want to go, max 300 EUR")
 
 On the search form (step 5) and above every results list there is an optional **Max total budget** and a **Spending style**.

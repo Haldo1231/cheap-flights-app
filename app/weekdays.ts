@@ -53,25 +53,40 @@ export function matchesWeekdays(
   return fare.returnDate !== null && backDays.includes(dayOfWeek(fare.returnDate))
 }
 
-export type DayPrice = { price: number; origin: string }
+export type DayPrice = {
+  price: number
+  origin: string
+  /** Set when the cached fare is a ROUND-TRIP fare: its single price covers the flight out AND this return. */
+  returnDate?: string | null
+}
 export type DayPriceMap = Record<string, DayPrice>
 
 export type Combination<T extends DayPrice = DayPrice> = {
   outDate: string; outPrice: number; outOrigin: string
-  backDate: string; backPrice: number; backOrigin: string
+  backDate: string
+  /** Price of the return flight on its own. null for a round-trip fare: its one price is in `total`. */
+  backPrice: number | null
+  backOrigin: string
   total: number; nights: number
-  /** The full calendar entries the combo was built from (airline, time, ...). */
+  /** The full calendar entries the combo was built from (airline, time, ...). `back` is null for a round-trip fare. */
   out: T
-  back: T
+  back: T | null
+  /** "fare" = one round-trip fare covers both flights (not split). "legs" = two one-way prices added together. */
+  kind: 'fare' | 'legs'
 }
 
-/** Pairs up outbound/return days that match the weekday + nights filters,
- * sorted cheapest-total-first. Shared by the results page (client-side, on
- * already-fetched calendar data) and the Anywhere-by-country search
- * (server-side, on calendar data fetched per candidate city) so the exact
- * same "what counts as a valid combo" logic is used everywhere. A pair only
- * exists when BOTH days have a cached price -- a day with no price on one
- * side never produces a (half) trip. */
+/** Day pairs for a round trip that match the weekday + nights filters, cheapest total first. Shared by the
+ * results page (client-side, on already-fetched calendar data) and the Anywhere-by-country search
+ * (server-side) so the exact same "what counts as a valid combo" logic is used everywhere.
+ *
+ * A flight is never counted twice:
+ *  - an outbound entry WITH a return date is a round-trip fare. Its price already pays for the way back, so
+ *    it is one pair (outbound day -> its own return day) priced at that single price, when that return day
+ *    fits the filters. It is NOT added to a return-day price.
+ *  - an outbound entry WITHOUT a return date is a one-way price. It is added to a one-way price for the
+ *    return day (a return entry that itself has a return date is a round trip starting at the destination,
+ *    not the price of one flight, and is skipped).
+ * A pair only exists when every flight it needs has a cached price. */
 export function findBestCombinations<T extends DayPrice>(
   outboundData: Record<string, T>,
   inboundData: Record<string, T>,
@@ -85,7 +100,23 @@ export function findBestCombinations<T extends DayPrice>(
 
   for (const [outDate, outEntry] of Object.entries(outboundData)) {
     if (!outDays.includes(dayOfWeek(outDate))) continue
+
+    if (outEntry.returnDate) {
+      const backDate = outEntry.returnDate
+      if (backDate <= outDate || !backDays.includes(dayOfWeek(backDate))) continue
+      const nights = nightsBetweenDates(outDate, backDate)
+      if (nights < minNights || nights > maxNights) continue
+      combos.push({
+        outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,
+        backDate, backPrice: null, backOrigin: outEntry.origin,
+        total: outEntry.price, nights,
+        out: outEntry, back: null, kind: 'fare',
+      })
+      continue
+    }
+
     for (const [backDate, backEntry] of Object.entries(inboundData)) {
+      if (backEntry.returnDate) continue
       if (!backDays.includes(dayOfWeek(backDate))) continue
       if (backDate <= outDate) continue
       const nights = nightsBetweenDates(outDate, backDate)
@@ -94,7 +125,7 @@ export function findBestCombinations<T extends DayPrice>(
         outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,
         backDate, backPrice: backEntry.price, backOrigin: backEntry.origin,
         total: outEntry.price + backEntry.price, nights,
-        out: outEntry, back: backEntry,
+        out: outEntry, back: backEntry, kind: 'legs',
       })
     }
   }

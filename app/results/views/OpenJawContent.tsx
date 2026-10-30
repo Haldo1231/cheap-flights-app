@@ -3,6 +3,7 @@
 import FlightLeg from '../../components/FlightLeg'
 import DrillLink from '../../components/DrillLink'
 import BudgetBadge from '../../components/BudgetBadge'
+import PriceAge from '../../components/PriceAge'
 import type { DestInfo } from '../../components/CostOfStay'
 import { affordableText, compareEstimates, estimateTrip, levelLabel, type TripEstimate } from '../../lib/budget'
 import { nightsBetweenDates } from '../../lib/format'
@@ -48,12 +49,12 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
       )}
       {data.missingOutbound && (
         <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached outbound price found from your airports to {destination}, so no complete trip can be built.
+          No cached one-way outbound price found from your airports to {destination}, so no complete trip can be built.
         </p>
       )}
       {data.missingReturn && !data.missingOutbound && (
         <div role="status" className="mb-3 rounded-sm border border-danger-line bg-danger-bg px-4 py-3 text-sm text-ink">
-          No cached return price found from {destination} to your airports — these are NOT complete round trips. Outbound
+          No cached one-way return price found from {destination} to your airports — these are NOT complete round trips. Outbound
           flights we did find:
         </div>
       )}
@@ -124,6 +125,9 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
                   <FlightLeg label="Outbound" leg={combo.outbound} price={combo.outbound.price} />
                   <FlightLeg label="Return" leg={combo.inbound} price={combo.inbound.price} />
                 </div>
+                <p className="mt-1 text-xs text-slate">
+                  Two one-way prices added together. Outbound: <PriceAge seenAt={combo.outbound.seenAt} />. Return: <PriceAge seenAt={combo.inbound.seenAt} />.
+                </p>
               </DrillLink>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pb-4 pt-2 sm:px-5">
                 <a href={combo.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>

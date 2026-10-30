@@ -318,3 +318,12 @@ Tokelau, Turkmenistan, Wallis and Futuna. The script remembers them (`noPhoto` i
 - **Tried and switched off:** an hourly automatic Claude task (named "Country photos hourly") ran several times on 2026-10-29. It fetched photos
   but could not push them to GitHub (the automatic sessions had no access to this repository), so nothing it fetched was saved. It is paused.
   It could be turned on again only after giving it push access to the repository.
+
+# Price accuracy (branch `fix/price-accuracy`)
+The cloud environment cannot reach Travelpayouts (the network policy blocks it, and there is no token), so live prices could not be compared.
+Fixed what the code itself showed to be wrong: `getCheapestLeg` returned the first listed fare instead of the minimum (it feeds "from EUR X" on
+destination pages, deals, share cards and open-jaw); Whole Month, Anywhere's whole-month check, open-jaw and the Whole Month cost panel added
+prices that were already round-trip prices (counting flights twice); the response currency was never checked; `found_at` / `expires_at` were
+never used. Now: minimum valid price, expired/stale prices dropped, non-euro answers discarded, round-trip fares kept as one price, one-way
+calendars use true one-way prices, and every price shows how old it is. `/api/debug-prices` lets the owner compare with the real API on the preview.
+Not verifiable from here: how the live API treats a request without `return_date` or `one_way`, and how fresh `found_at` really is.

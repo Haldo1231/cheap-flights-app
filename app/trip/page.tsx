@@ -164,8 +164,9 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
     flightNote: isFare && trip.inbound ? 'round trip, both flights' : trip.inbound ? 'outbound + return' : 'one way',
     days: nights,
     // The spending style and budget the visitor chose on the results page travel in the address.
-    level: parseLevel(rawParams.get('level')),
-    budget: parseBudget(rawParams.get('budget')),
+    // (only for a trip with a return: a one-way trip has no budget)
+    level: trip.inbound ? parseLevel(rawParams.get('level')) : parseLevel(null),
+    budget: trip.inbound ? parseBudget(rawParams.get('budget')) : null,
     oneWay: !trip.inbound,
     dates: trip.inbound
       ? `${formatShortDate(trip.outbound.date)} → ${formatShortDate(trip.inbound.date)}`

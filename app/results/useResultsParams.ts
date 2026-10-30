@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { parseDays, serializeDays } from '../weekdays'
 import { dataFilters, filtersOnly, withParams } from '../lib/resultsUrl'
 import { budgetParams, parseBudget, parseLevel } from '../lib/budget'
-import type { LevelKey } from '../budgetConfig'
+import { DEFAULT_LEVEL, type LevelKey } from '../budgetConfig'
 
 /** Everything the results screens read from the URL, parsed once. */
 export function useResultsParams() {
@@ -24,8 +24,11 @@ export function useResultsParams() {
   /** The same without the budget settings: the address price requests use (see dataFilters). */
   const dataString = useMemo(() => dataFilters(searchString).toString(), [searchString])
 
-  const budget = parseBudget(searchParams.get('budget'))
-  const level = parseLevel(searchParams.get('level'))
+  // A budget only makes sense for a trip with a return. For a one-way search any budget, spending style or
+  // "only within budget" in the address (an old or hand-edited link) is ignored, so it can never filter results.
+  const oneWay = searchParams.get('oneWay') === 'true'
+  const budget = oneWay ? null : parseBudget(searchParams.get('budget'))
+  const level = oneWay ? DEFAULT_LEVEL : parseLevel(searchParams.get('level'))
   // "Only within budget" means nothing without a budget.
   const withinOnly = budget !== null && searchParams.get('within') === 'true'
 
@@ -82,7 +85,7 @@ export function useResultsParams() {
     fromCountry: searchParams.get('fromCountry') || '',
     origins,
     originList,
-    oneWay: searchParams.get('oneWay') === 'true',
+    oneWay,
     dateMode: searchParams.get('dateMode') || 'exact',
     openJaw: searchParams.get('openJaw') === 'true',
     departMonth: searchParams.get('month') || '',

@@ -278,7 +278,7 @@ export default function SearchForm() {
     }
 
     // Budget (optional): only written when set, and the spending style only when it is not the usual one.
-    for (const [key, value] of Object.entries(budgetParams(budget, level))) if (value !== null) params.set(key, value)
+    if (!oneWay) for (const [key, value] of Object.entries(budgetParams(budget, level))) if (value !== null) params.set(key, value)
 
     router.push(`/results?${params.toString()}`)
   }
@@ -403,6 +403,9 @@ export default function SearchForm() {
               onChange={() => {
                 setOneWay(true)
                 setOpenJaw(false)
+                // A budget only applies to a trip with a return: clear it so it cannot silently filter a one-way search.
+                setBudget(null)
+                setLevel(DEFAULT_LEVEL)
               }}
             >
               One way
@@ -539,25 +542,27 @@ export default function SearchForm() {
           )}
         </section>
 
-        <section className={CARD} aria-labelledby="h-budget">
-          <Heading n={5} id="h-budget">
-            Budget <span className="text-sm font-normal text-slate">(optional)</span>
-          </Heading>
-          <BudgetPanel
-            bare
-            delay={0}
-            budget={budget}
-            level={level}
-            onChange={(nextBudget, nextLevel) => {
-              setBudget(nextBudget)
-              setLevel(nextLevel)
-            }}
-          />
-          <p className="mt-3 text-xs text-slate">
-            With a budget, results show an estimated total (flight plus what you spend there) and which trips fit. Flight prices are
-            cached; the rest are estimates.
-          </p>
-        </section>
+        {!oneWay && (
+          <section className={CARD} aria-labelledby="h-budget">
+            <Heading n={5} id="h-budget">
+              Budget <span className="text-sm font-normal text-slate">(optional)</span>
+            </Heading>
+            <BudgetPanel
+              bare
+              delay={0}
+              budget={budget}
+              level={level}
+              onChange={(nextBudget, nextLevel) => {
+                setBudget(nextBudget)
+                setLevel(nextLevel)
+              }}
+            />
+            <p className="mt-3 text-xs text-slate">
+              With a budget, results show an estimated total (flight plus what you spend there) and which trips fit. Flight prices are
+              cached; the rest are estimates.
+            </p>
+          </section>
+        )}
 
         {/* On phones the main button stays at the bottom of the screen while you scroll the form. */}
         <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-paper/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">

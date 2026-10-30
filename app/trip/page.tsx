@@ -20,6 +20,7 @@ import Breadcrumbs, { type Crumb } from '../components/Breadcrumbs'
 import FlightLeg from '../components/FlightLeg'
 import HostelList, { type Hostel } from '../components/HostelList'
 import ScrollTopOnArrive from '../components/ScrollTopOnArrive'
+import PriceAge from '../components/PriceAge'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../components/CostOfStay'
 import { parseBudget, parseLevel } from '../lib/budget'
 
@@ -223,6 +224,9 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                       One cached price for the whole round trip{trip.gate ? ` (found via ${trip.gate})` : ''} — it is not
                       split per flight.
                     </span>
+                    <span className="mt-1 block text-xs text-slate first-letter:uppercase">
+                      <PriceAge seenAt={trip.seenAt} />
+                    </span>
                   </p>
                 ) : (
                   <p className="text-sm">
@@ -231,6 +235,9 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                       {trip.inbound
                         ? `flights: €${trip.outbound.price ?? '?'} out + €${trip.inbound.price ?? '?'} back`
                         : 'one way'}
+                    </span>
+                    <span className="mt-1 block text-xs text-slate first-letter:uppercase">
+                      <PriceAge seenAt={trip.seenAt} />
                     </span>
                   </p>
                 )}

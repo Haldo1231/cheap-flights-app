@@ -1,6 +1,7 @@
 import type { Fare } from '../tripTypes'
 import { formatNights, nightsBetweenDates } from '../lib/format'
 import FlightLeg from './FlightLeg'
+import PriceAge from './PriceAge'
 import DrillLink from './DrillLink'
 import ShareButton from './ShareButton'
 
@@ -60,6 +61,9 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
         <div className="whitespace-nowrap text-right">
           <p className={`font-mono text-3xl font-semibold leading-none tabular-nums text-ink ${isCheapest ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{fare.price}</p>
           <p className="mt-1.5 text-xs text-slate">{isRoundTrip ? 'both flights' : 'per person'}</p>
+          <p className="mt-0.5 text-[11px]">
+            <PriceAge foundAt={fare.foundAt} outdated={fare.outdated} />
+          </p>
         </div>
       </div>
 

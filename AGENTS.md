@@ -22,7 +22,7 @@ Repo: github.com/Haldo1231/cheap-flights-app
 - `app/airportsList.ts`: airport list for the AirportPicker autocomplete
 - `/api/cron/generate-deals`: daily Vercel cron that fills the `weekly_deals` table (Bearer token, `CRON_SECRET`)
 - Supabase tables: `weekly_deals`, `hostels` (name, booking_url, price_per_night, rating, destination_slug)
-- `app/flightSources.ts`: ALL Travelpayouts calls and the flight/fare shapes. A fare with a return date is ONE price for both flights; never split it per leg.
+- `app/flightSources.ts`: ALL Travelpayouts calls and the flight/fare shapes. A fare with a return date is ONE price for both flights; never split it per leg, and NEVER add it to another fare's price (`monthTripPrice` in `app/lib/trip.ts` and `findBestCombinations` in `app/weekdays.ts` are the one rule: two one-way prices are added; a round-trip fare is a whole trip on its own, on its own return day). "Cheapest" = `compareFlights` / `pickCheapest`: valid, fresh prices first (cheapest first), then prices the data flags as expired / `actual: false` or found more than `FRESH_HOURS` (72) ago; nothing is dropped, only ranked and labelled. `fetchMonthDays` = the calendar plus a true one-way list (`fetchMonthOneWayDays`), so the legs of an out + back trip are one-way prices where the cache has them. Every price carries `foundAt` when the source says (only `v2/prices/latest` has `found_at`); `PriceAge` shows "price seen 6 h ago" or "age not in data" (never a guess); the trip link keeps it in `tf`. Constants and helpers: `app/lib/priceAge.ts`.
 - `app/tripTypes.ts`: shared types (Leg, Fare, AnywhereCity, CompareResponse ...). `app/anywhereSearch.ts`: the "Anywhere" ranking and checks.
 - `app/results/`: one `/results` page; `ResultsRouter.tsx` picks the screen from the URL (Anywhere, country, destination, month, open-jaw). `app/trip/` is the single-trip detail page.
 - `app/lib/`: small helpers. `resultsUrl.ts` and `tripUrl.ts` build/read URLs (the URL is the single source of truth for filters and drill-down), `apiParams.ts` cleans API inputs, `useJson.ts` loads data with a short client cache so Back is instant.
@@ -64,7 +64,8 @@ Airport departure-board look. Keep it consistent.
 - Travelpayouts free data is cached: small routes (e.g. KSC → Prague) can return no results.
 - Prices can be stale, so always show them as "from €X".
 - Some cached fares have no airline or departure time. Show "Airline not in data" instead of guessing. Never invent flight data.
-- Whole Month "out + back" combines two separate cached prices; the calendar prices may themselves be round-trip fares, so that sum can overstate the real cost.
+- Whole Month "out + back" adds two cached ONE-WAY prices. A calendar day that only has a round-trip fare is used as that one fare (a pair on its own return day) and is never added to another price. If the cache has neither, that pair has no exact total (the page says so) instead of a guess.
+- Not verified against the live API (no access from the cloud): that `one_way=true` is honoured, what `expires_at` / `actual` / `found_at` exactly mean, and which market the free cache answers for (no `market` is sent). They are read defensively: a missing or odd value means "age not in data", never a hidden price.
 - The public API routes (`/api/*`) have input cleaning and caching but no per-visitor rate limit.
 - Link-preview pictures use the built-in font (no bold weight), so the heavy text is thickened with a stroke. A shared trip page shows the price stored in its own link (as the page always did).
 

@@ -10,7 +10,8 @@
 import {
   getDayFlights,
   getRangeFlights,
-  fetchMonthCalendarDetailed,
+  fetchMonthDays,
+  compareFlights,
   completeFlights,
   flightToFare,
   normalizeFromCheap,
@@ -173,6 +174,7 @@ function tripFromFare(fare: Fare): AnywhereTrip {
     kind: 'fare',
     outbound: { ...fare.outbound, price: null },
     inbound: fare.inbound ? { ...fare.inbound, price: null } : null,
+    foundAt: fare.foundAt ?? null,
   }
 }
 
@@ -196,25 +198,27 @@ async function checkCityFromOrigin(
 
   if (params.dateMode === 'month') {
     if (!params.month) return null
-    const outDetailed = await fetchMonthCalendarDetailed(origin, cityCode, params.month, token)
+    const outDetailed = await fetchMonthDays(origin, cityCode, params.month, token)
     const outDays: Record<string, CalendarDay> = {}
     for (const [date, e] of Object.entries(outDetailed)) {
       outDays[date] = { ...e, origin, airlineName: null }
     }
 
     if (params.oneWay) {
-      const matching = Object.entries(outDays).filter(([date]) => {
+      // A day whose cached fare has a return date is a round-trip price, not a one-way price: it does not count here.
+      const matching = Object.entries(outDays).filter(([date, day]) => {
+        if (day.returnDate) return false
         const [y, m, d] = date.split('-').map(Number)
         return params.outDays.includes(new Date(y, m - 1, d).getDay())
       })
       if (matching.length === 0) return null
-      const [date, day] = matching.reduce((min, cur) => (cur[1].price < min[1].price ? cur : min))
+      const [date, day] = matching.reduce((min, cur) => (compareFlights(cur[1], min[1]) < 0 ? cur : min))
       const leg = calendarDayToFare(day, date, origin, cityCode).outbound
-      return { price: day.price, kind: 'legs', outbound: { ...leg, price: day.price }, inbound: null }
+      return { price: day.price, kind: 'legs', outbound: { ...leg, price: day.price }, inbound: null, foundAt: day.foundAt ?? null }
     }
 
     if (!params.returnMonth) return null
-    const backDetailed = await fetchMonthCalendarDetailed(cityCode, origin, params.returnMonth, token)
+    const backDetailed = await fetchMonthDays(cityCode, origin, params.returnMonth, token)
     const backDays: Record<string, CalendarDay> = {}
     for (const [date, e] of Object.entries(backDetailed)) {
       backDays[date] = { ...e, origin, airlineName: null }
@@ -225,11 +229,16 @@ async function checkCityFromOrigin(
     if (!best) return null
     const outLeg = calendarDayToFare(best.out, best.outDate, origin, cityCode).outbound
     const backLeg = calendarDayToFare(best.back, best.backDate, cityCode, origin).outbound
+    // A round-trip fare is one price for both flights: kind "fare", no price on the legs.
+    if (best.backIncluded) {
+      return { price: best.total, kind: 'fare', outbound: { ...outLeg, price: null }, inbound: { ...backLeg, price: null }, foundAt: best.foundAt }
+    }
     return {
       price: best.total,
       kind: 'legs',
       outbound: { ...outLeg, price: best.outPrice },
       inbound: { ...backLeg, price: best.backPrice },
+      foundAt: best.foundAt,
     }
   }
 
@@ -269,7 +278,7 @@ export async function checkCity(
 function exampleFor(option: RoughCandidate): AnywhereCity['example'] {
   if (!option.example) return null
   const fare = flightToFare(option.example)
-  return { price: fare.price, outbound: fare.outbound, inbound: fare.inbound }
+  return { price: fare.price, outbound: fare.outbound, inbound: fare.inbound, foundAt: fare.foundAt ?? null }
 }
 
 export function toAnywhereCity(city: RankedCity, checked?: { origin: string; trip: AnywhereTrip } | null): AnywhereCity {

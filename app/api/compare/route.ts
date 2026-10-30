@@ -1,4 +1,4 @@
-import { getDayFlights, getRangeFlights, getCheapestLeg, flightToFare, type Flight } from '../../flightSources'
+import { compareFlights, getDayFlights, getRangeFlights, getCheapestLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
 import { matchesWeekdays, parseDays } from '../../weekdays'
 import { HOME_AIRPORTS } from '../../homeAirports'
@@ -103,7 +103,8 @@ export async function GET(request: Request) {
     }
   }
 
-  allFlights.sort((a, b) => a.price - b.price)
+  // Valid, fresh prices first (cheapest first); prices flagged expired / old come after them.
+  allFlights.sort(compareFlights)
 
   const fares: Fare[] = allFlights.slice(0, MAX_FARES).map((f) => flightToFare(f, requestedReturn))
 

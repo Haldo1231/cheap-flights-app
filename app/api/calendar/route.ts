@@ -1,4 +1,4 @@
-import { fetchMonthCalendarDetailed } from '../../flightSources'
+import { compareFlights, fetchMonthDays } from '../../flightSources'
 import { getAirlineNames } from '../../airlines'
 import { badRequest, cachedJson, cleanCode, cleanCodes, cleanMonth } from '../../lib/apiParams'
 import type { CalendarDay, CalendarDayMap } from '../../tripTypes'
@@ -24,11 +24,13 @@ export async function GET(request: Request) {
       // city, so it's set explicitly below rather than trusted from the call.
       const data =
         leg === 'inbound'
-          ? await fetchMonthCalendarDetailed(destination, origin, month, token)
-          : await fetchMonthCalendarDetailed(origin, destination, month, token)
+          ? await fetchMonthDays(destination, origin, month, token)
+          : await fetchMonthDays(origin, destination, month, token)
 
       for (const [date, entry] of Object.entries(data)) {
-        if (!result[date] || entry.price < result[date].price) {
+        // Across home airports: the cheapest valid price of the day (an outdated one never beats a valid one).
+        const better = !result[date] || compareFlights(entry, { price: result[date].price, outdated: !!result[date].outdated }) < 0
+        if (better) {
           result[date] = {
             price: entry.price,
             origin,
@@ -38,6 +40,8 @@ export async function GET(request: Request) {
             stops: entry.stops,
             returnDate: entry.returnDate,
             returnTime: entry.returnTime,
+            foundAt: entry.foundAt,
+            outdated: entry.outdated,
           }
         }
       }

@@ -37,6 +37,10 @@ export type Fare = {
   bookingUrl: string
   /** For exact-date round trips: does the cached return date equal the one requested? */
   returnMatchesRequest: boolean | null
+  /** When the cache found this price (ISO time). null = the source does not say (never guessed). */
+  foundAt?: string | null
+  /** The data flags this price as no longer valid or expired: it is ranked after valid prices and labelled. */
+  outdated?: boolean
 }
 
 /** Open-jaw: two separately priced one-direction flights, possibly to/from different airports. */
@@ -58,6 +62,10 @@ export type CalendarDay = {
   /** Return date the cached fare was priced with, if the cache has one. */
   returnDate: string | null
   returnTime: string | null
+  /** When the cache found this price (ISO time), if the source says. */
+  foundAt?: string | null
+  /** The data flags this price as expired / no longer valid. */
+  outdated?: boolean
 }
 export type CalendarDayMap = Record<string, CalendarDay>
 
@@ -74,6 +82,8 @@ export type AnywhereTrip = {
   kind: 'fare' | 'legs'
   outbound: TripLeg
   inbound: TripLeg | null
+  /** When the cache found the price (ISO time); for two separately priced flights, the older of the two. null = not in the data. */
+  foundAt?: string | null
 }
 
 export type AnywhereCity = {
@@ -84,7 +94,7 @@ export type AnywhereCity = {
   /** Price from the quick ranking -- rough, NOT checked against the filters. */
   roughPrice: number
   /** A real cached fare from the quick ranking (dates/airline), not filtered. */
-  example: { price: number; outbound: Leg; inbound: Leg | null } | null
+  example: { price: number; outbound: Leg; inbound: Leg | null; foundAt?: string | null } | null
   /** Trip that honors every filter. null = checked, nothing matches. undefined = not checked. */
   trip?: AnywhereTrip | null
 }

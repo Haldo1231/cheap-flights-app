@@ -5,6 +5,7 @@ import CalendarGrid from '../../components/CalendarGrid'
 import DayFlightRow from '../../components/DayFlightRow'
 import Drawer from '../../components/Drawer'
 import FlightLeg from '../../components/FlightLeg'
+import PriceAge from '../../components/PriceAge'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
 import BudgetEmpty from '../BudgetEmpty'
@@ -45,8 +46,13 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   // (the calendar's cheapest cached fare for each day), not another flight of that day.
   function pickCombo(combo: Combo) {
     const out = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
-    const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
-    p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id })
+    if (combo.backIncluded) {
+      // A round-trip fare already pays for the return flight: pick that one fare, on its own return day.
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: null })
+    } else {
+      const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id })
+    }
     setDrawer(null)
   }
 
@@ -143,8 +149,12 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                           <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
                           {estimate && <BudgetBadge estimate={estimate} />}
                         </div>
-                        <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
-                        <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
+                        <FlightLeg compact label="Out" leg={outLeg} price={combo.backIncluded ? null : combo.outPrice} />
+                        <FlightLeg compact label="Back" leg={backLeg} price={combo.backIncluded ? null : combo.backPrice} />
+                        <p className="mt-1 text-xs">
+                          {combo.backIncluded && <span className="text-slate">one price for both flights · </span>}
+                          <PriceAge foundAt={combo.foundAt} outdated={combo.outdated} />
+                        </p>
                         {estimate && (estimate.total !== null || hint) && (
                           <p className="mt-1 text-xs text-slate">
                             {estimate.total !== null && <span className="font-medium text-ink">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}

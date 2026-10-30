@@ -3,6 +3,7 @@
 // can be compared directly against a date string without any translation.
 
 import { nightsBetweenDates } from './lib/format'
+import { olderOf } from './lib/priceAge'
 
 export const WEEKDAY_BUTTONS: { value: number; label: string }[] = [
   { value: 1, label: 'Mon' },
@@ -53,7 +54,18 @@ export function matchesWeekdays(
   return fare.returnDate !== null && backDays.includes(dayOfWeek(fare.returnDate))
 }
 
-export type DayPrice = { price: number; origin: string }
+export type DayPrice = {
+  price: number
+  origin: string
+  /** Set when the cached price is a ROUND-TRIP fare (one price for both flights) returning on this day. */
+  returnDate?: string | null
+  returnTime?: string | null
+  time?: string | null
+  /** When the cache found the price (ISO), if the source says. */
+  foundAt?: string | null
+  /** The data flags the price as expired / no longer valid. */
+  outdated?: boolean
+}
 export type DayPriceMap = Record<string, DayPrice>
 
 export type Combination<T extends DayPrice = DayPrice> = {
@@ -63,6 +75,20 @@ export type Combination<T extends DayPrice = DayPrice> = {
   /** The full calendar entries the combo was built from (airline, time, ...). */
   out: T
   back: T
+  /** True when `out` is a round-trip fare: its price already covers the return flight, so `backPrice` is 0
+   * and `total` is that one price (never two prices added). */
+  backIncluded: boolean
+  /** The data flags a price of the combo as expired / no longer valid. */
+  outdated: boolean
+  /** The older of the prices' "found at" times (ISO), null when the data does not say. */
+  foundAt: string | null
+}
+
+/** The return flight of a round-trip fare, shaped like a calendar entry: it leaves the destination on
+ * the fare's return day at the fare's return time. Its price is 0 because the fare's single price is
+ * counted once, on the outbound side. */
+function returnLegOf<T extends DayPrice>(fare: T): T {
+  return { ...fare, price: 0, time: fare.returnTime ?? null, returnDate: null, returnTime: null }
 }
 
 /** Pairs up outbound/return days that match the weekday + nights filters,
@@ -71,7 +97,13 @@ export type Combination<T extends DayPrice = DayPrice> = {
  * (server-side, on calendar data fetched per candidate city) so the exact
  * same "what counts as a valid combo" logic is used everywhere. A pair only
  * exists when BOTH days have a cached price -- a day with no price on one
- * side never produces a (half) trip. */
+ * side never produces a (half) trip.
+ *
+ * One price is never counted twice. A round-trip fare (it has a return day) already pays for both
+ * flights, so it is a complete trip on its own, returning on ITS return day, and is never added to
+ * another price; a round-trip fare out of the destination is not a single return flight, so it is
+ * never used as the back half of a pair. Two one-way prices are added. Valid prices are listed before
+ * ones the data flags as expired / no longer valid. */
 export function findBestCombinations<T extends DayPrice>(
   outboundData: Record<string, T>,
   inboundData: Record<string, T>,
@@ -85,7 +117,24 @@ export function findBestCombinations<T extends DayPrice>(
 
   for (const [outDate, outEntry] of Object.entries(outboundData)) {
     if (!outDays.includes(dayOfWeek(outDate))) continue
+
+    if (outEntry.returnDate) {
+      const backDate = outEntry.returnDate
+      if (!backDays.includes(dayOfWeek(backDate)) || backDate <= outDate) continue
+      const nights = nightsBetweenDates(outDate, backDate)
+      if (nights < minNights || nights > maxNights) continue
+      combos.push({
+        outDate, outPrice: outEntry.price, outOrigin: outEntry.origin,
+        backDate, backPrice: 0, backOrigin: outEntry.origin,
+        total: outEntry.price, nights,
+        out: outEntry, back: returnLegOf(outEntry),
+        backIncluded: true, outdated: !!outEntry.outdated, foundAt: outEntry.foundAt ?? null,
+      })
+      continue
+    }
+
     for (const [backDate, backEntry] of Object.entries(inboundData)) {
+      if (backEntry.returnDate) continue
       if (!backDays.includes(dayOfWeek(backDate))) continue
       if (backDate <= outDate) continue
       const nights = nightsBetweenDates(outDate, backDate)
@@ -95,10 +144,13 @@ export function findBestCombinations<T extends DayPrice>(
         backDate, backPrice: backEntry.price, backOrigin: backEntry.origin,
         total: outEntry.price + backEntry.price, nights,
         out: outEntry, back: backEntry,
+        backIncluded: false,
+        outdated: !!(outEntry.outdated || backEntry.outdated),
+        foundAt: olderOf(outEntry.foundAt, backEntry.foundAt),
       })
     }
   }
 
-  combos.sort((a, b) => a.total - b.total)
+  combos.sort((a, b) => Number(a.outdated) - Number(b.outdated) || a.total - b.total)
   return combos.slice(0, limit)
 }

@@ -167,7 +167,8 @@ export default function SearchForm() {
   const [destinationCity, setDestinationCity] = useState(toParam === 'ANYWHERE' ? 'Anywhere' : prefill?.city ?? '')
 
   const [oneWay, setOneWay] = useState(false)
-  const [openJaw, setOpenJaw] = useState(false)
+  // On by default: with several home airports, a trip may leave from one and come back to another.
+  const [openJaw, setOpenJaw] = useState(true)
   const [dateMode, setDateMode] = useState<'exact' | 'month' | 'range'>('exact')
 
   const [departDate, setDepartDate] = useState('')
@@ -242,8 +243,8 @@ export default function SearchForm() {
       return
     }
 
-    // Open-jaw only works for exact dates and a whole month.
-    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'range' && openJaw
+    // Back to a different airport: exact dates and date range (Whole month already mixes airports on its own).
+    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'month' && openJaw && allOrigins.length > 1
 
     const params = new URLSearchParams({
       origins: allOrigins.join(','),
@@ -411,14 +412,19 @@ export default function SearchForm() {
               One way
             </Chip>
           </div>
-          {!oneWay && !isAnywhere && dateMode !== 'range' && (
+          {!oneWay && !isAnywhere && dateMode !== 'month' && selectedAirports.length + extraOrigins.length > 1 && (
             <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
               <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
               <span>
-                Fly back to a different airport
-                <span className="block text-slate">Works with exact dates or a whole month.</span>
+                Also look at flying back to a different airport
+                <span className="block text-slate">
+                  For example out from Bratislava, back to Prague. Two one-way tickets, shown next to the normal round trips.
+                </span>
               </span>
             </label>
+          )}
+          {!oneWay && !isAnywhere && dateMode === 'month' && selectedAirports.length + extraOrigins.length > 1 && (
+            <p className="mt-4 text-sm text-slate">Whole month also checks flying back to a different one of your airports.</p>
           )}
         </section>
 

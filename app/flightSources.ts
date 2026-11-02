@@ -21,6 +21,8 @@
 import { getAirlineNames } from './airlines'
 import { buildBookingLink } from './aviasalesLink'
 import { MAX_PRICE_AGE_MS, parseTime } from './lib/priceAge'
+import { dayOfWeek } from './weekdays'
+import { nightsBetweenDates } from './lib/format'
 import type { Fare, Leg } from './tripTypes'
 
 export type Flight = {
@@ -444,6 +446,72 @@ export async function getCheapestOneWayLeg(
   const cheapest = oneWay.reduce((min, f) => (f.price < min.price ? f : min))
   const [named] = await resolveAirlineNames([cheapest])
   return named
+}
+
+/** Every fresh one-way fare in the one-way list for one direction (no return date, not expired, not stale).
+ * Cached for an hour like every other price request. */
+export async function getOneWayFares(origin: string, destination: string, token: string | undefined): Promise<Flight[]> {
+  const entries = await fetchLatest(origin, destination, token, { oneWay: true })
+  return entries
+    .map((e) => normalizeFromLatest(e, origin, destination))
+    .filter((f): f is Flight => f !== null && f.returnDate === null)
+}
+
+export type OpenJawFilter = {
+  /** Earliest and latest DEPARTURE day (YYYY-MM-DD), inclusive. */
+  outFrom: string
+  outTo: string
+  /** Allowed nights between the two flights. */
+  minNights: number
+  maxNights: number
+  /** Only this return day, when the traveller named one. */
+  backDate?: string | null
+  outDays: number[]
+  backDays: number[]
+}
+
+export type OpenJawPair = { out: Flight; back: Flight; total: number }
+
+/** Trips that leave from one of the home airports and come back to a DIFFERENT one: a one-way fare out plus a
+ * one-way fare back, each at its own cached price, added together (two separate tickets). Only one-way fares are
+ * used: a fare with a return date already pays for two flights and would be counted twice. Cheapest first. */
+export async function findOpenJawPairs(
+  origins: string[],
+  destination: string,
+  token: string | undefined,
+  filter: OpenJawFilter,
+  limit = 30
+): Promise<{ pairs: OpenJawPair[]; outCount: number; backCount: number }> {
+  const [outLists, backLists] = await Promise.all([
+    Promise.all(origins.map((o) => getOneWayFares(o, destination, token))),
+    Promise.all(origins.map((o) => getOneWayFares(destination, o, token))),
+  ])
+  const outs = outLists.flat().filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
+  const backs = backLists.flat().filter((f) => filter.backDays.includes(dayOfWeek(f.departureDate)) && (!filter.backDate || f.departureDate === filter.backDate))
+
+  const pairs: OpenJawPair[] = []
+  for (const out of outs) {
+    for (const back of backs) {
+      if (back.destination === out.origin) continue // same airport: an ordinary round trip, listed on its own
+      if (back.departureDate <= out.departureDate) continue
+      const nights = nightsBetweenDates(out.departureDate, back.departureDate)
+      if (nights < filter.minNights || nights > filter.maxNights) continue
+      pairs.push({ out, back, total: out.price + back.price })
+    }
+  }
+  pairs.sort((a, b) => a.total - b.total)
+
+  // The same two flights can come from two list entries: keep each flight pair once.
+  const seen = new Set<string>()
+  const top: OpenJawPair[] = []
+  for (const pair of pairs) {
+    const key = `${pair.out.origin}|${pair.out.departureDate}|${pair.out.price}|${pair.back.destination}|${pair.back.departureDate}|${pair.back.price}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    top.push(pair)
+    if (top.length >= limit) break
+  }
+  return { pairs: top, outCount: outs.length, backCount: backs.length }
 }
 
 /** One-way prices for the days of a month: the calendar's entries that have no return date, plus the

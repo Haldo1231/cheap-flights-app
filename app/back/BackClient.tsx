@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Breadcrumbs from '../components/Breadcrumbs'
@@ -180,7 +180,8 @@ export default function BackClient() {
   const outDate = trip?.outbound.date ?? ''
   const outOrigin = trip?.outbound.origin ?? ''
   // `bx=1`: not back to the airport the outbound flight left from (the button "Fly back to a different airport").
-  const airports = useMemo(() => (sp.get('bx') === '1' ? HOME_AIRPORTS.filter((a) => a !== outOrigin) : HOME_AIRPORTS), [sp, outOrigin])
+  const notBackToOrigin = sp.get('bx') === '1'
+  const airports = notBackToOrigin ? HOME_AIRPORTS.filter((a) => a !== outOrigin) : HOME_AIRPORTS
   const airportList = airports.join(',')
 
   // How to look: a month calendar (bm=month), or exact day(s). All of it lives in the address.

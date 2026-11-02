@@ -69,8 +69,8 @@ function dayOf(fare: Fare): CalendarDay {
 export type ReturnCalendar = { days: CalendarDayMap; notes: Record<string, CalendarNote> }
 
 /** The calendar of the cheapest flight back for each day (from `after` on), with the airport written under the price.
- * With `sameAirport` (the airport you left from) the note also says how much cheaper than flying back there the day's
- * cheapest flight is, e.g. "PRG −4". Days with no cached flight are simply not in the calendar. */
+ * With `sameAirport` (the airport you left from) the day also gets a small badge saying how much cheaper than flying back
+ * there the day's cheapest flight is, e.g. "PRG" with "−4". Days with no cached flight are simply not in the calendar. */
 export function returnCalendar(byDate: Record<string, Fare[]>, options: { after?: string | null; sameAirport?: string | null } = {}): ReturnCalendar {
   const days: CalendarDayMap = {}
   const notes: Record<string, CalendarNote> = {}
@@ -93,7 +93,8 @@ export function returnCalendar(byDate: Record<string, Fare[]>, options: { after?
       // `best` is the cheapest of the day and is not at the same airport, so it is cheaper than the same-airport flight.
       const cheaper = same.price - best.price
       notes[date] = {
-        text: `${to} −${cheaper}`,
+        text: to,
+        badge: `−${cheaper}`,
         spoken: `cheapest flight back goes to ${place}, €${cheaper} cheaper than flying back to ${airportCity(sameAirport)} (€${same.price})`,
       }
     } else {

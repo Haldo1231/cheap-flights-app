@@ -14,8 +14,9 @@ function firstWeekday(month: string) {
   return new Date(y, m - 1, 1).getDay()
 }
 
-/** A small label under the price of a day (for example the airport you fly back to) and what a screen reader says for it. */
-export type CalendarNote = { text: string; spoken: string }
+/** A small label under the price of a day (for example the airport you fly back to), an optional short badge in the corner of
+ * the day (for example "−4" = 4 euro cheaper), and what a screen reader says for both. */
+export type CalendarNote = { text: string; badge?: string; spoken: string }
 
 type Props = {
   title: string
@@ -123,7 +124,7 @@ export default function CalendarGrid({
               aria-pressed={usable ? isSelected : undefined}
               onClick={() => usable && onSelectDay(dateStr, entry)}
               title={!isAllowedDay ? 'Not one of your selected weekdays' : usable ? detail : undefined}
-              className={`relative flex aspect-square ${notes ? 'min-h-14' : 'min-h-11'} flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
+              className={`relative flex ${notes ? 'h-14' : 'aspect-square min-h-11'} flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
                 !isAllowedDay
                   ? 'cursor-not-allowed border-transparent bg-sand text-faint line-through opacity-60'
                   : isSelected
@@ -141,11 +142,17 @@ export default function CalendarGrid({
                   ✓
                 </span>
               )}
-              <span>{day}</span>
+              {/* With a note under the price, the day sits in the top-left corner (the badge takes the top-right one). */}
+              <span className={notes ? `absolute left-1 top-1 text-[11px] leading-none${isAllowedDay ? '' : ' line-through'}` : ''}>{day}</span>
               {usable && <span className={`font-mono tabular-nums ${mark === 'over' ? 'text-slate' : ''}`}>€{entry.price}</span>}
               {note && (
                 <span aria-hidden="true" className="max-w-full truncate font-mono text-[10px] leading-none text-slate">
                   {note.text}
+                </span>
+              )}
+              {note?.badge && (
+                <span aria-hidden="true" className="absolute right-1 top-1 font-mono text-[10px] font-semibold leading-none text-ink">
+                  {note.badge}
                 </span>
               )}
             </button>

@@ -258,7 +258,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
                   difference={cheapestRoundTrip !== null ? bestJaw.total - cheapestRoundTrip : null}
                   seenAt={oldestSeen(bestJaw.outbound.seenAt, bestJaw.inbound.seenAt)}
                 />
-                <a href="#jaw-title" className="mt-1 inline-block text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
+                <a href="#jaw-title" className="inline-flex min-h-9 items-center text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
                   See all trips back to a different airport ↓
                 </a>
               </div>

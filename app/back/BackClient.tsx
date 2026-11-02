@@ -281,7 +281,7 @@ export default function BackClient() {
         <>
           <DaysForm key={`${days.mode}-${days.start}-${days.end}`} days={days} outDate={outDate} onSearch={search} />
           <p className="-mt-3 mb-6 text-sm">
-            <button type="button" onClick={() => showMonth(true)} className="font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
+            <button type="button" onClick={() => showMonth(true)} className="inline-flex min-h-9 items-center font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
               Show a month calendar instead
             </button>
           </p>
@@ -324,12 +324,10 @@ export default function BackClient() {
                   No cached flights back from {cityName} to {otherAirports} in {formatMonth(month)}. The free price data is a cache, so small routes are often empty: try another month with the arrows.
                 </p>
               )}
-              <p className="mt-3 text-xs text-slate">
-                Days without a price have no cached flight. Prices are cached and can differ on the booking site.{' '}
-                <button type="button" onClick={() => showMonth(false)} className="font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
-                  Pick exact days instead
-                </button>
-              </p>
+              <p className="mt-3 text-xs text-slate">Days without a price have no cached flight. Prices are cached and can differ on the booking site.</p>
+              <button type="button" onClick={() => showMonth(false)} className="inline-flex min-h-9 items-center text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
+                Pick exact days instead
+              </button>
             </section>
           )}
           {!monthMode && loading && <FareListSkeleton count={4} label="Looking for flights back" />}

@@ -9,6 +9,7 @@ import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
 import BudgetEmpty from '../BudgetEmpty'
 import BudgetBadge from '../../components/BudgetBadge'
+import PriceAge from '../../components/PriceAge'
 import type { DestInfo } from '../../components/CostOfStay'
 import { affordableText, levelLabel, type TripEstimate } from '../../lib/budget'
 import { useMonthBudget } from './useMonthBudget'
@@ -34,6 +35,8 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   const { budget, level } = p
   const loading = m.calOut.loading || m.calBack.loading || (budget !== null && !infoReady)
   const place = info?.name ?? destination
+  // The day pairs also wait for the list of round-trip fares.
+  const combosPending = loading || m.combosLoading
   const failed = m.calOut.error || m.calBack.error
 
   function pickDay(leg: 'out' | 'back', date: string) {
@@ -45,8 +48,13 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   // (the calendar's cheapest cached fare for each day), not another flight of that day.
   function pickCombo(combo: Combo) {
     const out = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
-    const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
-    p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id })
+    if (combo.kind === 'fare' || !combo.back) {
+      // One round-trip fare covers both flights: only the outbound fare is picked, the return comes with it.
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: null })
+    } else {
+      const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id })
+    }
     setDrawer(null)
   }
 
@@ -81,8 +89,8 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
           <h2 id="best-combos" className="mb-2 text-base font-semibold">
             Best combinations
           </h2>
-          {loading && <FareListSkeleton count={2} label="Finding the best day pairs" />}
-          {!loading && mb && mb.rows.length > 0 && (
+          {combosPending && <FareListSkeleton count={2} label="Finding the best day pairs" />}
+          {!combosPending && mb && mb.rows.length > 0 && (
             <p className="mb-3 text-sm text-slate" aria-live="polite">
               {!mb.dataOk ? (
                 <>No cost data for {place}: flight prices only, nothing is counted as within your €{budget} budget.</>
@@ -96,7 +104,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
               )}
             </p>
           )}
-          {!loading && m.bestCombinations.length === 0 && (
+          {!combosPending && m.bestCombinations.length === 0 && (
             <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
               {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
                 ? 'No pair of days fits your weekday and nights filters in these months. A trip needs a cached price on both the outbound and the return day. Loosen the filters, or browse other months with the arrows below.'
@@ -107,7 +115,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                   }.`}
             </p>
           )}
-          {!loading && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
+          {!combosPending && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
             <BudgetEmpty
               p={p}
               cheapestTotal={mb.cheapestTotal}
@@ -116,15 +124,17 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
               noun="day pairs"
             />
           )}
-          {!loading && listRows.length > 0 && (
+          {!combosPending && listRows.length > 0 && (
             <ul className="space-y-2">
               {listRows.map(({ combo, estimate }, i) => {
-                const outLeg = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination).outbound
-                const backLeg = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin).outbound
+                const outFare = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
+                const outLeg = outFare.outbound
+                const isFare = combo.kind === 'fare' || !combo.back
+                const backLeg = isFare && outFare.inbound ? outFare.inbound : calendarDayToFare(combo.back ?? combo.out, combo.backDate, destination, (combo.back ?? combo.out).origin).outbound
                 const picked = m.outDate === combo.outDate && m.backDate === combo.backDate
                 const hint = estimate ? affordableText(estimate, place, false, budget) : null
                 return (
-                  <li key={`${combo.outDate}-${combo.backDate}`}>
+                  <li key={`${combo.outOrigin}-${combo.outDate}-${combo.backDate}-${combo.total}`}>
                     <button
                       type="button"
                       onClick={() => pickCombo(combo)}
@@ -143,8 +153,12 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                           <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
                           {estimate && <BudgetBadge estimate={estimate} />}
                         </div>
-                        <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
-                        <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
+                        <FlightLeg compact label="Out" leg={outLeg} price={isFare ? null : combo.outPrice} />
+                        <FlightLeg compact label="Back" leg={backLeg} price={isFare ? null : combo.backPrice} />
+                        <p className="text-xs text-slate">
+                          {isFare ? 'One round-trip price for both flights, not split per flight. ' : 'Two one-way prices added together. '}
+                          <PriceAge seenAt={combo.out.foundAt} />
+                        </p>
                         {estimate && (estimate.total !== null || hint) && (
                           <p className="mt-1 text-xs text-slate">
                             {estimate.total !== null && <span className="font-medium text-ink">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}

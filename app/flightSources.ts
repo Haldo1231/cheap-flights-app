@@ -20,6 +20,7 @@
 
 import { getAirlineNames } from './airlines'
 import { buildBookingLink } from './aviasalesLink'
+import { MAX_PRICE_AGE_MS, parseTime } from './lib/priceAge'
 import type { Fare, Leg } from './tripTypes'
 
 export type Flight = {
@@ -35,6 +36,10 @@ export type Flight = {
   airlineName: string | null
   gate: string | null // booking site that found this fare (v2 only), for context only
   bookingUrl: string
+  /** When the price was seen by a traveller (v2 `found_at`), ISO text. null = the data has no such time. */
+  foundAt: string | null
+  /** When the cached price stops being valid (v1 `expires_at`), ISO text. null = not in the data. */
+  expiresAt: string | null
 }
 
 export type CheapEntry = {
@@ -42,6 +47,7 @@ export type CheapEntry = {
   airline?: string
   departure_at?: string
   return_at?: string | null
+  expires_at?: string | null
 }
 
 type LatestEntry = {
@@ -50,6 +56,7 @@ type LatestEntry = {
   return_date?: string | null
   gate?: string
   number_of_changes?: number
+  found_at?: string | null
 }
 
 type CalendarEntry = {
@@ -58,6 +65,7 @@ type CalendarEntry = {
   departure_at?: string
   return_at?: string | null
   transfers?: number
+  expires_at?: string | null
 }
 
 /** One cached fare for a departure day, as the calendar endpoint lists it. */
@@ -68,6 +76,10 @@ export type CalendarDayDetail = {
   stops: number | null
   returnDate: string | null
   returnTime: string | null
+  /** When this cached price stops being valid (v1 `expires_at`), ISO text, or null. */
+  expiresAt: string | null
+  /** When the price was seen (only the one-way list has it), ISO text, or null. */
+  foundAt: string | null
 }
 
 // Prices are cached data anyway; re-using each answer for an hour keeps us far
@@ -80,6 +92,22 @@ function warnIfNoToken(token: string | undefined) {
     warnedAboutToken = true
     console.warn('TRAVELPAYOUTS_TOKEN is not set: every price lookup will come back empty.')
   }
+}
+
+/** False for a price that has expired (`expires_at` in the past) or was seen too long ago (`found_at`). A
+ * price with neither time is kept: it is shown as "age not in the data", never guessed to be fresh or old. */
+export function isFreshPrice(entry: { foundAt?: string | null; expiresAt?: string | null }, now = Date.now()): boolean {
+  const expires = parseTime(entry.expiresAt)
+  if (expires !== null && expires < now) return false
+  const found = parseTime(entry.foundAt)
+  if (found !== null && now - found > MAX_PRICE_AGE_MS) return false
+  return true
+}
+
+/** Every request asks for euro. If an answer says it is in another currency anyway, it is thrown away:
+ * a dollar price must never be shown with a euro sign. (An answer that does not name a currency is kept.) */
+export function currencyIsEuro(json: { currency?: unknown } | null | undefined): boolean {
+  return typeof json?.currency !== 'string' || json.currency.toLowerCase() === 'eur'
 }
 
 function dateOnly(iso: string | null | undefined): string | null {
@@ -106,6 +134,7 @@ async function fetchCheapExact(
     const res = await fetch(url, REVALIDATE)
     if (!res.ok) return []
     const json = await res.json()
+    if (!currencyIsEuro(json)) return []
     const destData = json.data?.[destination]
     if (!destData) return []
     return Object.values(destData) as CheapEntry[]
@@ -128,6 +157,7 @@ async function fetchLatest(
     const res = await fetch(url, REVALIDATE)
     if (!res.ok) return []
     const json = await res.json()
+    if (!currencyIsEuro(json)) return []
     return Array.isArray(json.data) ? (json.data as LatestEntry[]) : []
   } catch {
     return []
@@ -140,6 +170,7 @@ export function normalizeFromCheap(entry: CheapEntry, origin: string, destinatio
   if (typeof entry?.price !== 'number') return null
   const depDate = dateOnly(entry.departure_at)
   if (!depDate) return null
+  if (!isFreshPrice({ expiresAt: entry.expires_at })) return null
   const returnDate = dateOnly(entry.return_at)
   return {
     origin,
@@ -154,11 +185,14 @@ export function normalizeFromCheap(entry: CheapEntry, origin: string, destinatio
     airlineName: null, // resolved later, batched
     gate: null,
     bookingUrl: buildBookingLink(origin, destination, depDate, returnDate || undefined),
+    foundAt: null,
+    expiresAt: entry.expires_at || null,
   }
 }
 
 function normalizeFromLatest(entry: LatestEntry, origin: string, destination: string): Flight | null {
   if (typeof entry?.value !== 'number' || !entry?.depart_date) return null
+  if (!isFreshPrice({ foundAt: entry.found_at })) return null
   return {
     origin,
     destination,
@@ -172,6 +206,8 @@ function normalizeFromLatest(entry: LatestEntry, origin: string, destination: st
     airlineName: null,
     gate: entry.gate || null,
     bookingUrl: buildBookingLink(origin, destination, entry.depart_date, entry.return_date || undefined),
+    foundAt: entry.found_at || null,
+    expiresAt: null,
   }
 }
 
@@ -186,6 +222,7 @@ function keepScore(f: Flight, preferredReturn: string | null | undefined): numbe
   if (f.airlineCode) score += 4
   if (f.departureTime) score += 2
   if (f.gate) score += 1
+  if (f.foundAt || f.expiresAt) score += 1 // same price: keep the copy that says how fresh it is
   return score
 }
 
@@ -225,11 +262,13 @@ export async function fetchMonthCalendarDetailed(
     const res = await fetch(url, REVALIDATE)
     if (!res.ok) return {}
     const json = await res.json()
+    if (!currencyIsEuro(json)) return {}
     const data: Record<string, CalendarEntry> = json.data || {}
 
     const result: Record<string, CalendarDayDetail> = {}
     for (const [date, entry] of Object.entries(data)) {
       if (typeof entry?.price !== 'number') continue
+      if (!isFreshPrice({ expiresAt: entry.expires_at })) continue
       result[date] = {
         price: entry.price,
         airlineCode: entry.airline || null,
@@ -237,6 +276,8 @@ export async function fetchMonthCalendarDetailed(
         stops: typeof entry.transfers === 'number' ? entry.transfers : null,
         returnDate: dateOnly(entry.return_at),
         returnTime: timeOnly(entry.return_at),
+        expiresAt: entry.expires_at || null,
+        foundAt: null,
       }
     }
     return result
@@ -364,7 +405,9 @@ export async function getRangeFlights(
 }
 
 /** The single cheapest cached fare for one direction on a day (or month, as
- * YYYY-MM) -- used for the open-jaw search, where each leg is looked up on its own. */
+ * YYYY-MM, or no date at all). The source lists one fare per number of stops, so the
+ * cheapest is the MINIMUM price, not the first entry (which is usually the direct, dearer one).
+ * The fare may be a round-trip fare (it then has a return date and its price covers both flights). */
 export async function getCheapestLeg(
   origin: string,
   destination: string,
@@ -372,14 +415,70 @@ export async function getCheapestLeg(
   token: string | undefined
 ): Promise<Flight | null> {
   const entries = await fetchCheapExact(origin, destination, date, token)
-  for (const entry of entries) {
-    const flight = normalizeFromCheap(entry, origin, destination)
-    if (flight) {
-      const [named] = await resolveAirlineNames([flight])
-      return named
+  const flights = entries.map((e) => normalizeFromCheap(e, origin, destination)).filter((f): f is Flight => f !== null)
+  if (flights.length === 0) return null
+  const cheapest = flights.reduce((min, f) => (f.price < min.price ? f : min))
+  const [named] = await resolveAirlineNames([cheapest])
+  return named
+}
+
+/** The cheapest cached ONE-WAY fare for one direction on a day (or in a month, as YYYY-MM): used where a
+ * flight is priced on its own and added to another (open-jaw). A fare that has a return date is a round-trip
+ * price for two flights, so it is never taken as the price of one flight. null = no cached one-way price. */
+export async function getCheapestOneWayLeg(
+  origin: string,
+  destination: string,
+  dateOrMonth: string | undefined,
+  token: string | undefined
+): Promise<Flight | null> {
+  const [cheapEntries, latestEntries] = await Promise.all([
+    fetchCheapExact(origin, destination, dateOrMonth, token),
+    fetchLatest(origin, destination, token, { oneWay: true }),
+  ])
+  const fromCheap = cheapEntries.map((e) => normalizeFromCheap(e, origin, destination))
+  const fromLatest = latestEntries
+    .filter((e) => !dateOrMonth || (e.depart_date || '').startsWith(dateOrMonth))
+    .map((e) => normalizeFromLatest(e, origin, destination))
+  const oneWay = [...fromCheap, ...fromLatest].filter((f): f is Flight => f !== null && f.returnDate === null)
+  if (oneWay.length === 0) return null
+  const cheapest = oneWay.reduce((min, f) => (f.price < min.price ? f : min))
+  const [named] = await resolveAirlineNames([cheapest])
+  return named
+}
+
+/** One-way prices for the days of a month: the calendar's entries that have no return date, plus the
+ * one-way list (v2 `one_way=true`), the cheapest per day. A calendar entry WITH a return date is a
+ * round-trip price and is left out (it would be shown as the price of a single flight). */
+export async function fetchMonthOneWayDays(
+  origin: string,
+  destination: string,
+  month: string,
+  token: string | undefined
+): Promise<Record<string, CalendarDayDetail>> {
+  const [calendar, latest] = await Promise.all([
+    fetchMonthCalendarDetailed(origin, destination, month, token),
+    fetchLatest(origin, destination, token, { oneWay: true }),
+  ])
+  const days: Record<string, CalendarDayDetail> = {}
+  for (const [date, day] of Object.entries(calendar)) if (day.returnDate === null) days[date] = day
+  for (const entry of latest) {
+    if (!(entry.depart_date || '').startsWith(month)) continue
+    const f = normalizeFromLatest(entry, origin, destination)
+    if (!f || f.returnDate !== null) continue
+    const existing = days[f.departureDate]
+    if (existing && existing.price <= f.price) continue
+    days[f.departureDate] = {
+      price: f.price,
+      airlineCode: null,
+      time: null,
+      stops: f.stops,
+      returnDate: null,
+      returnTime: null,
+      expiresAt: null,
+      foundAt: f.foundAt,
     }
   }
-  return null
+  return days
 }
 
 /** The single cheapest cached round-trip/one-way fare to a destination across
@@ -433,5 +532,6 @@ export function flightToFare(f: Flight, requestedReturnDate?: string | null): Fa
     gate: f.gate,
     bookingUrl: f.bookingUrl,
     returnMatchesRequest: requestedReturnDate ? f.returnDate === requestedReturnDate : null,
+    seenAt: f.foundAt,
   }
 }

@@ -12,7 +12,7 @@ import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/Cost
 import { FareListSkeleton, Skeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
-import { snapshotFromLegs } from '../../lib/trip'
+import { snapshotFromFare, snapshotFromLegs } from '../../lib/trip'
 import { tripHref } from '../../lib/tripUrl'
 import { formatShortDate, nightsBetweenDates } from '../../lib/format'
 import { AIRPORTS } from '../../airportsList'
@@ -86,8 +86,8 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
   if (isMonth) {
     flightPrice = month.total
     departDate = month.selectedOutFare?.outbound.date ?? null
-    returnDate = oneWay ? null : month.selectedBackFare?.outbound.date ?? null
-    flightNote = oneWay ? 'one way' : 'outbound + return'
+    returnDate = oneWay ? null : month.selection.backLeg?.date ?? month.selectedBackFare?.outbound.date ?? null
+    flightNote = oneWay ? 'one way' : month.selection.backIncluded ? 'round trip, both flights' : 'outbound + return'
   } else if (openJaw && openJawData?.results[0]) {
     // The first combination in the list (the cheapest flights, or with a budget the best one within it).
     const first = arrangeCombos(openJawData.results, p, info).shown[0]?.combo ?? openJawData.results[0]
@@ -116,12 +116,15 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
       ? tripHref(
           p.searchString,
           destination,
-          snapshotFromLegs(
-            { ...month.selectedOutFare.outbound, price: month.selectedOutFare.price },
-            !oneWay && month.selectedBackFare
-              ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price }
-              : null
-          )
+          // One round-trip fare (it already includes the way back) opens as one fare; two one-way flights as two priced legs.
+          month.selection.backIncluded || (oneWay && month.selectedOutFare.inbound)
+            ? snapshotFromFare(month.selectedOutFare)
+            : snapshotFromLegs(
+                { ...month.selectedOutFare.outbound, price: month.selectedOutFare.price },
+                !oneWay && month.selectedBackFare
+                  ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price }
+                  : null
+              )
         )
       : null
 
@@ -152,6 +155,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         outLoading={month.outLoading}
         backLoading={month.backLoading}
         detailsHref={monthDetailsHref}
+        selection={month.selection}
       />
     ) : undefined,
   }

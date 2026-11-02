@@ -1,4 +1,4 @@
-import { getDayFlights, getRangeFlights, getCheapestLeg, flightToFare, type Flight } from '../../flightSources'
+import { getDayFlights, getRangeFlights, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
 import { matchesWeekdays, parseDays } from '../../weekdays'
 import { HOME_AIRPORTS } from '../../homeAirports'
@@ -19,6 +19,7 @@ function toPricedLeg(f: Flight): PricedLeg {
     stops: f.stops,
     bookingUrl: buildBookingLink(f.origin, f.destination, f.departureDate),
     price: f.price,
+    seenAt: f.foundAt,
   }
 }
 
@@ -44,8 +45,10 @@ export async function GET(request: Request) {
       dateMode === 'exact' ? cleanDate(searchParams.get('returnDate')) : cleanMonth(searchParams.get('month'))
 
     const [outLegs, backLegs] = await Promise.all([
-      Promise.all(origins.map((o) => getCheapestLeg(o, destination, outDate ?? undefined, token))),
-      Promise.all(origins.map((o) => getCheapestLeg(destination, o, backDate ?? undefined, token))),
+      // Each flight is priced on its own and the two are added, so only ONE-WAY fares count: a round-trip fare
+      // already pays for two flights and would be counted twice.
+      Promise.all(origins.map((o) => getCheapestOneWayLeg(o, destination, outDate ?? undefined, token))),
+      Promise.all(origins.map((o) => getCheapestOneWayLeg(destination, o, backDate ?? undefined, token))),
     ])
 
     const validOut = outLegs.filter((l): l is Flight => l !== null).map(toPricedLeg)

@@ -1,6 +1,7 @@
 import type { Fare } from '../tripTypes'
 import { formatDay, formatShortDate } from '../lib/format'
 import { isLowCostCarrier } from '../lib/lowCost'
+import { priceAgeText } from '../lib/priceAge'
 
 type Props = {
   fare: Fare
@@ -36,7 +37,8 @@ export default function DayFlightRow({ fare, rank, isSelected, onSelect }: Props
           {airline ? <span className="font-medium text-ink">{airline}</span> : 'airline not in cached data'}
           {isLowCostCarrier(leg.airlineCode) ? ' · Low-cost' : ''}
           {stops ? ` · ${stops}` : ''}
-          {fare.inbound ? ` · priced with a return on ${formatShortDate(fare.inbound.date)}` : ''}
+          {fare.inbound ? ` · round-trip fare, one price for both flights (returns ${formatShortDate(fare.inbound.date)})` : ''}
+          <span suppressHydrationWarning>{` · ${priceAgeText(fare.seenAt)}`}</span>
         </p>
       </div>
       <p className="shrink-0 font-mono text-lg font-semibold tabular-nums text-ink">€{fare.price}</p>

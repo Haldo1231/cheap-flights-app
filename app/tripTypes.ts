@@ -18,7 +18,7 @@ export type Leg = {
 }
 
 /** A leg that also has its own price (used when two legs are priced separately). */
-export type PricedLeg = Leg & { price: number }
+export type PricedLeg = Leg & { price: number; /** When a traveller saw this price (ISO text), if the data says. */ seenAt?: string | null }
 
 /**
  * One cached fare. A round-trip fare is ONE price that covers both flights
@@ -37,6 +37,8 @@ export type Fare = {
   bookingUrl: string
   /** For exact-date round trips: does the cached return date equal the one requested? */
   returnMatchesRequest: boolean | null
+  /** When a traveller saw this price (ISO text), if the data says. null = age not in the data. */
+  seenAt: string | null
 }
 
 /** Open-jaw: two separately priced one-direction flights, possibly to/from different airports. */
@@ -58,6 +60,10 @@ export type CalendarDay = {
   /** Return date the cached fare was priced with, if the cache has one. */
   returnDate: string | null
   returnTime: string | null
+  /** When this cached price stops being valid (ISO text), if the data says. */
+  expiresAt?: string | null
+  /** When a traveller saw the price (ISO text), if the data says. */
+  foundAt?: string | null
 }
 export type CalendarDayMap = Record<string, CalendarDay>
 
@@ -74,6 +80,8 @@ export type AnywhereTrip = {
   kind: 'fare' | 'legs'
   outbound: TripLeg
   inbound: TripLeg | null
+  /** When a traveller saw the price (ISO text), if the data says. */
+  seenAt?: string | null
 }
 
 export type AnywhereCity = {

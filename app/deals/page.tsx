@@ -47,6 +47,8 @@ async function dealToFare(deal: Deal): Promise<Fare> {
     airlineName: null,
     gate: null,
     bookingUrl: buildBookingLink(deal.origin, deal.destination, deal.departure_date, deal.return_date ?? undefined),
+    foundAt: null, // the stored deal has no seen-at time
+    expiresAt: null,
   }
   try {
     const flights = await getDayFlights(deal.origin, deal.destination, deal.departure_date, process.env.TRAVELPAYOUTS_TOKEN)

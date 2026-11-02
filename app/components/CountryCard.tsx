@@ -7,6 +7,7 @@ import CountryPhoto, { PhotoCredit } from './CountryPhoto'
 import Flag from './Flag'
 import ShareButton from './ShareButton'
 import BudgetBadge from './BudgetBadge'
+import PriceAge from './PriceAge'
 import type { AnywhereCountry } from '../tripTypes'
 import type { TripEstimate } from '../lib/budget'
 
@@ -78,7 +79,7 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
           {city && trip ? (
             <>
               <p className="mb-1 text-xs text-slate">
-                Cheapest match: <span className="font-medium text-ink">{city.name}</span> from {city.origin} · {kind}
+                Cheapest match: <span className="font-medium text-ink">{city.name}</span> from {city.origin} · {kind} · <PriceAge seenAt={trip.seenAt} />
               </p>
               {estimate && (
                 <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate">

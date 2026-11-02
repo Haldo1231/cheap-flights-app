@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { dayOfWeek, findBestCombinations } from '../../weekdays'
+import { dayOfWeek } from '../../weekdays'
 import { compareEstimates, estimateTrip, hasCostData, type DestCosts, type TripEstimate } from '../../lib/budget'
 import { nightsBetweenDates } from '../../lib/format'
 import type { ResultsParams } from '../useResultsParams'
@@ -11,8 +11,6 @@ type Combo = MonthTrip['bestCombinations'][number]
 export type BudgetCombo = { combo: Combo; estimate: TripEstimate }
 export type DayMark = 'fits' | 'over'
 
-const MANY = 2000
-
 /** Whole Month + a budget: every pair of days that matches the weekday and nights filters gets an
  * estimate (flights + stay), ranked "within budget first, cheapest total first". Also marks the
  * calendar days: a departure day "fits" when at least one allowed return makes the whole trip fit; a
@@ -20,8 +18,8 @@ const MANY = 2000
  * It only reads the two calendars already on screen: no price request is made. Returns null when no
  * budget is set. */
 export function useMonthBudget(p: ResultsParams, m: MonthTrip, info: DestCosts | null) {
-  const { budget, level, oneWay, withinOnly, outDays, backDays, minNights, maxNights } = p
-  const { outboundData, inboundData, outDate } = m
+  const { budget, level, oneWay, withinOnly, outDays } = p
+  const { outboundData, allCombinations, outDate } = m
   const dataOk = hasCostData(info)
 
   return useMemo(() => {
@@ -29,7 +27,7 @@ export function useMonthBudget(p: ResultsParams, m: MonthTrip, info: DestCosts |
 
     const rows: BudgetCombo[] = oneWay
       ? []
-      : findBestCombinations(outboundData, inboundData, outDays, backDays, minNights, maxNights, MANY).map((combo) => ({
+      : allCombinations.map((combo) => ({
           combo,
           estimate: estimateTrip({ flight: combo.total, nights: nightsBetweenDates(combo.outDate, combo.backDate), info, level, budget }),
         }))
@@ -60,7 +58,7 @@ export function useMonthBudget(p: ResultsParams, m: MonthTrip, info: DestCosts |
       (r) => estimateTrip({ flight: r.combo.total, nights: nightsBetweenDates(r.combo.outDate, r.combo.backDate), info, level: 'ultra', budget }).status === 'within'
     )
     return { rows, shown, withinCount, cheapestTotal, ultraHelps, outMarks, backMarks, dataOk }
-  }, [budget, level, oneWay, withinOnly, outDays, backDays, minNights, maxNights, outboundData, inboundData, outDate, info, dataOk])
+  }, [budget, level, oneWay, withinOnly, outDays, outboundData, allCombinations, outDate, info, dataOk])
 }
 
 export type MonthBudget = NonNullable<ReturnType<typeof useMonthBudget>>

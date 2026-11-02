@@ -3,6 +3,7 @@ import { formatNights, nightsBetweenDates } from '../lib/format'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
 import ShareButton from './ShareButton'
+import PriceAge from './PriceAge'
 
 type Props = {
   fare: Fare
@@ -70,6 +71,9 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
 
       <div className="mt-1 space-y-1 text-xs text-slate">
         {notes.length > 0 && <p>{notes.join(' · ')}.</p>}
+        <p className="first-letter:uppercase">
+          <PriceAge seenAt={fare.seenAt} />
+        </p>
         {stayLine && <p className="font-medium text-ink">{stayLine}</p>}
         {budgetNote}
       </div>

@@ -1,4 +1,4 @@
-import { fetchMonthCalendarDetailed } from '../../flightSources'
+import { fetchMonthCalendarDetailed, fetchMonthOneWayDays } from '../../flightSources'
 import { getAirlineNames } from '../../airlines'
 import { badRequest, cachedJson, cleanCode, cleanCodes, cleanMonth } from '../../lib/apiParams'
 import type { CalendarDay, CalendarDayMap } from '../../tripTypes'
@@ -8,6 +8,9 @@ export async function GET(request: Request) {
   const destination = cleanCode(searchParams.get('destination'))
   const month = cleanMonth(searchParams.get('month'))
   const leg = searchParams.get('leg') === 'inbound' ? 'inbound' : 'outbound'
+  // A one-way search needs one-way prices: a calendar entry with a return date is a round-trip price.
+  const oneWay = searchParams.get('oneWay') === 'true'
+  const fetchDays = oneWay ? fetchMonthOneWayDays : fetchMonthCalendarDetailed
 
   if (!destination || !month) return badRequest('Missing or invalid destination or month')
 
@@ -24,8 +27,8 @@ export async function GET(request: Request) {
       // city, so it's set explicitly below rather than trusted from the call.
       const data =
         leg === 'inbound'
-          ? await fetchMonthCalendarDetailed(destination, origin, month, token)
-          : await fetchMonthCalendarDetailed(origin, destination, month, token)
+          ? await fetchDays(destination, origin, month, token)
+          : await fetchDays(origin, destination, month, token)
 
       for (const [date, entry] of Object.entries(data)) {
         if (!result[date] || entry.price < result[date].price) {
@@ -38,6 +41,8 @@ export async function GET(request: Request) {
             stops: entry.stops,
             returnDate: entry.returnDate,
             returnTime: entry.returnTime,
+            expiresAt: entry.expiresAt,
+            foundAt: entry.foundAt,
           }
         }
       }

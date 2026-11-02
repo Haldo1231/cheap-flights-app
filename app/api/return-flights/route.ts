@@ -1,6 +1,6 @@
 import { flightToFare, getReturnFares } from '../../flightSources'
 import { HOME_AIRPORTS } from '../../homeAirports'
-import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate } from '../../lib/apiParams'
+import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate, cleanInt } from '../../lib/apiParams'
 import type { Fare } from '../../tripTypes'
 
 export type ReturnFlightsResponse = {
@@ -14,6 +14,7 @@ export type ReturnFlightsResponse = {
 
 // "Find a flight back": cached one-way fares from `from` (where the outbound flight lands) to every home airport, for one
 // day (mode=exact&date=) or a range of days (mode=range&start=&end=). `after` (the outbound day) drops anything earlier.
+// `limit` (default 60, at most 400) is how many of the cheapest fares come back: the month calendar asks for a whole month.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const from = cleanCode(searchParams.get('from'))
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
   if (!start || !end) return badRequest('Missing or invalid dates')
   if (end < start) return badRequest('The end day is before the start day')
 
-  const { fares, total } = await getReturnFares(from, airports, process.env.TRAVELPAYOUTS_TOKEN, { start, end, after })
+  const limit = cleanInt(searchParams.get('limit'), 60, 1, 400)
+  const { fares, total } = await getReturnFares(from, airports, process.env.TRAVELPAYOUTS_TOKEN, { start, end, after }, limit)
   return cachedJson<ReturnFlightsResponse>({ results: fares.map((f) => flightToFare(f)), total, airports })
 }

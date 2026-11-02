@@ -14,6 +14,10 @@ function firstWeekday(month: string) {
   return new Date(y, m - 1, 1).getDay()
 }
 
+/** A small label under the price of a day (for example the airport you fly back to), an optional short badge in the corner of
+ * the day (for example "−4" = 4 euro cheaper), and what a screen reader says for both. */
+export type CalendarNote = { text: string; badge?: string; spoken: string }
+
 type Props = {
   title: string
   data: CalendarDayMap
@@ -25,6 +29,8 @@ type Props = {
   allowedDays?: number[]
   /** Budget marks by date: "fits" = the whole trip fits the budget, "over" = it does not. */
   marks?: Record<string, 'fits' | 'over'>
+  /** A label under the price of a day, by date (the month return calendar names the airport there). */
+  notes?: Record<string, CalendarNote>
   /** Earliest / latest month the arrows may reach (YYYY-MM). */
   minMonth?: string
   maxMonth?: string
@@ -42,6 +48,7 @@ export default function CalendarGrid({
   onSelectDay,
   allowedDays = ALL_WEEKDAYS,
   marks,
+  notes,
   minMonth,
   maxMonth,
 }: Props) {
@@ -100,13 +107,14 @@ export default function CalendarGrid({
           const isGood = usable && avg !== null && entry.price < avg
           const airline = entry?.airlineName || entry?.airlineCode
           const mark = usable ? marks?.[dateStr] : undefined
+          const note = usable ? notes?.[dateStr] : undefined
           // Read out by screen readers in addition to the visible day number and price.
           const spoken = !isAllowedDay
             ? `${formatDay(dateStr)}, not one of your selected weekdays.`
             : entry
-            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}${mark === 'fits' ? ', the whole trip fits your budget' : mark === 'over' ? ', the whole trip is over your budget' : ''}.`
+            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}${note ? `, ${note.spoken}` : ''}${mark === 'fits' ? ', the whole trip fits your budget' : mark === 'over' ? ', the whole trip is over your budget' : ''}.`
             : `${formatDay(dateStr)}, no cached price.`
-          const detail = entry ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${airline ? ` · ${airline}` : ''}` : undefined
+          const detail = entry ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${airline ? ` · ${airline}` : ''}${note ? ` · ${note.spoken}` : ''}` : undefined
 
           return (
             <button
@@ -116,7 +124,7 @@ export default function CalendarGrid({
               aria-pressed={usable ? isSelected : undefined}
               onClick={() => usable && onSelectDay(dateStr, entry)}
               title={!isAllowedDay ? 'Not one of your selected weekdays' : usable ? detail : undefined}
-              className={`relative flex aspect-square min-h-11 flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
+              className={`relative flex ${notes ? 'h-14' : 'aspect-square min-h-11'} flex-col items-center justify-center rounded-sm border text-xs transition duration-150 enabled:hover:-translate-y-px enabled:hover:shadow-sm motion-reduce:transition-none motion-reduce:enabled:hover:transform-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
                 !isAllowedDay
                   ? 'cursor-not-allowed border-transparent bg-sand text-faint line-through opacity-60'
                   : isSelected
@@ -134,8 +142,19 @@ export default function CalendarGrid({
                   ✓
                 </span>
               )}
-              <span>{day}</span>
+              {/* With a note under the price, the day sits in the top-left corner (the badge takes the top-right one). */}
+              <span className={notes ? `absolute left-1 top-1 text-[11px] leading-none${isAllowedDay ? '' : ' line-through'}` : ''}>{day}</span>
               {usable && <span className={`font-mono tabular-nums ${mark === 'over' ? 'text-slate' : ''}`}>€{entry.price}</span>}
+              {note && (
+                <span aria-hidden="true" className="max-w-full truncate font-mono text-[10px] leading-none text-slate">
+                  {note.text}
+                </span>
+              )}
+              {note?.badge && (
+                <span aria-hidden="true" className="absolute right-1 top-1 font-mono text-[10px] font-semibold leading-none text-ink">
+                  {note.badge}
+                </span>
+              )}
             </button>
           )
         })}

@@ -696,18 +696,13 @@ export async function getReturnFares(
 ): Promise<{ fares: Flight[]; total: number }> {
   const months = monthsBetween(window.start, window.end)
   const lists = await Promise.all(toAirports.filter((a) => a !== from).map((a) => getOneWayFares(from, a, token, months)))
-  const inWindow = lists
-    .flat()
-    .filter((f) => f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after))
-  // The same flight can be in the one-way list and in the calendar: keep each airport/day/price once.
-  const seen = new Set<string>()
-  const unique = inWindow.filter((f) => {
-    const key = `${f.destination}|${f.departureDate}|${f.price}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-  unique.sort((a, b) => a.price - b.price || a.departureDate.localeCompare(b.departureDate))
+  // The same flight can be in the one-way list and in the calendar: keep each airport/day/price once, and keep the copy that
+  // says more (airline, time of day, how fresh) so the day list can show them. One list = one airport, as dedupe expects.
+  const unique = lists
+    .flatMap((list) =>
+      dedupe(list.filter((f) => f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after)))
+    )
+    .sort((a, b) => a.price - b.price || a.departureDate.localeCompare(b.departureDate))
   const top = await resolveAirlineNames(unique.slice(0, limit))
   return { fares: top, total: unique.length }
 }

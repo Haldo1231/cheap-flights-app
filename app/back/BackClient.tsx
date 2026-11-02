@@ -1,20 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Breadcrumbs from '../components/Breadcrumbs'
+import CalendarGrid from '../components/CalendarGrid'
+import DayFlightRow from '../components/DayFlightRow'
+import Drawer from '../components/Drawer'
 import Flag from '../components/Flag'
 import FlightLeg from '../components/FlightLeg'
 import PriceAge from '../components/PriceAge'
 import ScrollTopOnArrive from '../components/ScrollTopOnArrive'
-import { FareListSkeleton } from '../components/Skeleton'
-import { AIRPORTS, airportCountryCode } from '../airportsList'
+import { CalendarSkeleton, FareListSkeleton } from '../components/Skeleton'
+import { airportCity, airportCountryCode } from '../airportsList'
 import { buildBookingLink } from '../aviasalesLink'
 import { HOME_AIRPORTS } from '../homeAirports'
-import { formatDay } from '../lib/format'
+import { formatDay, formatMonth, shiftMonth } from '../lib/format'
+import { returnCalendar, useReturnMonth } from '../lib/returnMonth'
 import { snapshotFromLegs } from '../lib/trip'
 import { BACK_KEYS, parseTrip, resultsHrefFromTrip, tripHref } from '../lib/tripUrl'
+import { todayString } from '../lib/searchValidation'
 import { withParams } from '../lib/resultsUrl'
 import { useJson } from '../lib/useJson'
 import type { Fare, Leg } from '../tripTypes'
@@ -30,7 +35,14 @@ function addDays(date: string, n: number): string {
 }
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000)
 const dateParam = (v: string | null) => (v && DATE.test(v) ? v : null)
-const airportName = (code: string) => AIRPORTS.find((a) => a.code === code)?.city ?? code
+/** A day that really exists ("2026-12-31", not "2026-12-99"): the address can be edited by anyone. */
+const realDay = (v: string | null) => {
+  const day = dateParam(v)
+  const time = day ? Date.parse(`${day}T00:00:00Z`) : NaN
+  return day && !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === day ? day : null
+}
+const airportName = airportCity
+const MONTH = /^\d{4}-\d{2}$/
 
 type Days = { mode: 'exact' | 'range'; start: string; end: string }
 
@@ -172,12 +184,31 @@ export default function BackClient() {
   const cityName = place.data?.city?.name ?? airportName(dest)
 
   const outDate = trip?.outbound.date ?? ''
-  const days = trip ? readDays((k) => sp.get(k), outDate) : null
+  const outOrigin = trip?.outbound.origin ?? ''
+  // `bx=1`: not back to the airport the outbound flight left from (the button "Fly back to a different airport").
+  const notBackToOrigin = sp.get('bx') === '1'
+  const airports = notBackToOrigin ? HOME_AIRPORTS.filter((a) => a !== outOrigin) : HOME_AIRPORTS
+  const airportList = airports.join(',')
+
+  // How to look: a month calendar (bm=month), or exact day(s). All of it lives in the address.
+  const monthMode = sp.get('bm') === 'month'
+  const today = todayString()
+  const firstMonth = (outDate || today).slice(0, 7)
+  const lastMonth = shiftMonth(today.slice(0, 7), 11)
+  const monthParam = sp.get('bmon')
+  const month = monthParam && MONTH.test(monthParam) && monthParam >= firstMonth && monthParam <= lastMonth ? monthParam : firstMonth
+  const tappedDay = realDay(sp.get('bday'))
+  const selectedDay = tappedDay && tappedDay.startsWith(month) ? tappedDay : null
+
+  const days = trip && !monthMode ? readDays((k) => sp.get(k), outDate) : null
   const url =
     trip && days
-      ? `/api/return-flights?${new URLSearchParams({ from: dest, mode: days.mode, ...(days.mode === 'exact' ? { date: days.start } : { start: days.start, end: days.end }), after: outDate, to: HOME_AIRPORTS.join(',') })}`
+      ? `/api/return-flights?${new URLSearchParams({ from: dest, mode: days.mode, ...(days.mode === 'exact' ? { date: days.start } : { start: days.start, end: days.end }), after: outDate, to: airportList })}`
       : null
   const { data, loading, error } = useJson<ReturnFlightsResponse>(url, retry)
+  const monthData = useReturnMonth({ enabled: !!trip && !trip.inbound && monthMode, from: dest, airports, month })
+
+  const closeDay = useCallback(() => router.replace(withParams(sp, { bday: null }, '/back'), { scroll: false }), [router, sp])
 
   if (!trip || trip.inbound) {
     return (
@@ -204,7 +235,11 @@ export default function BackClient() {
   const outPrice = trip.outbound.price ?? trip.price
   const fares = data?.results ?? []
   const pickedId = sp.get('pick')
-  const picked = fares.find((f) => f.id === pickedId) ?? null
+  const monthFares = Object.values(monthData.byDate).flat()
+  const picked = (monthMode ? monthFares : fares).find((f) => f.id === pickedId) ?? null
+  const calendar = returnCalendar(monthData.byDate, { after: outDate })
+  const dayFares = selectedDay ? monthData.byDate[selectedDay] ?? [] : []
+  const otherAirports = airports.length === HOME_AIRPORTS.length ? 'BTS, VIE, BUD, KSC or PRG' : `${airports.slice(0, -1).join(', ')} or ${airports[airports.length - 1]}`
 
   const baseForTrip = new URLSearchParams(sp.toString())
   for (const key of BACK_KEYS) baseForTrip.delete(key)
@@ -218,6 +253,19 @@ export default function BackClient() {
   function pick(id: string) {
     router.replace(withParams(sp, { pick: id }, '/back'), { scroll: false })
   }
+  /** Between the month calendar and exact days. Whatever was picked is dropped (it belongs to the other view). */
+  function showMonth(on: boolean) {
+    const changes = on
+      ? { bm: 'month', bmon: firstMonth, bs: null, be: null, bday: null, pick: null }
+      : { bm: 'range', bmon: null, bday: null, bs: null, be: null, pick: null }
+    router.replace(withParams(sp, changes, '/back'), { scroll: false })
+  }
+  function goToMonth(next: string) {
+    router.replace(withParams(sp, { bmon: next, bday: null, pick: null }, '/back'), { scroll: false })
+  }
+  function tapDay(day: string) {
+    router.replace(withParams(sp, { bday: day, pick: null }, '/back'), { scroll: false })
+  }
 
   return (
     <div className="view-in">
@@ -225,7 +273,9 @@ export default function BackClient() {
       <Breadcrumbs items={[{ label: 'Search', href: '/search' }, { label: cityName, href: resultsHrefFromTrip(sp) }, { label: 'Find a flight back' }]} />
       <h1 className="h-page mb-1">Find a flight back from {cityName}</h1>
       <p className="mb-5 text-sm text-slate">
-        Cached one-way flights from {cityName} to any of BTS, VIE, BUD, KSC or PRG, cheapest first. You can come back to a different airport than you left from.
+        {monthMode
+          ? `A month of cached one-way flights from ${cityName} to ${otherAirports}. Your outbound flight and the flight back are two separate one-way tickets, so you can come back to a different airport than you left from.`
+          : `Cached one-way flights from ${cityName} to any of ${otherAirports}, cheapest first. You can come back to a different airport than you left from.`}
       </p>
 
       <section aria-label="Your outbound flight" className="surface mb-5 p-4">
@@ -233,13 +283,62 @@ export default function BackClient() {
         <FlightLeg compact label="Out" leg={outLeg} price={outPrice} />
       </section>
 
-      {days && <DaysForm key={`${days.mode}-${days.start}-${days.end}`} days={days} outDate={outDate} onSearch={search} />}
+      {days && (
+        <>
+          <DaysForm key={`${days.mode}-${days.start}-${days.end}`} days={days} outDate={outDate} onSearch={search} />
+          <p className="-mt-3 mb-6 text-sm">
+            <button type="button" onClick={() => showMonth(true)} className="inline-flex min-h-9 items-center font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
+              Show a month calendar instead
+            </button>
+          </p>
+        </>
+      )}
+
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="min-w-0 flex-1">
-          {loading && <FareListSkeleton count={4} label="Looking for flights back" />}
+          {monthMode && (
+            <section aria-labelledby="back-month-title" className="surface max-w-lg p-4">
+              <h2 id="back-month-title" className="mb-1 text-base font-semibold">
+                Pick a day to fly back
+              </h2>
+              <p className="mb-3 text-sm text-slate">
+                Each day shows the cheapest cached flight back to {otherAirports}, and which airport it is. Tap a day to see all of them, cheapest first.
+              </p>
+              {monthData.loading ? (
+                <CalendarSkeleton label="Loading the flights back" />
+              ) : monthData.error ? (
+                <div role="alert" className="rounded-sm border border-danger-line bg-danger-bg px-4 py-3 text-sm text-ink">
+                  Something went wrong loading this month. Reload the page to try again.
+                </div>
+              ) : (
+                <CalendarGrid
+                  title="Flying back"
+                  data={calendar.days}
+                  notes={calendar.notes}
+                  month={month}
+                  onPrev={() => goToMonth(shiftMonth(month, -1))}
+                  onNext={() => goToMonth(shiftMonth(month, 1))}
+                  selectedDate={selectedDay ?? picked?.outbound.date}
+                  onSelectDay={tapDay}
+                  minMonth={firstMonth}
+                  maxMonth={lastMonth}
+                />
+              )}
+              {!monthData.loading && !monthData.error && Object.keys(calendar.days).length === 0 && (
+                <p role="status" className="mt-3 rounded-sm border border-line bg-paper px-3 py-2 text-sm text-slate">
+                  No cached flights back from {cityName} to {otherAirports} in {formatMonth(month)}. The free price data is a cache, so small routes are often empty: try another month with the arrows.
+                </p>
+              )}
+              <p className="mt-3 text-xs text-slate">Days without a price have no cached flight. Prices are cached and can differ on the booking site.</p>
+              <button type="button" onClick={() => showMonth(false)} className="inline-flex min-h-9 items-center text-sm font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
+                Pick exact days instead
+              </button>
+            </section>
+          )}
+          {!monthMode && loading && <FareListSkeleton count={4} label="Looking for flights back" />}
 
-          {!loading && error && (
+          {!monthMode && !loading && error && (
             <div role="alert" className="rounded-sm border border-danger-line bg-danger-bg px-5 py-4">
               <p className="mb-3 text-ink">Something went wrong loading the flights back.</p>
               <button type="button" onClick={() => setRetry((n) => n + 1)} className="btn btn-primary">
@@ -248,10 +347,10 @@ export default function BackClient() {
             </div>
           )}
 
-          {!loading && !error && fares.length === 0 && days && (
+          {!monthMode && !loading && !error && fares.length === 0 && days && (
             <div role="status" className="surface px-5 py-6">
               <p className="mb-2 font-semibold">
-                No cached flights back from {cityName} to BTS, VIE, BUD, KSC or PRG{' '}
+                No cached flights back from {cityName} to {otherAirports}{' '}
                 {days.mode === 'exact' ? `on ${formatDay(days.start)}` : `from ${formatDay(days.start)} to ${formatDay(days.end)}`}.
               </p>
               <p className="text-sm text-slate">
@@ -260,7 +359,7 @@ export default function BackClient() {
             </div>
           )}
 
-          {!loading && !error && fares.length > 0 && (
+          {!monthMode && !loading && !error && fares.length > 0 && (
             <>
               <p className="mb-3 text-sm text-slate" aria-live="polite">
                 {data && data.total > fares.length ? `The cheapest ${fares.length} of ${data.total} cached flights back` : `${fares.length} cached flight${fares.length === 1 ? '' : 's'} back`}, cheapest first. Pick one to see the trip.
@@ -325,6 +424,25 @@ export default function BackClient() {
           <CombinedTrip compact out={outLeg} outPrice={outPrice} back={picked} detailsHref={detailsHref} />
         </div>
       )}
+
+      <Drawer
+        open={monthMode && !!selectedDay && !picked}
+        onClose={closeDay}
+        title={`Flights back · ${formatDay(selectedDay)}`}
+        subtitle={`Cached one-way flights from ${cityName} to ${otherAirports}, cheapest first`}
+      >
+        {dayFares.length === 0 && (
+          <p className="text-sm text-slate">No cached flight details found for this day. Pick another day, or check the price on the booking site.</p>
+        )}
+        {dayFares.length > 0 && (
+          <div className="space-y-2">
+            {dayFares.map((fare, i) => (
+              <DayFlightRow key={fare.id} fare={fare} rank={i} isSelected={fare.id === pickedId} onSelect={() => pick(fare.id)} showDestinationCity />
+            ))}
+            <p className="pt-2 text-xs text-slate">Choose a flight to see your whole trip with both booking links. Cached prices can change on the booking site.</p>
+          </div>
+        )}
+      </Drawer>
     </div>
   )
 }

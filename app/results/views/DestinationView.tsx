@@ -12,15 +12,17 @@ import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/Cost
 import { FareListSkeleton, Skeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
-import { snapshotFromFare, snapshotFromLegs } from '../../lib/trip'
+import { oneWayOutbound, snapshotFromFare, snapshotFromLegs } from '../../lib/trip'
 import { backHref, tripHref } from '../../lib/tripUrl'
-import { formatShortDate, nightsBetweenDates } from '../../lib/format'
+import { formatDay, formatShortDate, nightsBetweenDates } from '../../lib/format'
 import { AIRPORTS } from '../../airportsList'
 import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
+import DifferentAirportLine from '../../components/DifferentAirportLine'
+import { oldestSeen } from '../../lib/priceAge'
 import MonthContent from './MonthContent'
 import FareListContent, { arrangeFares } from './FareListContent'
 import OpenJawContent, { arrangeCombos } from './OpenJawContent'
@@ -86,6 +88,10 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
   const compareData = compare.data
   const fares = compareData && !compareData.openJaw ? compareData.results : []
   const openJawData = jaw.data && jaw.data.openJaw ? jaw.data : null
+  // The extra line under the switch: the cheapest trip back to a different airport (the list is cheapest first) and how
+  // much more or less it costs than the cheapest round trip from the same airport. The round trip stays the main price.
+  const cheapestRoundTrip = fares.reduce<number | null>((min, f) => (f.inbound && (min === null || f.price < min) ? f.price : min), null)
+  const bestJaw = openJawOn && !jaw.error ? openJawData?.results[0] ?? null : null
 
   let flightPrice: number | null = null
   let departDate: string | null = null
@@ -129,12 +135,37 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
           month.selection.backIncluded || (oneWay && month.selectedOutFare.inbound)
             ? snapshotFromFare(month.selectedOutFare)
             : snapshotFromLegs(
-                { ...month.selectedOutFare.outbound, price: month.selectedOutFare.price },
+                // The outbound ticket the total is made of (with the switch "Fly back to a different airport" ON this is the one-way
+                // fare standing in for a round-trip fare).
+                { ...(month.selection.outFare ?? month.selectedOutFare).outbound, price: (month.selection.outFare ?? month.selectedOutFare).price },
                 !oneWay && month.selectedBackFare
                   ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price }
                   : null
               )
         )
+      : null
+
+  // A picked round trip (Whole month) can be turned into a trip that comes back to ANOTHER home airport. That is two
+  // one-way tickets, so it starts from the cheapest cached ONE-WAY flight out from the same airport on the same day (a round-trip
+  // fare already pays for its own way back and can not be reused). The button opens the month calendar of flights back to the other airports.
+  const picked = month.selectedOutFare
+  const jawOut = isMonth && !oneWay ? oneWayOutbound(picked, month.outFares) : null
+  const jawBack =
+    isMonth && !oneWay && picked && !month.outLoading
+      ? jawOut
+        ? {
+            href: backHref(p.searchString, destination, snapshotFromFare(jawOut), {
+              bm: 'month',
+              // The month you said you would come back in (never before the outbound month).
+              bmon: p.returnMonth && p.returnMonth >= jawOut.outbound.date.slice(0, 7) ? p.returnMonth : jawOut.outbound.date.slice(0, 7),
+              bx: '1',
+            }),
+            note: `Two one-way tickets: out ${jawOut.outbound.origin} → ${destination} on ${formatDay(jawOut.outbound.date)} for €${jawOut.price}, plus a flight back to another airport that you choose.`,
+          }
+        : {
+            href: null,
+            note: `No one-way flight out from ${picked.outbound.origin} on ${formatDay(picked.outbound.date)} is cached, so we can not price a trip that comes back to another airport. A round-trip fare already pays for its own way back.`,
+          }
       : null
 
   // A picked one-way flight (Whole month, one way) can look for a flight back to any home airport.
@@ -172,6 +203,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         detailsHref={monthDetailsHref}
         findBackHref={monthBackHref}
         selection={month.selection}
+        jawBack={jawBack}
       />
     ) : undefined,
   }
@@ -213,8 +245,23 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               height of the results so the sticky card has room to travel. */}
           <div className="min-w-0 flex-1">
             {isMonth && <MonthContent p={p} m={month} info={info} infoReady={infoReady} />}
-            {!oneWay && !isMonth && (
+            {p.openJawAllowed && !isMonth && (
               <ReturnAirportSwitch className="mb-4" on={p.openJaw} onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })} />
+            )}
+            {bestJaw && !place.loading && (
+              <div className="mb-4 rounded-lg border border-line bg-surface px-3 py-2 text-sm" data-jaw-summary>
+                <DifferentAirportLine
+                  from={bestJaw.outbound.origin}
+                  place={cityName}
+                  to={bestJaw.inbound.destination}
+                  price={bestJaw.total}
+                  difference={cheapestRoundTrip !== null ? bestJaw.total - cheapestRoundTrip : null}
+                  seenAt={oldestSeen(bestJaw.outbound.seenAt, bestJaw.inbound.seenAt)}
+                />
+                <a href="#jaw-title" className="inline-flex min-h-9 items-center text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink">
+                  See all trips back to a different airport ↓
+                </a>
+              </div>
             )}
             {dateMode === 'range' && <WeekdayFilterBox p={p} />}
             {!isMonth && <BudgetBox p={p} />}

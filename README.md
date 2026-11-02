@@ -57,23 +57,50 @@ A country without a photo shows a gradient with its flag, so nothing ever looks 
 
 ## Flying back to a different home airport
 
-The search form has a switch "Fly back to a different airport" (OFF by default) for round trips with exact dates or a date range. When
-it is on, a destination's results show two lists: the normal round-trip fares (back to the airport you left from) and, below them, "Fly
-back to a different airport": a one-way fare out from one of your airports plus a one-way fare back to a DIFFERENT one of BTS, VIE, BUD,
-KSC or PRG, added together (two separate tickets, each with its own price and age and its own booking button). The return can be to any of
-the five home airports, even if only one was ticked for leaving. Weekday filters, trip length and the budget apply to both lists. Only one-way
-fares are used (a round-trip fare already pays for two flights). If none are cached, the page says "No cached fares for returning to a
-different airport on these dates." Whole month already mixes airports in its calendars.
+The switch "Fly back to a different airport" is OFF by default and only exists for round trips. It never replaces a normal round trip:
+the main price is always the cheapest round trip from the SAME airport, and the different-airport trip is shown next to it. A trip that
+comes back to a different airport is always two separate one-way tickets (a one-way fare out from one of your airports plus a one-way fare
+back to a DIFFERENT one of BTS, VIE, BUD, KSC or PRG, each with its own price, age and booking button). A round-trip fare already pays for
+its own way back, so its price is never reused for this.
 
-**Anywhere:** the same switch (OFF by default, kept in the address as `openJaw=true`) is on the Anywhere search form, on the country cards
-screen, on a country's page and on a city's page, so it stays on while you open a country, then a city, then a trip. When it is on, each
-country card also considers the best trip that leaves from one of your airports and comes back to a different one (same pairing code and
-filters as the destination results), keeps the cheaper trip, shows "back to PRG" on the card and puts the countries in price order again.
-It loads in a second request, after the normal cards are already on screen, with a status line while it works. Measured with a fake price
-server (about 150 ms per request, cold cache, 5 home airports): the overview needs about 25-55 price requests with the switch OFF and about
-110-140 with it ON (the extra ~85 are one-way lists, shared between searches and cached for an hour, so a repeat visit needs none); the
-time until the cards show is about the same, because the extra request runs alongside the normal ones. Turn it ON only when you want it:
-a first search with it on asks the free price service for about three to four times as much data.
+**Narrow searches (exact dates, date range, weekdays), a destination or Anywhere.** With the switch ON:
+- *Anywhere cards:* each country card keeps its round-trip price and its place in the list; under the flights it gets one extra line, for
+  example "BTS → Barcelona → PRG, €68 (+€8 vs round trip)", the cheapest such trip for the card's city with the difference to the card's
+  round trip. No such trip cached = no extra line. A country with no round trip on your days but with a different-airport trip is listed
+  under "No matching day found" with the extra line.
+- *A country's page:* the round trips are listed first (same as with the switch OFF), then a list "Fly back to a different airport" below
+  them, cheapest trip first, each row with how much more or less it costs than that city's round trip.
+- *A city's page (destination):* the round-trip fares come first. Under the switch there is one extra line with the cheapest trip back to
+  another airport and the difference to the cheapest round trip, linking to the full list "Fly back to a different airport" further down.
+- The extra trips load in a second request, so the normal results never wait for them (a status line says it is still working). Measured
+  with a fake price server (about 150 ms per request, cold cache, 5 home airports): the Anywhere overview needs about 25-55 price requests
+  with the switch OFF and about 110-140 with it ON (the extra ~85 are one-way lists, shared between searches and cached for an hour, so a
+  repeat visit needs none). Turn it ON only when you want it: a first search with it on asks the free price service for about three to
+  four times as much data.
+
+**Whole month.**
+- *Anywhere + Whole month:* no switch. It only looks at same-airport round trips. The way to another airport is the button below.
+- *A destination + Whole month:* the switch is offered (OFF by default). With it ON and an outbound day picked, the Returning calendar
+  shows, for every day, the cheapest flight back to ANY of the five home airports (including the one you left from): the airport under
+  the price and, in the corner, how many euro cheaper it is than flying back to the airport you left from. Tapping a day lists that day's
+  flights to every airport, cheapest first (airport, time, airline, price, age). Choosing one makes the trip: a one-way flight out plus
+  that flight back. If the outbound you picked is a round-trip fare, the cheapest cached ONE-WAY flight out from the same airport on that
+  day is used instead (its price is shown); if there is none, the page says so. With the switch OFF Whole month works as before.
+- *The button "Fly back to a different airport"* (any Whole month search with a round trip, also after Anywhere): after you pick an
+  outbound flight, it opens `/back` in month mode. It uses the cheapest cached one-way flight out from the same airport on that day (the
+  note under the button says which); if none is cached the button is greyed out and says why.
+
+**Month calendar of flights back (`/back`, `bm=month`).** It shows the outbound flight and, for one month, the cheapest cached one-way
+flight back to each of the OTHER home airports on every day (the airport is written under the price; days without a cached flight are
+just empty). Tapping a day lists all of that day's flights to every other airport, cheapest first, with airport, time, airline, price and
+age. Choosing one shows the combined trip: outbound + return, the total, and one booking button per flight (both Travelpayouts links with
+the affiliate marker, from `buildBookingLink`), plus "Trip details". Everything is in the address: `bm=month`, `bmon` (the month), `bday`
+(the day you tapped), `pick` (the chosen flight), `bx=1` (not back to the airport you left from), plus the outbound flight, the search and
+your Whole month selection (the breadcrumb goes back to it). One month of flights back costs 2 price requests per airport (the one-way list,
+which is shared between months, and that month's calendar). Measured with a fake price server, production build, cold cache: **8 requests**
+for the 4 other airports (4 one-way lists + 4 month calendars), 10 for all 5; the next month you look at costs 4 (the calendars; the lists are
+already cached), and going back to a month you already saw, or repeating the search within an hour, costs 0. In the real click path (Whole month
+page already open, so this month's calendars are cached) the button costs **4 new requests**, and turning the Whole month switch ON costs 5.
 
 ## How prices are chosen, and how old they are
 
@@ -247,7 +274,9 @@ and PRG, cheapest first, with airport, date, time, airline, price and how old th
 return, the total price, and one booking button for each flight (both are Travelpayouts links with the affiliate marker, built by
 `buildBookingLink`), plus "Trip details". If nothing is cached for those days the page says so ("No cached flights back from ... Try a
 wider date range or another day"). The flight, the days and the pick are all in the address, so the page can be shared and Back works.
-The data comes from `/api/return-flights` (`getReturnFares`: the one-way list plus calendar entries without a return date).
+The data comes from `/api/return-flights` (`getReturnFares`: the one-way list plus calendar entries without a return date; `limit` says how
+many of the cheapest come back, 60 by default and up to 400 for a whole month). The page can also show a month calendar instead of days
+(`bm=month`, see "Flying back to a different home airport").
 
 ## Where things are
 

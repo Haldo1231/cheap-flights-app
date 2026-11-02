@@ -4,11 +4,14 @@ import { useMemo } from 'react'
 import { ALL_WEEKDAYS, dayOfWeek, findBestCombinations, serializeDays, type Combination } from '../../weekdays'
 import { nightsBetweenDates } from '../../lib/format'
 import { useJson } from '../../lib/useJson'
-import { calendarDayToFare, monthSelection, withCalendarFare } from '../../lib/trip'
+import { calendarDayToFare, monthSelection, oneWayOutbound, withCalendarFare } from '../../lib/trip'
+import { useReturnMonth } from '../../lib/returnMonth'
+import { HOME_AIRPORTS } from '../../homeAirports'
 import type { CalendarDay, CalendarDayMap, Fare } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 
 const EMPTY: CalendarDayMap = {}
+const NO_FARES: Fare[] = []
 
 /** "cal|FROM|TO|date|price" (the id of a calendar fare) as its parts, or null for any other id. */
 function parseCalendarFareId(id: string | null): { from: string; to: string; date: string; price: number } | null {
@@ -20,13 +23,13 @@ function parseCalendarFareId(id: string | null): { from: string; to: string; dat
  * ("cal|FROM|TO|date|price"); when the day's flight list already holds that same fare under another id,
  * the one with the same airports and price is the one meant (not just the cheapest flight of the day),
  * so the cost panel shows exactly the pair that was clicked. */
-function pickFare(fares: Fare[], id: string | null): Fare | undefined {
+function pickFare(fares: Fare[], id: string | null, anyKind = false): Fare | undefined {
   if (!id) return undefined
   const exact = fares.find((f) => f.id === id)
   if (exact) return exact
   const [kind, from, to, , price] = id.split('|')
   if (kind !== 'cal') return undefined
-  return fares.find((f) => f.kind === 'round-trip' && f.outbound.origin === from && f.outbound.destination === to && f.price === Number(price))
+  return fares.find((f) => (anyKind || f.kind === 'round-trip') && f.outbound.origin === from && f.outbound.destination === to && f.price === Number(price))
 }
 
 type CalendarResponse = { data: CalendarDayMap }
@@ -93,6 +96,10 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
   const fareList = useJson<CompareResponse>(fareListUrl)
   const calOut = useJson<CalendarResponse>(calOutUrl)
   const calBack = useJson<CalendarResponse>(calBackUrl)
+  // The switch "Fly back to a different airport": the Returning calendar then shows the flights back to EVERY home airport
+  // (one request for the whole return month, see lib/returnMonth), not only the airports of this search.
+  const jawMode = enabled && !oneWay && p.openJaw
+  const returnMonthData = useReturnMonth({ enabled: jawMode && !!returnMonth, from: destination, airports: HOME_AIRPORTS, month: returnMonth })
   const outboundData = calOut.data?.data ?? EMPTY
   const inboundData = calBack.data?.data ?? EMPTY
 
@@ -112,7 +119,7 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
     })}`
 
   const outFlights = useJson<CompareResponse>(outDate ? dayFlightsUrl(outDate, false) : null)
-  const backFlights = useJson<CompareResponse>(backDate ? dayFlightsUrl(backDate, true) : null)
+  const backFlights = useJson<CompareResponse>(backDate && !jawMode ? dayFlightsUrl(backDate, true) : null)
 
   const outDay: CalendarDay | undefined = outDate ? outboundData[outDate] : undefined
   const backDay: CalendarDay | undefined = backDate ? inboundData[backDate] : undefined
@@ -127,11 +134,13 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
   )
   const backFares = useMemo(
     () =>
-      withCalendarFare(
-        backFlights.data?.results ?? [],
-        backDay && backDate ? calendarDayToFare(backDay, backDate, destination, backDay.origin) : null
-      ),
-    [backFlights.data, backDay, backDate, destination]
+      jawMode
+        ? (backDate ? returnMonthData.byDate[backDate] : undefined) ?? NO_FARES
+        : withCalendarFare(
+            backFlights.data?.results ?? [],
+            backDay && backDate ? calendarDayToFare(backDay, backDate, destination, backDay.origin) : null
+          ),
+    [jawMode, returnMonthData.byDate, backFlights.data, backDay, backDate, destination]
   )
 
   // The fares the address asks for. A pair chosen from "Best combinations" names the calendar's own fare
@@ -140,12 +149,12 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
   // so the cost panel shows exactly the pair that was clicked.
   // With no explicit pick the cheapest ONE-WAY return fare is chosen: a round-trip fare is not the price of one flight.
   const selectedBackFare = useMemo(
-    () => (backDate ? pickFare(backFares, backFlightId) ?? backFares.find((f) => f.kind === 'one-way') ?? backFares[0] ?? null : null),
-    [backDate, backFares, backFlightId]
+    () => (backDate ? pickFare(backFares, backFlightId, jawMode) ?? backFares.find((f) => f.kind === 'one-way') ?? backFares[0] ?? null : null),
+    [backDate, backFares, backFlightId, jawMode]
   )
 
   const outLoading = !!outDate && (outFlights.loading || (calOut.loading && outFares.length === 0))
-  const backLoading = !!backDate && (backFlights.loading || (calBack.loading && backFares.length === 0))
+  const backLoading = !!backDate && (jawMode ? returnMonthData.loading : backFlights.loading || (calBack.loading && backFares.length === 0))
 
   // Every valid day pair, cheapest first: pairs from the calendars (a round-trip fare at its own price, or two one-way
   // prices) plus the round-trip fares of the latest-prices list. The same two days from two sources keep the cheaper.
@@ -186,7 +195,8 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
     [outDate, outFares, outFlightId, comboFare]
   )
 
-  const selection = monthSelection(selectedOutFare, selectedBackFare, oneWay, backDate)
+  // With the switch ON a flight back is its own one-way ticket: it is added to a one-way flight out, never to a round-trip fare.
+  const selection = monthSelection(selectedOutFare, selectedBackFare, oneWay, backDate, jawMode ? oneWayOutbound(selectedOutFare, outFares) : undefined)
   const complete = selection.complete
   const total = selection.total
 
@@ -206,6 +216,10 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
     bestCombinations,
     allCombinations,
     combosLoading: fareList.loading,
+    jawMode,
+    returnByDate: returnMonthData.byDate,
+    returnLoading: returnMonthData.loading,
+    returnError: returnMonthData.error,
     complete,
     total,
     selection,

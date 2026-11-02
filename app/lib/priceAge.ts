@@ -34,3 +34,11 @@ export function priceAgeText(seenAt: string | null | undefined, now = Date.now()
   const age = priceAgeMs(seenAt, now)
   return age === null ? 'price age not in the data' : `price seen ${formatAge(age)}`
 }
+
+/** The oldest of several "seen" times (a trip made of two tickets is only as fresh as its older price).
+ * Times the data does not give are skipped; null when none of them is given. */
+export function oldestSeen(...times: (string | null | undefined)[]): string | null {
+  const known = times.filter((t): t is string => parseTime(t) !== null)
+  if (known.length === 0) return null
+  return known.reduce((oldest, t) => ((parseTime(t) as number) < (parseTime(oldest) as number) ? t : oldest))
+}

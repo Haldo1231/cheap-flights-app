@@ -13,7 +13,8 @@ import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
 import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
 import JawStatus from '../../components/JawStatus'
-import { mergeJawIntoCities, useAnywhereJaw } from '../../lib/anywhereJaw'
+import { jawCityRows, useAnywhereJaw } from '../../lib/anywhereJaw'
+import { vsRoundTrip } from '../../components/DifferentAirportLine'
 import BudgetEmpty from '../BudgetEmpty'
 import { RowListSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
@@ -51,12 +52,20 @@ export default function CountryView({ p }: { p: ResultsParams }) {
       level: forLevel,
       budget,
     })
-  const jawOn = p.openJaw && !p.oneWay
+  // "Fly back to a different airport": a second request. The round-trip lists stay exactly as they are (same airport,
+  // cheapest first); the cities that have a trip back to ANOTHER home airport get their own list below them, cheapest
+  // trip first. A city with only a different-airport trip is listed there, not under "no matching day".
+  const jawOn = p.openJaw
   const jaw = useAnywhereJaw(p.dataString, jawOn, p.country)
-  const mergedCities =
-    jawOn && !jaw.loading && !jaw.error ? mergeJawIntoCities(data?.cities ?? [], data?.unmatchedCities ?? [], jaw.trips) : null
-  const cities = mergedCities ? mergedCities.cities : data?.cities ?? []
-  const unmatchedCities = mergedCities ? mergedCities.unmatched : data?.unmatchedCities ?? []
+  const jawReady = jawOn && !jaw.loading && !jaw.error
+  const cities = data?.cities ?? []
+  const allJawRows = jawReady ? jawCityRows([...cities, ...(data?.unmatchedCities ?? [])], jaw.trips) : []
+  const jawCodes = new Set(allJawRows.map((r) => r.city.code))
+  const unmatchedCities = (data?.unmatchedCities ?? []).filter((c) => !jawCodes.has(c.code))
+  // The same city, but with the different-airport trip as its trip (what its row and its budget estimate are about).
+  const jawRows = allJawRows
+    .map(({ city, extra }) => ({ extra, city: { ...city, origin: extra.trip.outbound.origin, trip: extra.trip } as AnywhereCity, roundTripPrice: city.trip?.price ?? null }))
+    .filter((row) => !withinOnly || estimateOf(row.city).status === 'within')
   const groups = budget !== null ? groupByBudget(cities, (c) => estimateOf(c)) : null
   const totals = groups ? cities.flatMap((c) => (estimateOf(c).total !== null ? [estimateOf(c).total as number] : [])) : []
   const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
@@ -105,12 +114,12 @@ export default function CountryView({ p }: { p: ResultsParams }) {
         )}
       </div>
       <SearchSummary params={new URLSearchParams(p.filterString)} from={p.originList.join(', ')} />
-      {!p.oneWay && (
+      {p.openJawAllowed && (
         <ReturnAirportSwitch
           className="mb-4"
           on={p.openJaw}
           onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })}
-          description="Also rank trips that leave from one of your airports and come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets)."
+          description="Keep the round trips, and list the trips that leave from one of your airports and come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets) below them."
         />
       )}
       {jawOn && <JawStatus loading={jaw.loading} error={jaw.error} found={jaw.found} noun="cities" />}
@@ -151,9 +160,13 @@ export default function CountryView({ p }: { p: ResultsParams }) {
 
           {cities.length === 0 && (
             <div className="surface mb-6 px-5 py-4">
-              <p className="mb-1 font-semibold">No day matches your filters in {countryName}</p>
+              <p className="mb-1 font-semibold">
+                {allJawRows.length > 0 ? `No round trip from one airport matches your filters in ${countryName}` : `No day matches your filters in ${countryName}`}
+              </p>
               <p className="text-sm text-slate">
-                Try more weekdays, a wider range of nights, another month, or another home airport.
+                {allJawRows.length > 0
+                  ? 'The trips that come back to a different airport are listed below.'
+                  : 'Try more weekdays, a wider range of nights, another month, or another home airport.'}
               </p>
             </div>
           )}
@@ -226,6 +239,31 @@ export default function CountryView({ p }: { p: ResultsParams }) {
                 </section>
               )}
             </>
+          )}
+
+          {jawRows.length > 0 && (
+            <section className="mt-8" aria-labelledby="jaw-cities">
+              <h2 id="jaw-cities" className="mb-1 text-base font-semibold">
+                Fly back to a different airport
+              </h2>
+              <p className="mb-3 text-xs text-slate">
+                Out from one of your airports, back to another of BTS, VIE, BUD, KSC or PRG: two separate one-way tickets, each at its own cached
+                price. Cheapest first. The round trips above are not changed.
+              </p>
+              <ol className="space-y-3">
+                {jawRows.map(({ city, extra, roundTripPrice }, i) => (
+                  <li key={city.code}>
+                    <AnywhereCityRow
+                      city={city}
+                      href={cityHref(city.code)}
+                      highlight={i === 0}
+                      estimate={budget !== null ? estimateOf(city) : null}
+                      note={extra.difference !== null && roundTripPrice !== null ? `${vsRoundTrip(extra.difference)} (round trip from the same airport: €${roundTripPrice})` : 'No round trip from the same airport on your days to compare with.'}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
 
           {unmatchedCities.length > 0 && (

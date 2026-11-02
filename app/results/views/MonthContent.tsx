@@ -5,6 +5,7 @@ import CalendarGrid from '../../components/CalendarGrid'
 import DayFlightRow from '../../components/DayFlightRow'
 import Drawer from '../../components/Drawer'
 import FlightLeg from '../../components/FlightLeg'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
 import BudgetEmpty from '../BudgetEmpty'
@@ -15,6 +16,8 @@ import { affordableText, levelLabel, type TripEstimate } from '../../lib/budget'
 import { useMonthBudget } from './useMonthBudget'
 import { CalendarSkeleton, FareListSkeleton } from '../../components/Skeleton'
 import { calendarDayToFare } from '../../lib/trip'
+import { returnCalendar } from '../../lib/returnMonth'
+import { airportCity } from '../../airportsList'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
 import { todayString } from '../../lib/searchValidation'
 import type { Fare } from '../../tripTypes'
@@ -38,6 +41,14 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   // The day pairs also wait for the list of round-trip fares.
   const combosPending = loading || m.combosLoading
   const failed = m.calOut.error || m.calBack.error
+
+  // With the switch "Fly back to a different airport" ON (and an outbound flight picked) the Returning calendar shows, for every day,
+  // the cheapest flight back to ANY home airport (including the one you leave from), named under the price with how much cheaper it
+  // is than flying back to the airport you leave from. Before an outbound is picked it still shows the normal calendar.
+  const jawOn = m.jawMode
+  const leaveFrom = m.selectedOutFare?.outbound.origin ?? null
+  const jawCalendar = jawOn && leaveFrom ? returnCalendar(m.returnByDate, { after: m.outDate, sameAirport: leaveFrom }) : null
+  const jawFailed = jawOn && m.returnError
 
   function pickDay(leg: 'out' | 'back', date: string) {
     p.setParams(leg === 'out' ? { out: date, of: null } : { back: date, bf: null })
@@ -75,6 +86,14 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
 
   return (
     <div>
+      {p.openJawAllowed && (
+        <ReturnAirportSwitch
+          className="mb-4"
+          on={p.openJaw}
+          onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })}
+          description="After you pick a departure day, the Returning calendar shows the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day, and how much cheaper it is than flying back to the airport you left from (two one-way tickets)."
+        />
+      )}
       <WeekdayFilterBox p={p} />
       <BudgetBox p={p} />
 
@@ -198,20 +217,50 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
             minMonth={minMonth}
             maxMonth={maxMonth}
           />
-          {!oneWay && (
-            <CalendarGrid
-              title="Returning"
-              data={m.inboundData}
-              month={returnMonth}
-              onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
-              onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
-              selectedDate={m.backDate ?? undefined}
-              onSelectDay={(date: string) => pickDay('back', date)}
-              allowedDays={p.backDays}
-              marks={mb?.backMarks}
-              minMonth={minMonth}
-              maxMonth={maxMonth}
-            />
+          {!oneWay && jawCalendar && m.returnLoading && <CalendarSkeleton label="Loading the flights back to every airport" />}
+          {!oneWay && jawCalendar && !m.returnLoading && (
+            <div className="min-w-0 flex-1">
+              <CalendarGrid
+                title="Returning, any airport"
+                data={jawFailed ? {} : jawCalendar.days}
+                notes={jawCalendar.notes}
+                month={returnMonth}
+                onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
+                onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
+                selectedDate={m.backDate ?? undefined}
+                onSelectDay={(date: string) => pickDay('back', date)}
+                allowedDays={p.backDays}
+                minMonth={minMonth}
+                maxMonth={maxMonth}
+              />
+              {jawFailed && (
+                <p role="alert" className="mt-2 rounded-sm border border-danger-line bg-danger-bg px-3 py-2 text-sm text-ink">
+                  Something went wrong loading the flights back to every airport. Reload the page to try again.
+                </p>
+              )}
+            </div>
+          )}
+          {!oneWay && !jawCalendar && (
+            <div className="min-w-0 flex-1">
+              <CalendarGrid
+                title="Returning"
+                data={m.inboundData}
+                month={returnMonth}
+                onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
+                onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
+                selectedDate={m.backDate ?? undefined}
+                onSelectDay={(date: string) => pickDay('back', date)}
+                allowedDays={p.backDays}
+                marks={mb?.backMarks}
+                minMonth={minMonth}
+                maxMonth={maxMonth}
+              />
+              {jawOn && (
+                <p className="mt-2 text-xs text-slate" role="status">
+                  Pick a departure day first. Then this calendar shows the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day.
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -229,6 +278,11 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
         <li className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-sm bg-sand" /> Not one of your weekdays / no price
         </li>
+        {jawCalendar && leaveFrom && (
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="font-mono text-slate">PRG</span> Airport you fly back to. The small <span aria-hidden="true" className="font-mono font-semibold text-ink">−4</span> in the corner: €4 cheaper than flying back to {airportCity(leaveFrom)} ({leaveFrom})
+          </li>
+        )}
         {mb && mb.dataOk && (
           <>
             <li className="flex items-center gap-1.5">
@@ -248,6 +302,8 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
         subtitle={
           drawer === 'out'
             ? `Cached flights from ${p.originList.join(', ')} to ${destination}`
+            : jawOn
+            ? `Cached one-way flights from ${destination} to BTS, VIE, BUD, KSC or PRG, cheapest first`
             : `Cached flights from ${destination} to ${p.originList.join(', ')}`
         }
       >
@@ -266,6 +322,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                 rank={i}
                 isSelected={fare.id === drawerSelected?.id}
                 onSelect={() => pickFlight(drawer ?? 'out', fare)}
+                showDestinationCity={drawer === 'back' && jawOn}
               />
             ))}
             <p className="pt-2 text-xs text-slate">

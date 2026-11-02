@@ -1,5 +1,6 @@
 import type { Fare } from '../tripTypes'
 import { formatDay, formatShortDate } from '../lib/format'
+import { airportCity } from '../airportsList'
 import { isLowCostCarrier } from '../lib/lowCost'
 import { priceAgeText } from '../lib/priceAge'
 
@@ -8,10 +9,12 @@ type Props = {
   rank: number
   isSelected: boolean
   onSelect: () => void
+  /** Name the airport the flight lands at ("KRK → Prague PRG"): for the days of a flight back to any of several airports. */
+  showDestinationCity?: boolean
 }
 
 /** One cached flight on a chosen calendar day, as a pickable row. */
-export default function DayFlightRow({ fare, rank, isSelected, onSelect }: Props) {
+export default function DayFlightRow({ fare, rank, isSelected, onSelect, showDestinationCity = false }: Props) {
   const leg = fare.outbound
   const airline = leg.airlineName || leg.airlineCode
   const stops = leg.stops === 0 ? 'Direct' : leg.stops ? `${leg.stops} stop${leg.stops === 1 ? '' : 's'}` : null
@@ -31,7 +34,15 @@ export default function DayFlightRow({ fare, rank, isSelected, onSelect }: Props
           {leg.time && <span className="font-mono text-base font-semibold tabular-nums text-ink">{leg.time} </span>}
           <span className="font-semibold text-ink">{formatDay(leg.date)}</span>
           {!leg.time && <span className="text-slate"> · time not in cached data</span>}
-          <span className="font-mono text-slate"> · {leg.origin} → {leg.destination}</span>
+          {showDestinationCity ? (
+            <>
+              <span className="font-mono text-slate"> · {leg.origin} →</span>
+              <span className="font-semibold text-ink"> {airportCity(leg.destination)}</span>
+              <span className="font-mono text-slate"> {leg.destination}</span>
+            </>
+          ) : (
+            <span className="font-mono text-slate"> · {leg.origin} → {leg.destination}</span>
+          )}
         </p>
         <p className="text-xs text-slate">
           {airline ? <span className="font-medium text-ink">{airline}</span> : 'airline not in cached data'}

@@ -13,6 +13,8 @@ import {
   fetchMonthCalendarDetailed,
   fetchMonthOneWayDays,
   currencyIsEuro,
+  findOpenJawPairs,
+  flightToLeg,
   completeFlights,
   flightToFare,
   normalizeFromCheap,
@@ -27,6 +29,8 @@ import { mapWithLimit } from './lib/pool'
 import type { AnywhereCity, AnywhereTrip, CalendarDay, Fare, Leg } from './tripTypes'
 import { cleanCodes, cleanDate, cleanInt, cleanMonth, MAX_ORIGINS as MAX_ORIGIN_CODES } from './lib/apiParams'
 import { HOME_AIRPORTS } from './homeAirports'
+import { openJawFilterFor } from './openJawFilter'
+import { parseTime } from './lib/priceAge'
 
 // Bounds shown to the user ("checked the N cheapest-looking countries").
 export { mapWithLimit }
@@ -257,6 +261,35 @@ async function checkCityFromOrigin(
   if (usable.length === 0) return null
   const [winner] = await completeFlights([usable[0]], token)
   return tripFromFare(flightToFare(winner, params.returnDate))
+}
+
+/** The best trip to this city that comes back to a DIFFERENT home airport: a one-way fare out plus a one-way fare back,
+ * paired and filtered by exactly the same code as the destination results (findOpenJawPairs). `outOrigins` are the home
+ * airports it may leave from (the city's cheapest ones); it may return to any of BTS/VIE/BUD/KSC/PRG or the chosen ones.
+ * null when no pair of cached one-way fares fits the filters. Uses the one-way list only (no calendars) to keep the
+ * number of price requests low on the overview. */
+export async function checkCityOpenJaw(
+  cityCode: string,
+  outOrigins: string[],
+  chosenOrigins: string[],
+  params: AnywhereParams,
+  token: string | undefined
+): Promise<AnywhereTrip | null> {
+  if (params.oneWay) return null
+  const returnTo = Array.from(new Set([...chosenOrigins, ...HOME_AIRPORTS]))
+  const { pairs } = await findOpenJawPairs(outOrigins, returnTo, cityCode, token, openJawFilterFor(params), 1, { calendar: false })
+  const best = pairs[0]
+  if (!best) return null
+  // The older of the two prices decides what "seen" says.
+  const seen = [best.out.foundAt, best.back.foundAt].filter((t): t is string => !!t)
+  const oldest = seen.sort((a, b) => (parseTime(a) ?? 0) - (parseTime(b) ?? 0))[0] ?? null
+  return {
+    price: best.total,
+    kind: 'legs',
+    outbound: { ...flightToLeg(best.out), price: best.out.price },
+    inbound: { ...flightToLeg(best.back), price: best.back.price },
+    seenAt: oldest,
+  }
 }
 
 /** Checks one city against the filters, trying its next-best home airport when

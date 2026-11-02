@@ -20,6 +20,7 @@ import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
 import WeekdayFilterBox from '../WeekdayFilterBox'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
 import MonthContent from './MonthContent'
 import FareListContent, { arrangeFares } from './FareListContent'
 import OpenJawContent, { arrangeCombos } from './OpenJawContent'
@@ -205,6 +206,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               height of the results so the sticky card has room to travel. */}
           <div className="min-w-0 flex-1">
             {isMonth && <MonthContent p={p} m={month} info={info} infoReady={infoReady} />}
+            {!oneWay && !isMonth && (
+              <ReturnAirportSwitch className="mb-4" on={p.openJaw} onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })} />
+            )}
             {dateMode === 'range' && <WeekdayFilterBox p={p} />}
             {!isMonth && <BudgetBox p={p} />}
 

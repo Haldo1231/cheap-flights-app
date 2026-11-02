@@ -511,6 +511,9 @@ export type OpenJawFilter = {
   maxNights: number
   /** Only this return day, when the traveller named one. */
   backDate?: string | null
+  /** Earliest and latest RETURN day, when the search names a return month. */
+  backFrom?: string | null
+  backTo?: string | null
   outDays: number[]
   backDays: number[]
 }
@@ -527,16 +530,30 @@ export async function findOpenJawPairs(
   destination: string,
   token: string | undefined,
   filter: OpenJawFilter,
-  limit = 30
+  limit = 30,
+  options: { calendar?: boolean } = {}
 ): Promise<{ pairs: OpenJawPair[]; outCount: number; backCount: number }> {
-  const outMonths = monthsBetween(filter.outFrom, filter.outTo)
-  const backMonths = monthsBetween(addDaysTo(filter.outFrom, 1), filter.backDate ?? addDaysTo(filter.outTo, filter.maxNights))
+  // The calendar months are only asked for when `calendar` is on (the Anywhere overview leaves them out to keep the
+  // number of price requests down: it uses the one-way list only).
+  const outMonths = options.calendar === false ? [] : monthsBetween(filter.outFrom, filter.outTo)
+  const backMonths =
+    options.calendar === false
+      ? []
+      : monthsBetween(filter.backFrom ?? addDaysTo(filter.outFrom, 1), filter.backTo ?? filter.backDate ?? addDaysTo(filter.outTo, filter.maxNights))
   const [outLists, backLists] = await Promise.all([
     Promise.all(origins.map((o) => getOneWayFares(o, destination, token, outMonths))),
     Promise.all(returnTo.map((o) => getOneWayFares(destination, o, token, backMonths))),
   ])
   const outs = outLists.flat().filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
-  const backs = backLists.flat().filter((f) => filter.backDays.includes(dayOfWeek(f.departureDate)) && (!filter.backDate || f.departureDate === filter.backDate))
+  const backs = backLists
+    .flat()
+    .filter(
+      (f) =>
+        filter.backDays.includes(dayOfWeek(f.departureDate)) &&
+        (!filter.backDate || f.departureDate === filter.backDate) &&
+        (!filter.backFrom || f.departureDate >= filter.backFrom) &&
+        (!filter.backTo || f.departureDate <= filter.backTo)
+    )
 
   const pairs: OpenJawPair[] = []
   for (const out of outs) {
@@ -608,6 +625,20 @@ export async function getCheapestFare(
   const flights = await Promise.all(origins.map((o) => getCheapestLeg(o, destination, undefined, token)))
   const valid = flights.filter((f): f is Flight => f !== null).sort((a, b) => a.price - b.price)
   return valid.length > 0 ? flightToFare(valid[0]) : null
+}
+
+/** One cached flight as a leg (date, time, airline, stops, booking link). */
+export function flightToLeg(f: Flight): Leg {
+  return {
+    origin: f.origin,
+    destination: f.destination,
+    date: f.departureDate,
+    time: f.departureTime,
+    airlineCode: f.airlineCode,
+    airlineName: f.airlineName,
+    stops: f.stops,
+    bookingUrl: buildBookingLink(f.origin, f.destination, f.departureDate),
+  }
 }
 
 /** Turns one cached flight into the shape the pages use: an outbound leg and,

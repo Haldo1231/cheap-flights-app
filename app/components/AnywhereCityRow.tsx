@@ -4,6 +4,7 @@ import DrillLink from './DrillLink'
 import BudgetBadge from './BudgetBadge'
 import PriceAge from './PriceAge'
 import type { TripEstimate } from '../lib/budget'
+import { returnsToOtherAirport } from '../lib/anywhereJaw'
 
 type Props = {
   city: AnywhereCity
@@ -51,7 +52,7 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
             <>
               <p className={`font-mono text-lg font-semibold tabular-nums text-ink ${highlight ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{trip.price}</p>
               <p className="text-xs text-slate">
-                {trip.inbound ? (trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
+                {trip.inbound ? (returnsToOtherAirport(trip) ? `back to ${trip.inbound.destination}, two one-way tickets` : trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
               </p>
               {estimate?.total != null && <p className="mt-0.5 font-mono text-xs font-semibold text-ink">~€{estimate.total} total</p>}
               <p className="text-xs text-slate first-letter:uppercase">

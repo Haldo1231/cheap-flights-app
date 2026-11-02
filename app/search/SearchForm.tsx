@@ -7,6 +7,7 @@ import Flag from '../components/Flag'
 import { CloseIcon, PlaneIcon } from '../components/Icons'
 import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
 import BudgetPanel from '../components/BudgetPanel'
+import ReturnAirportSwitch from '../components/ReturnAirportSwitch'
 import { DEFAULT_LEVEL, type LevelKey } from '../budgetConfig'
 import { budgetParams } from '../lib/budget'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
@@ -245,7 +246,7 @@ export default function SearchForm() {
     }
 
     // Back to a different airport: exact dates and date range (Whole month already mixes airports on its own).
-    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'month' && openJaw
+    const useOpenJaw = !oneWay && (isAnywhere || dateMode !== 'month') && openJaw
 
     const params = new URLSearchParams({
       origins: allOrigins.join(','),
@@ -413,32 +414,17 @@ export default function SearchForm() {
               One way
             </Chip>
           </div>
-          {!oneWay && !isAnywhere && dateMode !== 'month' && (
-            <div className="mt-4 flex items-start justify-between gap-4 rounded-lg border border-line bg-paper/60 px-3 py-2">
-              <div className="min-w-0 text-sm">
-                <p id="open-jaw-label" className="font-semibold text-ink">
-                  Fly back to a different airport
-                </p>
-                <p id="open-jaw-help" className="text-slate">
-                  Also show trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Works with exact dates
-                  or a date range.
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={openJaw}
-                aria-labelledby="open-jaw-label"
-                aria-describedby="open-jaw-help"
-                onClick={() => setOpenJaw((on) => !on)}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-full px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-              >
-                <span className="mr-2 text-sm font-medium text-ink">{openJaw ? 'On' : 'Off'}</span>
-                <span aria-hidden="true" className={`relative h-6 w-11 rounded-full transition-colors duration-200 motion-reduce:transition-none ${openJaw ? 'bg-amber' : 'bg-faint'}`}>
-                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 motion-reduce:transition-none ${openJaw ? 'translate-x-5' : ''}`} />
-                </span>
-              </button>
-            </div>
+          {!oneWay && (isAnywhere || dateMode !== 'month') && (
+            <ReturnAirportSwitch
+              className="mt-4"
+              on={openJaw}
+              onChange={setOpenJaw}
+              description={
+                isAnywhere
+                  ? 'Also rank countries by trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). The extra trips load after the normal results.'
+                  : 'Also show trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Works with exact dates or a date range.'
+              }
+            />
           )}
           {!oneWay && !isAnywhere && dateMode === 'month' && (
             <p className="mt-4 text-sm text-slate">Whole month already checks flying back to a different one of your airports.</p>

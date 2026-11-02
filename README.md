@@ -63,7 +63,17 @@ back to a different airport": a one-way fare out from one of your airports plus 
 KSC or PRG, added together (two separate tickets, each with its own price and age and its own booking button). The return can be to any of
 the five home airports, even if only one was ticked for leaving. Weekday filters, trip length and the budget apply to both lists. Only one-way
 fares are used (a round-trip fare already pays for two flights). If none are cached, the page says "No cached fares for returning to a
-different airport on these dates." Whole month already mixes airports in its calendars; Anywhere returns to the airport you left from.
+different airport on these dates." Whole month already mixes airports in its calendars.
+
+**Anywhere:** the same switch (OFF by default, kept in the address as `openJaw=true`) is on the Anywhere search form, on the country cards
+screen, on a country's page and on a city's page, so it stays on while you open a country, then a city, then a trip. When it is on, each
+country card also considers the best trip that leaves from one of your airports and comes back to a different one (same pairing code and
+filters as the destination results), keeps the cheaper trip, shows "back to PRG" on the card and puts the countries in price order again.
+It loads in a second request, after the normal cards are already on screen, with a status line while it works. Measured with a fake price
+server (about 150 ms per request, cold cache, 5 home airports): the overview needs about 25-55 price requests with the switch OFF and about
+110-140 with it ON (the extra ~85 are one-way lists, shared between searches and cached for an hour, so a repeat visit needs none); the
+time until the cards show is about the same, because the extra request runs alongside the normal ones. Turn it ON only when you want it:
+a first search with it on asks the free price service for about three to four times as much data.
 
 ## How prices are chosen, and how old they are
 

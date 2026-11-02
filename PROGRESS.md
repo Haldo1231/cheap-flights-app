@@ -339,3 +339,10 @@ Why it looked broken: the box was renamed, switched on by default and hidden whe
 Anywhere / Whole month); the trips themselves now need real one-way fares (before: the cheapest fare of each day per airport, which could be a
 round-trip price counted twice), so with thin cached data nothing may be found. Now: a visible switch, OFF by default, shown for exact dates and
 date range on every round trip; returns to any of the five home airports; one-way fares from the one-way list and the calendar; and a clear message when none exist.
+
+# Anywhere: fly back to a different airport (branch `feature/anywhere-return-and-flight-back`, commit 1)
+The switch now exists on the Anywhere screens (country cards, a country, a city) and stays on through country > city > trip (it lives in the
+address). The extra trips come from a second request (`/api/anywhere-jaw`) so the normal cards show first; a status line says it is still
+working. Measured with a fake price server: ON asks for about 3-4x as many price requests as OFF on a cold cache (about +85, one-way lists
+that are shared and cached for an hour) with about the same time to the first cards. If this turns out too heavy for the free price service,
+this commit can be reverted on its own.

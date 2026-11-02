@@ -11,6 +11,9 @@ import CountryPhoto, { PhotoCredit } from '../../components/CountryPhoto'
 import ShareButton from '../../components/ShareButton'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
+import JawStatus from '../../components/JawStatus'
+import { mergeJawIntoCities, useAnywhereJaw } from '../../lib/anywhereJaw'
 import BudgetEmpty from '../BudgetEmpty'
 import { RowListSkeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
@@ -48,7 +51,12 @@ export default function CountryView({ p }: { p: ResultsParams }) {
       level: forLevel,
       budget,
     })
-  const cities = data?.cities ?? []
+  const jawOn = p.openJaw && !p.oneWay
+  const jaw = useAnywhereJaw(p.dataString, jawOn, p.country)
+  const mergedCities =
+    jawOn && !jaw.loading && !jaw.error ? mergeJawIntoCities(data?.cities ?? [], data?.unmatchedCities ?? [], jaw.trips) : null
+  const cities = mergedCities ? mergedCities.cities : data?.cities ?? []
+  const unmatchedCities = mergedCities ? mergedCities.unmatched : data?.unmatchedCities ?? []
   const groups = budget !== null ? groupByBudget(cities, (c) => estimateOf(c)) : null
   const totals = groups ? cities.flatMap((c) => (estimateOf(c).total !== null ? [estimateOf(c).total as number] : [])) : []
   const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
@@ -97,6 +105,15 @@ export default function CountryView({ p }: { p: ResultsParams }) {
         )}
       </div>
       <SearchSummary params={new URLSearchParams(p.filterString)} from={p.originList.join(', ')} />
+      {!p.oneWay && (
+        <ReturnAirportSwitch
+          className="mb-4"
+          on={p.openJaw}
+          onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })}
+          description="Also rank trips that leave from one of your airports and come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets)."
+        />
+      )}
+      {jawOn && <JawStatus loading={jaw.loading} error={jaw.error} found={jaw.found} noun="cities" />}
       <WeekdayFilterBox p={p} />
       <BudgetBox p={p} />
 
@@ -132,7 +149,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
             filters, cheapest first. Prices are cached and may change on the booking site.
           </p>
 
-          {data.cities.length === 0 && (
+          {cities.length === 0 && (
             <div className="surface mb-6 px-5 py-4">
               <p className="mb-1 font-semibold">No day matches your filters in {countryName}</p>
               <p className="text-sm text-slate">
@@ -141,9 +158,9 @@ export default function CountryView({ p }: { p: ResultsParams }) {
             </div>
           )}
 
-          {data.cities.length > 0 && !groups && (
+          {cities.length > 0 && !groups && (
             <ol className="space-y-3">
-              {data.cities.map((city, i) => (
+              {cities.map((city, i) => (
                 <li key={city.code}>
                   <AnywhereCityRow city={city} href={cityHref(city.code)} highlight={i === 0} />
                 </li>
@@ -151,13 +168,13 @@ export default function CountryView({ p }: { p: ResultsParams }) {
             </ol>
           )}
 
-          {data.cities.length > 0 && groups && (
+          {cities.length > 0 && groups && (
             <>
               <p className="mb-4 text-sm text-slate" aria-live="polite">
                 <span className="font-semibold text-ink">
-                  {groups.within.length} of {data.cities.length}
+                  {groups.within.length} of {cities.length}
                 </span>{' '}
-                cit{data.cities.length === 1 ? 'y fits' : 'ies fit'} your €{budget} budget ({levelLabel(level)} style: flight plus stay, an estimate). Ranked by total cost.
+                cit{cities.length === 1 ? 'y fits' : 'ies fit'} your €{budget} budget ({levelLabel(level)} style: flight plus stay, an estimate). Ranked by total cost.
               </p>
               {groups.within.length === 0 && (
                 <BudgetEmpty p={p} cheapestTotal={cheapestTotal} ultraHelps={ultraHelps} noData={groups.over.length === 0 && groups.nodata.length > 0} noun="cities" />
@@ -211,14 +228,14 @@ export default function CountryView({ p }: { p: ResultsParams }) {
             </>
           )}
 
-          {data.unmatchedCities.length > 0 && (
+          {unmatchedCities.length > 0 && (
             <section className="mt-8" aria-labelledby="no-match-cities">
               <h2 id="no-match-cities" className="mb-1 text-sm font-semibold">
                 No matching day in these cities
               </h2>
               <p className="mb-3 text-xs text-slate">They have cached flights, just not on your days. You can still open them.</p>
               <ul className="space-y-2">
-                {data.unmatchedCities.map((city) => (
+                {unmatchedCities.map((city) => (
                   <li key={city.code}>
                     <AnywhereCityRow city={city} href={cityHref(city.code)} />
                   </li>

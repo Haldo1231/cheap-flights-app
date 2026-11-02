@@ -35,6 +35,12 @@ function addDays(date: string, n: number): string {
 }
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000)
 const dateParam = (v: string | null) => (v && DATE.test(v) ? v : null)
+/** A day that really exists ("2026-12-31", not "2026-12-99"): the address can be edited by anyone. */
+const realDay = (v: string | null) => {
+  const day = dateParam(v)
+  const time = day ? Date.parse(`${day}T00:00:00Z`) : NaN
+  return day && !Number.isNaN(time) && new Date(time).toISOString().slice(0, 10) === day ? day : null
+}
 const airportName = airportCity
 const MONTH = /^\d{4}-\d{2}$/
 
@@ -191,7 +197,7 @@ export default function BackClient() {
   const lastMonth = shiftMonth(today.slice(0, 7), 11)
   const monthParam = sp.get('bmon')
   const month = monthParam && MONTH.test(monthParam) && monthParam >= firstMonth && monthParam <= lastMonth ? monthParam : firstMonth
-  const tappedDay = dateParam(sp.get('bday'))
+  const tappedDay = realDay(sp.get('bday'))
   const selectedDay = tappedDay && tappedDay.startsWith(month) ? tappedDay : null
 
   const days = trip && !monthMode ? readDays((k) => sp.get(k), outDate) : null

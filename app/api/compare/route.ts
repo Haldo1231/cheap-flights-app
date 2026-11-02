@@ -1,6 +1,7 @@
 import { findOpenJawPairs, getDayFlights, getRangeFlights, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
-import { ALL_WEEKDAYS as ALL_DAYS, matchesWeekdays, parseDays } from '../../weekdays'
+import { matchesWeekdays, parseDays } from '../../weekdays'
+import { openJawFilterFor } from '../../openJawFilter'
 import { HOME_AIRPORTS } from '../../homeAirports'
 import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate, cleanInt, cleanMonth } from '../../lib/apiParams'
 import type { CompareResponse, Fare, OpenJawCombo, PricedLeg } from '../../tripTypes'
@@ -40,25 +41,19 @@ export async function GET(request: Request) {
 
   // Fly out from one home airport and come back to ANOTHER: two one-way tickets, each at its own cached price.
   if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'range')) {
-    const outDays = parseDays(searchParams.get('outDays'))
-    const backDays = parseDays(searchParams.get('backDays'))
-    let filter
-    if (dateMode === 'exact') {
-      const departDate = cleanDate(searchParams.get('departDate'))
-      const returnDate = cleanDate(searchParams.get('returnDate'))
-      // No return day named: look at every return from the next day up to two weeks later.
-      filter = { outFrom: departDate ?? '9999-12-31', outTo: departDate ?? '0000-01-01', minNights: 1, maxNights: returnDate ? 60 : 14, backDate: returnDate, outDays: ALL_DAYS, backDays: ALL_DAYS }
-    } else {
-      filter = {
-        outFrom: cleanDate(searchParams.get('rangeStart')) ?? '0000-01-01',
-        outTo: cleanDate(searchParams.get('rangeEnd')) ?? '9999-12-31',
-        minNights: cleanInt(searchParams.get('minDays'), 2, 1, 30),
-        maxNights: cleanInt(searchParams.get('maxDays'), 10, 1, 30),
-        backDate: null,
-        outDays,
-        backDays,
-      }
-    }
+    const filter = openJawFilterFor({
+      dateMode,
+      departDate: cleanDate(searchParams.get('departDate')),
+      returnDate: cleanDate(searchParams.get('returnDate')),
+      rangeStart: cleanDate(searchParams.get('rangeStart')),
+      rangeEnd: cleanDate(searchParams.get('rangeEnd')),
+      minDays: cleanInt(searchParams.get('minDays'), 2, 1, 30),
+      maxDays: cleanInt(searchParams.get('maxDays'), 10, 1, 30),
+      minNights: 1,
+      maxNights: 14,
+      outDays: parseDays(searchParams.get('outDays')),
+      backDays: parseDays(searchParams.get('backDays')),
+    })
     // Out from the chosen airports; back to ANY of the home airports (BTS, VIE, BUD, KSC, PRG) or the chosen ones.
     const returnTo = Array.from(new Set([...origins, ...HOME_AIRPORTS]))
     const { pairs, outCount, backCount } = await findOpenJawPairs(origins, returnTo, destination, token, filter)

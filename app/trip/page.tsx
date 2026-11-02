@@ -8,7 +8,7 @@ import { getAirlineNames } from '../airlines'
 import { getCityInfo } from '../geoData'
 import { getDayFlights } from '../flightSources'
 import { buildBookingLink } from '../aviasalesLink'
-import { parseTrip, resultsHrefFromTrip, type TripLegSnapshot, type TripSnapshot } from '../lib/tripUrl'
+import { backHref, parseTrip, resultsHrefFromTrip, type TripLegSnapshot, type TripSnapshot } from '../lib/tripUrl'
 import { withParams, filtersOnly } from '../lib/resultsUrl'
 import { formatDay, formatShortDate, formatNights, nightsBetweenDates } from '../lib/format'
 import { pageMetadata } from '../lib/seo'
@@ -245,6 +245,11 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
+                {!trip.inbound && (
+                  <Link href={backHref(rawParams, destination, trip)} className="btn btn-outline">
+                    Find a flight back →
+                  </Link>
+                )}
                 {isFare ? (
                   <a href={roundTripLink} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                     {trip.inbound ? 'Book round trip →' : 'Book on Aviasales →'}

@@ -6,6 +6,9 @@ import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
+import JawStatus from '../../components/JawStatus'
+import { mergeJawIntoCountries, useAnywhereJaw } from '../../lib/anywhereJaw'
 import BudgetEmpty from '../BudgetEmpty'
 import CountryCard from '../../components/CountryCard'
 import DrillLink from '../../components/DrillLink'
@@ -38,8 +41,16 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
   const loading = pricesLoading || (p.budget !== null && costsLoading)
   const { budget, level, withinOnly } = p
 
-  const countries = data?.countries ?? []
-  const unmatched = data?.unmatchedCountries ?? []
+  // "Fly back to a different airport": asked for in a second request, so the normal results never wait for it.
+  // Its trips are merged in (cheaper trip wins, price order again) as soon as they arrive.
+  const jawOn = p.openJaw && !p.oneWay
+  const jaw = useAnywhereJaw(p.dataString, jawOn)
+  const merged =
+    jawOn && !jaw.loading && !jaw.error
+      ? mergeJawIntoCountries(data?.countries ?? [], data?.unmatchedCountries ?? [], jaw.trips)
+      : { countries: data?.countries ?? [], unmatched: data?.unmatchedCountries ?? [] }
+  const countries = merged.countries
+  const unmatched = merged.unmatched
   const first = p.originList[0]
 
   // With a budget: each country's trip (its cheapest-looking city, checked against your filters) gets a
@@ -85,6 +96,15 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />
 
+      {!p.oneWay && (
+        <ReturnAirportSwitch
+          className="mb-4"
+          on={p.openJaw}
+          onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })}
+          description="Also rank trips that leave from one of your airports and come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets)."
+        />
+      )}
+      {jawOn && <JawStatus loading={jaw.loading} error={jaw.error} found={jaw.found} noun="countries" />}
       <WeekdayFilterBox p={p} />
       <BudgetBox p={p} />
 

@@ -10,6 +10,7 @@ import BudgetBadge from './BudgetBadge'
 import PriceAge from './PriceAge'
 import type { AnywhereCountry } from '../tripTypes'
 import type { TripEstimate } from '../lib/budget'
+import { returnsToOtherAirport } from '../lib/anywhereJaw'
 
 type Props = {
   country: AnywhereCountry
@@ -34,7 +35,7 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
   const city = country.verifiedCity
   const trip = city?.trip
   const destinations = `${country.candidateCityCount} destination${country.candidateCityCount === 1 ? '' : 's'}`
-  const kind = trip?.inbound ? (trip.kind === 'fare' ? 'round trip' : 'out + back') : 'one way'
+  const kind = trip?.inbound ? (returnsToOtherAirport(trip) ? `back to ${trip.inbound.destination}` : trip.kind === 'fare' ? 'round trip' : 'out + back') : 'one way'
   const credit = country.image && !failed ? country.image : null
 
   return (

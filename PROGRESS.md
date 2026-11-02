@@ -1,5 +1,11 @@
 # Progress log — upgrade-1 branch
 
+# Find a flight back (branch `feature/anywhere-return-and-flight-back`, commit 2)
+New page `/back` and `/api/return-flights`: from a one-way flight, look for cached one-way flights back from the destination to any of the five
+home airports (exact date or date range, cheapest first), pick one and see the combined trip with the total and both booking links. Button on
+one-way result cards, on the one-way trip page and on a picked one-way flight in Whole month. Tested with fake price data; real cache coverage of
+one-way fares decides how many return flights show up (the page says so when there are none).
+
 Working step by step, one task at a time, each approved before starting and verified after.
 
 ## Task 1: Money check — confirm every flight/booking link uses the Travelpayouts marker
@@ -339,3 +345,10 @@ Why it looked broken: the box was renamed, switched on by default and hidden whe
 Anywhere / Whole month); the trips themselves now need real one-way fares (before: the cheapest fare of each day per airport, which could be a
 round-trip price counted twice), so with thin cached data nothing may be found. Now: a visible switch, OFF by default, shown for exact dates and
 date range on every round trip; returns to any of the five home airports; one-way fares from the one-way list and the calendar; and a clear message when none exist.
+
+# Anywhere: fly back to a different airport (branch `feature/anywhere-return-and-flight-back`, commit 1)
+The switch now exists on the Anywhere screens (country cards, a country, a city) and stays on through country > city > trip (it lives in the
+address). The extra trips come from a second request (`/api/anywhere-jaw`) so the normal cards show first; a status line says it is still
+working. Measured with a fake price server: ON asks for about 3-4x as many price requests as OFF on a cold cache (about +85, one-way lists
+that are shared and cached for an hour) with about the same time to the first cards. If this turns out too heavy for the free price service,
+this commit can be reverted on its own.

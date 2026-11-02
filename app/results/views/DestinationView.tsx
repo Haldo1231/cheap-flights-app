@@ -13,13 +13,14 @@ import { FareListSkeleton, Skeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
 import { snapshotFromFare, snapshotFromLegs } from '../../lib/trip'
-import { tripHref } from '../../lib/tripUrl'
+import { backHref, tripHref } from '../../lib/tripUrl'
 import { formatShortDate, nightsBetweenDates } from '../../lib/format'
 import { AIRPORTS } from '../../airportsList'
 import type { CompareResponse } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
 import WeekdayFilterBox from '../WeekdayFilterBox'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
 import MonthContent from './MonthContent'
 import FareListContent, { arrangeFares } from './FareListContent'
 import OpenJawContent, { arrangeCombos } from './OpenJawContent'
@@ -136,6 +137,12 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         )
       : null
 
+  // A picked one-way flight (Whole month, one way) can look for a flight back to any home airport.
+  const monthBackHref =
+    isMonth && oneWay && month.complete && month.selectedOutFare && !month.selectedOutFare.inbound
+      ? backHref(p.searchString, destination, snapshotFromFare(month.selectedOutFare))
+      : null
+
   const costProps = {
     destinationName: info?.name ?? cityName,
     info,
@@ -163,6 +170,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         outLoading={month.outLoading}
         backLoading={month.backLoading}
         detailsHref={monthDetailsHref}
+        findBackHref={monthBackHref}
         selection={month.selection}
       />
     ) : undefined,
@@ -205,6 +213,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               height of the results so the sticky card has room to travel. */}
           <div className="min-w-0 flex-1">
             {isMonth && <MonthContent p={p} m={month} info={info} infoReady={infoReady} />}
+            {!oneWay && !isMonth && (
+              <ReturnAirportSwitch className="mb-4" on={p.openJaw} onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })} />
+            )}
             {dateMode === 'range' && <WeekdayFilterBox p={p} />}
             {!isMonth && <BudgetBox p={p} />}
 

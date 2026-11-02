@@ -97,7 +97,10 @@ age. Choosing one shows the combined trip: outbound + return, the total, and one
 the affiliate marker, from `buildBookingLink`), plus "Trip details". Everything is in the address: `bm=month`, `bmon` (the month), `bday`
 (the day you tapped), `pick` (the chosen flight), `bx=1` (not back to the airport you left from), plus the outbound flight, the search and
 your Whole month selection (the breadcrumb goes back to it). One month of flights back costs 2 price requests per airport (the one-way list,
-which is shared between months, and that month's calendar): 8 for the 4 other airports, 10 for all 5, 4 for the next month you look at.
+which is shared between months, and that month's calendar). Measured with a fake price server, production build, cold cache: **8 requests**
+for the 4 other airports (4 one-way lists + 4 month calendars), 10 for all 5; the next month you look at costs 4 (the calendars; the lists are
+already cached), and going back to a month you already saw, or repeating the search within an hour, costs 0. In the real click path (Whole month
+page already open, so this month's calendars are cached) the button costs **4 new requests**, and turning the Whole month switch ON costs 5.
 
 ## How prices are chosen, and how old they are
 

@@ -261,8 +261,8 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
                   Fly back to a different airport
                 </h2>
                 <p className="mb-3 text-sm text-slate">
-                  Out from one of your airports, home to another (for example out from Bratislava, back to Prague): two separate
-                  one-way tickets, each at its own cached price.
+                  Out from one of your airports, back to a different one of BTS, VIE, BUD, KSC or PRG (for example out from Bratislava,
+                  back to Prague): two separate one-way tickets, each at its own cached price.
                 </p>
                 {jaw.loading && <FareListSkeleton count={2} label="Looking for trips back to another airport" />}
                 {!jaw.loading && jaw.error && (

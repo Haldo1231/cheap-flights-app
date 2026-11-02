@@ -9,6 +9,8 @@ import type { ResultsParams } from './useResultsParams'
  * one-line summary of what is set. Changing anything updates the address, so the lists and the cost
  * panel follow at once (no new price requests: a budget does not change a flight price). */
 export default function BudgetBox({ p }: { p: ResultsParams }) {
+  // No budget for one-way trips: the box is not offered at all.
+  if (p.oneWay) return null
   const summary = p.budget === null ? `No limit · ${levelLabel(p.level)}` : `Max €${p.budget} · ${levelLabel(p.level)}`
   return (
     <FilterDisclosure title="Budget" summary={summary}>

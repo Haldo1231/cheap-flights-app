@@ -41,10 +41,13 @@ export function describeSearch(params: URLSearchParams): string[] {
     }
   }
 
-  const budget = parseBudget(params.get('budget'))
-  const level = parseLevel(params.get('level'))
-  if (budget !== null) out.push(`Budget €${budget} · ${levelLabel(level)}`)
-  else if (level !== 'middle') out.push(`${levelLabel(level)} style`)
+  // Budget and spending style only exist for trips with a return.
+  if (!oneWay) {
+    const budget = parseBudget(params.get('budget'))
+    const level = parseLevel(params.get('level'))
+    if (budget !== null) out.push(`Budget €${budget} · ${levelLabel(level)}`)
+    else if (level !== 'middle') out.push(`${levelLabel(level)} style`)
+  }
   return out
 }
 

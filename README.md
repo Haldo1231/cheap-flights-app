@@ -59,11 +59,11 @@ A country without a photo shows a gradient with its flag, so nothing ever looks 
 
 On the search form (step 5) and above every results list there is an optional **Max total budget** and a **Spending style**.
 Results then show an estimated total (flight + what you spend there), mark trips "within budget" or "over budget" and put the
-within-budget ones first. It works for round trip and one way, in exact dates, date range, whole month and Anywhere.
+within-budget ones first. It works for round trips (including fly-back-to-another-airport), in exact dates, date range, whole month and Anywhere. It is **not** offered for one-way searches: the section is hidden, switching to One way clears it, and a budget in a one-way address is ignored, so it can never silently filter one-way results.
 
 How a total is worked out (the same on every screen): **total = flight price + days of stay x cost of one day**.
 The flight price is the cached Travelpayouts price (both flights of a round trip). Days of stay = the nights between the two
-dates (at least 1; a one-way trip counts 1 day). The cost of one day = accommodation + food + transport + other, taken from the
+dates (at least 1). The cost of one day = accommodation + food + transport + other, taken from the
 `destinations` table (`hostel_avg_price`, `food_avg_price`, `transport_avg_price`, `other_avg_price`) and multiplied for the style.
 
 The three styles live in `app/budgetConfig.ts`. They are our **assumptions**, written as multipliers on the destination's numbers:

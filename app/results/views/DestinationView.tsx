@@ -50,9 +50,17 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     (dateMode === 'range' && !p.searchParams.get('rangeStart') && 'a start date') ||
     null
 
+  // Ordinary round-trip fares (back to the airport you left from) ...
   const listParams = new URLSearchParams(p.dataString)
   listParams.set('destination', destination)
+  listParams.set('openJaw', 'false')
   const compare = useJson<CompareResponse>(!isMonth && !missing ? `/api/compare?${listParams}` : null, retry)
+  // ... and, next to them, trips that fly back to a DIFFERENT home airport (exact dates and date range; Whole Month
+  // already mixes airports in its calendars).
+  const openJawOn = openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'range')
+  const jawParams = new URLSearchParams(listParams)
+  jawParams.set('openJaw', 'true')
+  const jaw = useJson<CompareResponse>(!isMonth && !missing && openJawOn ? `/api/compare?${jawParams}` : null, retry)
   const place = useJson<PlaceResponse>(`/api/place?city=${encodeURIComponent(destination)}`)
   const infoState = useJson<InfoResponse>(`/api/destination-info?code=${encodeURIComponent(destination)}`)
 
@@ -76,7 +84,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
   // ---- what the cost panel is about ----------------------------------------
   const compareData = compare.data
   const fares = compareData && !compareData.openJaw ? compareData.results : []
-  const openJawData = compareData && compareData.openJaw ? compareData : null
+  const openJawData = jaw.data && jaw.data.openJaw ? jaw.data : null
 
   let flightPrice: number | null = null
   let departDate: string | null = null
@@ -88,16 +96,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     departDate = month.selectedOutFare?.outbound.date ?? null
     returnDate = oneWay ? null : month.selection.backLeg?.date ?? month.selectedBackFare?.outbound.date ?? null
     flightNote = oneWay ? 'one way' : month.selection.backIncluded ? 'round trip, both flights' : 'outbound + return'
-  } else if (openJaw && openJawData?.results[0]) {
-    // The first combination in the list (the cheapest flights, or with a budget the best one within it).
-    const first = arrangeCombos(openJawData.results, p, info).shown[0]?.combo ?? openJawData.results[0]
-    flightPrice = first.total
-    departDate = first.outbound.date
-    returnDate = first.inbound.date
-    flightNote = p.budget !== null ? 'best outbound + return for your budget' : 'cheapest outbound + return'
   } else {
     // The fare the panel shows: the one under the pointer, otherwise the first one in the list (the
-    // cheapest flight, or with a budget the best one within budget), so panel and list always agree.
+    // cheapest flight, or with a budget the best one within it), so panel and list always agree.
     const arranged = arrangeFares(fares, p, info)
     const visible = [...arranged.shownPrimary, ...arranged.shownSecondary]
     const shown = visible.find((f) => f.id === previewedId) ?? arranged.defaultFare
@@ -106,6 +107,13 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
       departDate = shown.outbound.date
       returnDate = shown.inbound?.date ?? null
       flightNote = `${shown.kind === 'round-trip' ? 'round trip, both flights' : 'one way'}${shown.id === arranged.cheapestId ? ' · cheapest shown' : ''}`
+    } else if (openJawOn && openJawData?.results[0]) {
+      // No ordinary round trip: the panel shows the best trip back to a different airport.
+      const first = arrangeCombos(openJawData.results, p, info).shown[0]?.combo ?? openJawData.results[0]
+      flightPrice = first.total
+      departDate = first.outbound.date
+      returnDate = first.inbound.date
+      flightNote = 'two one-way tickets, back to a different airport'
     }
   }
 
@@ -215,9 +223,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               </div>
             )}
 
-            {!isMonth && !listLoading && !compare.error && openJawData && <OpenJawContent data={openJawData} p={p} info={info} />}
-
-            {!isMonth && !listLoading && !compare.error && !openJawData && fares.length === 0 && (
+            {!isMonth && !listLoading && !compare.error && fares.length === 0 && !(openJawOn && (jaw.loading || (openJawData?.results.length ?? 0) > 0)) && (
               <div className="surface px-5 py-6">
                 <p className="mb-2 font-semibold">No cached prices found for this search</p>
                 <p className="mb-3 text-sm text-slate">
@@ -237,7 +243,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               </div>
             )}
 
-            {!isMonth && !listLoading && !compare.error && !openJawData && fares.length > 0 && (
+            {!isMonth && !listLoading && !compare.error && fares.length > 0 && (
               <FareListContent
                 fares={fares}
                 total={compareData && !compareData.openJaw ? compareData.total : fares.length}
@@ -247,6 +253,28 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
                 previewedId={previewedId}
                 onPreview={setPreviewedId}
               />
+            )}
+
+            {openJawOn && !listLoading && (
+              <section className="mt-10" aria-labelledby="jaw-title">
+                <h2 id="jaw-title" className="mb-1 text-lg font-semibold">
+                  Fly back to a different airport
+                </h2>
+                <p className="mb-3 text-sm text-slate">
+                  Out from one of your airports, home to another (for example out from Bratislava, back to Prague): two separate
+                  one-way tickets, each at its own cached price.
+                </p>
+                {jaw.loading && <FareListSkeleton count={2} label="Looking for trips back to another airport" />}
+                {!jaw.loading && jaw.error && (
+                  <div role="alert" className={ERROR_BOX}>
+                    <p className="mb-3 text-ink">Something went wrong loading these trips.</p>
+                    <button type="button" onClick={() => setRetry((n) => n + 1)} className="btn btn-primary">
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {!jaw.loading && !jaw.error && openJawData && <OpenJawContent data={openJawData} p={p} info={info} />}
+              </section>
             )}
           </div>
 

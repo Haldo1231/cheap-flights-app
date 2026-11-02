@@ -327,3 +327,9 @@ prices that were already round-trip prices (counting flights twice); the respons
 never used. Now: minimum valid price, expired/stale prices dropped, non-euro answers discarded, round-trip fares kept as one price, one-way
 calendars use true one-way prices, and every price shows how old it is. `/api/debug-prices` lets the owner compare with the real API on the preview.
 Not verifiable from here: how the live API treats a request without `return_date` or `one_way`, and how fresh `found_at` really is.
+
+# Return to a different home airport (branch `feature/return-to-any-airport`)
+The option "fly back to a different airport" was hidden for Date range and Anywhere, off by default, and replaced the normal results when on.
+Now: on by default with 2+ home airports, offered for exact dates and date range, and shown as a second list under the normal round-trip fares
+(one-way fare out + one-way fare back, A != B, all your airports paired, weekday/nights/budget apply). Anywhere is not covered (it would add
+many price requests per country).

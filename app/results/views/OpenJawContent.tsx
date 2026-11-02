@@ -44,18 +44,19 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
     <div>
       {nothing && (
         <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached prices found for this search.
+          No cached one-way fares pair up into a trip back to a different airport for these days. Try a wider date range, more weekdays, or another day.
         </p>
       )}
       {data.missingOutbound && (
         <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached one-way outbound price found from your airports to {destination}, so no complete trip can be built.
+          No cached one-way outbound fare found from your airports to {destination} on these days, so no trip back to a different
+          airport can be built.
         </p>
       )}
       {data.missingReturn && !data.missingOutbound && (
-        <div role="status" className="mb-3 rounded-sm border border-danger-line bg-danger-bg px-4 py-3 text-sm text-ink">
-          No cached one-way return price found from {destination} to your airports — these are NOT complete round trips. Outbound
-          flights we did find:
+        <div role="status" className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
+          No cached one-way return fare found from {destination} to your airports, so no trip back to a different airport can be
+          built. The round-trip fares above are not affected.
         </div>
       )}
 

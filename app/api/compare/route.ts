@@ -1,6 +1,6 @@
-import { getDayFlights, getRangeFlights, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
+import { findOpenJawPairs, getDayFlights, getRangeFlights, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
-import { matchesWeekdays, parseDays } from '../../weekdays'
+import { ALL_WEEKDAYS as ALL_DAYS, matchesWeekdays, parseDays } from '../../weekdays'
 import { HOME_AIRPORTS } from '../../homeAirports'
 import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate, cleanInt, cleanMonth } from '../../lib/apiParams'
 import type { CompareResponse, Fare, OpenJawCombo, PricedLeg } from '../../tripTypes'
@@ -38,11 +38,42 @@ export async function GET(request: Request) {
   // home airports you fly BACK TO (used for the return day of a Whole Month trip).
   const inboundLeg = searchParams.get('leg') === 'inbound'
 
-  if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'month')) {
-    const outDate =
-      dateMode === 'exact' ? cleanDate(searchParams.get('departDate')) : cleanMonth(searchParams.get('month'))
-    const backDate =
-      dateMode === 'exact' ? cleanDate(searchParams.get('returnDate')) : cleanMonth(searchParams.get('month'))
+  // Fly out from one home airport and come back to ANOTHER: two one-way tickets, each at its own cached price.
+  if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'range')) {
+    const outDays = parseDays(searchParams.get('outDays'))
+    const backDays = parseDays(searchParams.get('backDays'))
+    let filter
+    if (dateMode === 'exact') {
+      const departDate = cleanDate(searchParams.get('departDate'))
+      const returnDate = cleanDate(searchParams.get('returnDate'))
+      // No return day named: look at every return from the next day up to two weeks later.
+      filter = { outFrom: departDate ?? '9999-12-31', outTo: departDate ?? '0000-01-01', minNights: 1, maxNights: returnDate ? 60 : 14, backDate: returnDate, outDays: ALL_DAYS, backDays: ALL_DAYS }
+    } else {
+      filter = {
+        outFrom: cleanDate(searchParams.get('rangeStart')) ?? '0000-01-01',
+        outTo: cleanDate(searchParams.get('rangeEnd')) ?? '9999-12-31',
+        minNights: cleanInt(searchParams.get('minDays'), 2, 1, 30),
+        maxNights: cleanInt(searchParams.get('maxDays'), 10, 1, 30),
+        backDate: null,
+        outDays,
+        backDays,
+      }
+    }
+    const { pairs, outCount, backCount } = await findOpenJawPairs(origins, destination, token, filter)
+    const body: CompareResponse = {
+      openJaw: true,
+      destination,
+      results: pairs.map((p) => ({ outbound: toPricedLeg(p.out), inbound: toPricedLeg(p.back), total: p.total })),
+      missingOutbound: outCount === 0,
+      missingReturn: backCount === 0,
+      outboundOnly: [],
+    }
+    return cachedJson(body)
+  }
+
+  if (openJaw && !oneWay && dateMode === 'month') {
+    const outDate = cleanMonth(searchParams.get('month'))
+    const backDate = cleanMonth(searchParams.get('month'))
 
     const [outLegs, backLegs] = await Promise.all([
       // Each flight is priced on its own and the two are added, so only ONE-WAY fares count: a round-trip fare

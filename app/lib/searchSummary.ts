@@ -41,6 +41,8 @@ export function describeSearch(params: URLSearchParams): string[] {
     }
   }
 
+  if (!oneWay && mode !== 'month' && params.get('openJaw') === 'true') out.push('May return to another airport')
+
   // Budget and spending style only exist for trips with a return.
   if (!oneWay) {
     const budget = parseBudget(params.get('budget'))

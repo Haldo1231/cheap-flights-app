@@ -352,3 +352,24 @@ address). The extra trips come from a second request (`/api/anywhere-jaw`) so th
 working. Measured with a fake price server: ON asks for about 3-4x as many price requests as OFF on a cold cache (about +85, one-way lists
 that are shared and cached for an hour) with about the same time to the first cards. If this turns out too heavy for the free price service,
 this commit can be reverted on its own.
+
+# Different airport: new rules (branch `feature/different-airport-rules`)
+New rules from the owner for "fly back to a different airport": the switch never replaces the normal round trip any more; the main price stays
+the cheapest same-airport round trip and the different-airport trip is an extra line next to it.
+- **Narrow searches (exact, date range, weekdays), destination and Anywhere:** switch OFF by default. ON adds the line
+  "BTS → Barcelona → PRG, €68 (+€8 vs round trip)" (Anywhere cards, a city's page under the switch); none cached = no line. A country's page
+  lists the round trips first and the different-airport trips below, cheapest first. The old "cheaper trip wins and the cards move" merge
+  (`mergeJawIntoCountries`, `mergeJawIntoCities`) is gone.
+- **Whole month:** Anywhere + Whole month has no switch. A destination + Whole month has it (OFF by default): ON + an outbound picked, the
+  Returning calendar shows the cheapest flight back to ANY home airport per day, with the airport and the difference to the airport you left
+  from; a tapped day lists all airports, cheapest first. The button "Fly back to a different airport" on a picked trip (any Whole month round
+  trip) opens a month calendar of flights back to the OTHER airports on `/back` (`bm=month`), with the day list and the combined trip with
+  both booking links. All of it is in the address.
+- **Honest data rule:** a round-trip fare's price is never reused for a trip that comes back elsewhere (it already pays for its way back). The
+  outbound is the cheapest cached ONE-WAY fare from the same airport on that day; if there is none, the button is greyed out / the summary says so.
+- **Not changed:** with the Whole month switch OFF the two calendars and "Best combinations" work as before (they already pair a one-way out
+  with a one-way back from any of the chosen airports).
+- **Cost of the month calendar of flights back:** one request to `/api/return-flights` per month = 2 price requests per airport (see README).
+- Tested with a fake price server (the cloud workspace cannot reach Travelpayouts): points 1, 2b and 3 in a browser (desktop + phone), plus the
+  whole earlier regression suite. Not verifiable from here: how many real days have a cached ONE-WAY fare (the free data is thin; if a month
+  shows few priced days, that is the data, not an error).

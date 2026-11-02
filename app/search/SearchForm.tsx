@@ -245,8 +245,9 @@ export default function SearchForm() {
       return
     }
 
-    // Back to a different airport: exact dates and date range (Whole month already mixes airports on its own).
-    const useOpenJaw = !oneWay && (isAnywhere || dateMode !== 'month') && openJaw
+    // Back to a different airport: every round trip search except Anywhere over a whole month (that one only looks at
+    // same-airport round trips; the way to another airport there is the button on a picked trip).
+    const useOpenJaw = !oneWay && !(isAnywhere && dateMode === 'month') && openJaw
 
     const params = new URLSearchParams({
       origins: allOrigins.join(','),
@@ -414,20 +415,24 @@ export default function SearchForm() {
               One way
             </Chip>
           </div>
-          {!oneWay && (isAnywhere || dateMode !== 'month') && (
+          {!oneWay && !(isAnywhere && dateMode === 'month') && (
             <ReturnAirportSwitch
               className="mt-4"
               on={openJaw}
               onChange={setOpenJaw}
               description={
-                isAnywhere
-                  ? 'Also rank countries by trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). The extra trips load after the normal results.'
-                  : 'Also show trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Works with exact dates or a date range.'
+                dateMode === 'month'
+                  ? 'In the return calendar, show the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day (two one-way tickets), with the price difference.'
+                  : isAnywhere
+                  ? 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). The extra lines load after the normal results.'
+                  : 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets).'
               }
             />
           )}
-          {!oneWay && !isAnywhere && dateMode === 'month' && (
-            <p className="mt-4 text-sm text-slate">Whole month already checks flying back to a different one of your airports.</p>
+          {!oneWay && isAnywhere && dateMode === 'month' && (
+            <p className="mt-4 text-sm text-slate">
+              Anywhere with a whole month looks at round trips from the same airport. Once you pick a trip, a button lets you fly back to a different airport.
+            </p>
           )}
         </section>
 

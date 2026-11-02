@@ -20,13 +20,29 @@ export function useResultsParams() {
   const outDays = useMemo(() => parseDays(outDaysParam), [outDaysParam])
   const backDays = useMemo(() => parseDays(backDaysParam), [backDaysParam])
 
-  const filterString = useMemo(() => filtersOnly(searchString).toString(), [searchString])
+  const oneWay = searchParams.get('oneWay') === 'true'
+  const isAnywhere = searchParams.get('anywhere') === 'true'
+  const fromCountry = searchParams.get('fromCountry') || ''
+  const dateMode = searchParams.get('dateMode') || 'exact'
+
+  // The switch "Fly back to a different airport". It exists for round trips only, and NOT for an Anywhere search over a
+  // whole month (that search stays on same-airport round trips; the way to another airport there is the button on a
+  // picked trip). A link that asks for it anyway (old or hand-edited) is read as OFF.
+  const fromAnywhere = isAnywhere || fromCountry !== ''
+  const openJawAllowed = !oneWay && !(fromAnywhere && dateMode === 'month')
+  const openJaw = openJawAllowed && searchParams.get('openJaw') === 'true'
+
+  const filterString = useMemo(() => {
+    const filters = filtersOnly(searchString)
+    // The summary under the title must not claim "May return to another airport" when the switch is not in effect.
+    if (!openJaw) filters.delete('openJaw')
+    return filters.toString()
+  }, [searchString, openJaw])
   /** The same without the budget settings: the address price requests use (see dataFilters). */
   const dataString = useMemo(() => dataFilters(searchString).toString(), [searchString])
 
   // A budget only makes sense for a trip with a return. For a one-way search any budget, spending style or
   // "only within budget" in the address (an old or hand-edited link) is ignored, so it can never filter results.
-  const oneWay = searchParams.get('oneWay') === 'true'
   const budget = oneWay ? null : parseBudget(searchParams.get('budget'))
   const level = oneWay ? DEFAULT_LEVEL : parseLevel(searchParams.get('level'))
   // "Only within budget" means nothing without a budget.
@@ -79,15 +95,18 @@ export function useResultsParams() {
     budget,
     level,
     withinOnly,
-    isAnywhere: searchParams.get('anywhere') === 'true',
+    isAnywhere,
     country: searchParams.get('country') || '',
     destination: searchParams.get('destination') || '',
-    fromCountry: searchParams.get('fromCountry') || '',
+    fromCountry,
     origins,
     originList,
     oneWay,
-    dateMode: searchParams.get('dateMode') || 'exact',
-    openJaw: searchParams.get('openJaw') === 'true',
+    dateMode,
+    /** The switch "Fly back to a different airport" is in effect (ON, and allowed for this search). */
+    openJaw,
+    /** The switch may be shown for this search (round trip, and not an Anywhere search over a whole month). */
+    openJawAllowed,
     departMonth: searchParams.get('month') || '',
     returnMonth: searchParams.get('returnMonth') || searchParams.get('month') || '',
     departDate: searchParams.get('departDate'),

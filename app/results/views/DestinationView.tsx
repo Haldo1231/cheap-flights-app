@@ -21,6 +21,8 @@ import type { ResultsParams } from '../useResultsParams'
 import { useMonthTrip } from './useMonthTrip'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
+import DifferentAirportLine from '../../components/DifferentAirportLine'
+import { oldestSeen } from '../../lib/priceAge'
 import MonthContent from './MonthContent'
 import FareListContent, { arrangeFares } from './FareListContent'
 import OpenJawContent, { arrangeCombos } from './OpenJawContent'
@@ -86,6 +88,10 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
   const compareData = compare.data
   const fares = compareData && !compareData.openJaw ? compareData.results : []
   const openJawData = jaw.data && jaw.data.openJaw ? jaw.data : null
+  // The extra line under the switch: the cheapest trip back to a different airport (the list is cheapest first) and how
+  // much more or less it costs than the cheapest round trip from the same airport. The round trip stays the main price.
+  const cheapestRoundTrip = fares.reduce<number | null>((min, f) => (f.inbound && (min === null || f.price < min) ? f.price : min), null)
+  const bestJaw = openJawOn && !jaw.error ? openJawData?.results[0] ?? null : null
 
   let flightPrice: number | null = null
   let departDate: string | null = null
@@ -213,8 +219,23 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
               height of the results so the sticky card has room to travel. */}
           <div className="min-w-0 flex-1">
             {isMonth && <MonthContent p={p} m={month} info={info} infoReady={infoReady} />}
-            {!oneWay && !isMonth && (
+            {p.openJawAllowed && !isMonth && (
               <ReturnAirportSwitch className="mb-4" on={p.openJaw} onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })} />
+            )}
+            {bestJaw && !place.loading && (
+              <div className="mb-4 rounded-lg border border-line bg-surface px-3 py-2 text-sm" data-jaw-summary>
+                <DifferentAirportLine
+                  from={bestJaw.outbound.origin}
+                  place={cityName}
+                  to={bestJaw.inbound.destination}
+                  price={bestJaw.total}
+                  difference={cheapestRoundTrip !== null ? bestJaw.total - cheapestRoundTrip : null}
+                  seenAt={oldestSeen(bestJaw.outbound.seenAt, bestJaw.inbound.seenAt)}
+                />
+                <a href="#jaw-title" className="mt-1 inline-block text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-4">
+                  See all trips back to a different airport ↓
+                </a>
+              </div>
             )}
             {dateMode === 'range' && <WeekdayFilterBox p={p} />}
             {!isMonth && <BudgetBox p={p} />}

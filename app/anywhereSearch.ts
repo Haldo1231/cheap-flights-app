@@ -30,7 +30,7 @@ import type { AnywhereCity, AnywhereTrip, CalendarDay, Fare, Leg } from './tripT
 import { cleanCodes, cleanDate, cleanInt, cleanMonth, MAX_ORIGINS as MAX_ORIGIN_CODES } from './lib/apiParams'
 import { HOME_AIRPORTS } from './homeAirports'
 import { openJawFilterFor } from './openJawFilter'
-import { parseTime } from './lib/priceAge'
+import { oldestSeen } from './lib/priceAge'
 
 // Bounds shown to the user ("checked the N cheapest-looking countries").
 export { mapWithLimit }
@@ -281,8 +281,7 @@ export async function checkCityOpenJaw(
   const best = pairs[0]
   if (!best) return null
   // The older of the two prices decides what "seen" says.
-  const seen = [best.out.foundAt, best.back.foundAt].filter((t): t is string => !!t)
-  const oldest = seen.sort((a, b) => (parseTime(a) ?? 0) - (parseTime(b) ?? 0))[0] ?? null
+  const oldest = oldestSeen(best.out.foundAt, best.back.foundAt)
   return {
     price: best.total,
     kind: 'legs',

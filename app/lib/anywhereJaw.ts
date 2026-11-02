@@ -1,12 +1,13 @@
 'use client'
 
-// The "fly back to a different airport" trips of the Anywhere screens. They arrive in a separate request and are
-// merged into the normal results: a city's trip is replaced when the different-airport trip is cheaper (or when the
-// city had no trip that matched the filters at all), and the lists are put in price order again.
+// The "fly back to a different airport" trips of the Anywhere screens. They arrive in a separate request and are NEVER
+// merged into the normal results: the main price of a card or row stays the cheapest round trip from the same airport.
+// The different-airport trip is shown next to it as an extra line (country cards), or as its own list below the round
+// trips (a country's cities). No trip cached = no extra line.
 
 import { useJson } from './useJson'
 import type { AnywhereJawResponse } from '../api/anywhere-jaw/route'
-import type { AnywhereCity, AnywhereCountry, AnywhereTrip } from '../tripTypes'
+import type { AnywhereCity, AnywhereTrip } from '../tripTypes'
 
 const NONE: Record<string, AnywhereTrip> = {}
 
@@ -22,36 +23,26 @@ export function useAnywhereJaw(dataString: string, enabled: boolean, country?: s
   return { trips: data?.trips ?? NONE, found: Object.keys(data?.trips ?? NONE).length, loading, error }
 }
 
-function betterTrip(current: AnywhereTrip | null | undefined, jaw: AnywhereTrip | undefined): AnywhereTrip | null {
-  if (!jaw) return null
-  return !current || jaw.price < current.price ? jaw : null
+/** A different-airport trip next to the same-airport round trip of the same city. */
+export type JawExtra = {
+  trip: AnywhereTrip
+  /** Trip price minus the round-trip price: positive = dearer, negative = cheaper. null = no round trip to compare with. */
+  difference: number | null
 }
 
-/** Country cards: each country's checked city takes the different-airport trip when it is cheaper. Countries that had
- * no matching trip before can now have one. Both lists come back in price order. */
-export function mergeJawIntoCountries(countries: AnywhereCountry[], unmatched: AnywhereCountry[], jaw: Record<string, AnywhereTrip>) {
-  const matched: AnywhereCountry[] = []
-  const still: AnywhereCountry[] = []
-  for (const country of [...countries, ...unmatched]) {
-    const city = country.verifiedCity
-    const better = city ? betterTrip(city.trip, jaw[city.code]) : null
-    const merged: AnywhereCountry =
-      city && better ? { ...country, price: better.price, verifiedCity: { ...city, origin: better.outbound.origin, trip: better } } : country
-    ;(merged.price != null ? matched : still).push(merged)
-  }
-  matched.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
-  return { countries: matched, unmatched: still }
+/** The extra line for one city, or null when no different-airport trip is cached (or it does not come back to another airport). */
+export function jawExtra(jawTrip: AnywhereTrip | undefined | null, roundTrip: AnywhereTrip | null | undefined): JawExtra | null {
+  if (!jawTrip || !returnsToOtherAirport(jawTrip)) return null
+  return { trip: jawTrip, difference: roundTrip && roundTrip.inbound ? jawTrip.price - roundTrip.price : null }
 }
 
-/** The cities of one country, the same way. */
-export function mergeJawIntoCities(cities: AnywhereCity[], unmatched: AnywhereCity[], jaw: Record<string, AnywhereTrip>) {
-  const matched: AnywhereCity[] = []
-  const still: AnywhereCity[] = []
-  for (const city of [...cities, ...unmatched]) {
-    const better = betterTrip(city.trip, jaw[city.code])
-    const merged: AnywhereCity = better ? { ...city, origin: better.outbound.origin, trip: better } : city
-    ;(merged.trip ? matched : still).push(merged)
+/** The cities of one country that have a different-airport trip, cheapest trip first. `cities` is every checked city of
+ * the country (those with a round trip on your days and those without). */
+export function jawCityRows(cities: AnywhereCity[], jaw: Record<string, AnywhereTrip>): { city: AnywhereCity; extra: JawExtra }[] {
+  const rows: { city: AnywhereCity; extra: JawExtra }[] = []
+  for (const city of cities) {
+    const extra = jawExtra(jaw[city.code], city.trip)
+    if (extra) rows.push({ city, extra })
   }
-  matched.sort((a, b) => (a.trip?.price ?? Infinity) - (b.trip?.price ?? Infinity))
-  return { cities: matched, unmatched: still }
+  return rows.sort((a, b) => a.extra.trip.price - b.extra.trip.price || a.city.name.localeCompare(b.city.name))
 }

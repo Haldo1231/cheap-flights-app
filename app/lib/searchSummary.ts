@@ -41,7 +41,8 @@ export function describeSearch(params: URLSearchParams): string[] {
     }
   }
 
-  if (!oneWay && mode !== 'month' && params.get('openJaw') === 'true') out.push('May return to another airport')
+  // The results screens only leave `openJaw` in these params when the switch is really in effect for the search.
+  if (!oneWay && params.get('openJaw') === 'true') out.push('May return to another airport')
 
   // Budget and spending style only exist for trips with a return.
   if (!oneWay) {

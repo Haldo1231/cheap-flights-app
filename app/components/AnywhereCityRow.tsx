@@ -14,6 +14,8 @@ type Props = {
   highlight?: boolean
   /** Budget estimate for this city's trip (flight + stay). Only set when a budget is. */
   estimate?: TripEstimate | null
+  /** A short line under the flights, e.g. how a different-airport trip compares with the round trip. */
+  note?: string | null
 }
 
 function legPrice(leg: Leg & { price?: number | null }) {
@@ -22,7 +24,7 @@ function legPrice(leg: Leg & { price?: number | null }) {
 
 /** One city inside an Anywhere country: its trip (when it was checked against
  * the filters) or, otherwise, one real cached example fare marked as unfiltered. */
-export default function AnywhereCityRow({ city, href, highlight = false, estimate = null }: Props) {
+export default function AnywhereCityRow({ city, href, highlight = false, estimate = null, note = null }: Props) {
   const trip = city.trip
   const example = city.example
 
@@ -78,6 +80,8 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
           {trip.inbound && <FlightLeg compact label="Back" leg={trip.inbound} price={legPrice(trip.inbound)} />}
         </div>
       )}
+
+      {trip && note && <p className="mt-1 border-t border-line pt-2 text-xs font-medium text-ink">{note}</p>}
 
       {!trip && example && (
         <div className="mt-2 border-t border-line pt-1">

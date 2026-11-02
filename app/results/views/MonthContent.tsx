@@ -219,19 +219,26 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
           />
           {!oneWay && jawCalendar && m.returnLoading && <CalendarSkeleton label="Loading the flights back to every airport" />}
           {!oneWay && jawCalendar && !m.returnLoading && (
-            <CalendarGrid
-              title="Returning, any airport"
-              data={jawFailed ? {} : jawCalendar.days}
-              notes={jawCalendar.notes}
-              month={returnMonth}
-              onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
-              onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
-              selectedDate={m.backDate ?? undefined}
-              onSelectDay={(date: string) => pickDay('back', date)}
-              allowedDays={p.backDays}
-              minMonth={minMonth}
-              maxMonth={maxMonth}
-            />
+            <div className="min-w-0 flex-1">
+              <CalendarGrid
+                title="Returning, any airport"
+                data={jawFailed ? {} : jawCalendar.days}
+                notes={jawCalendar.notes}
+                month={returnMonth}
+                onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
+                onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
+                selectedDate={m.backDate ?? undefined}
+                onSelectDay={(date: string) => pickDay('back', date)}
+                allowedDays={p.backDays}
+                minMonth={minMonth}
+                maxMonth={maxMonth}
+              />
+              {jawFailed && (
+                <p role="alert" className="mt-2 rounded-sm border border-danger-line bg-danger-bg px-3 py-2 text-sm text-ink">
+                  Something went wrong loading the flights back to every airport. Reload the page to try again.
+                </p>
+              )}
+            </div>
           )}
           {!oneWay && !jawCalendar && (
             <div className="min-w-0 flex-1">

@@ -13,7 +13,7 @@ import { FareListSkeleton, Skeleton } from '../../components/Skeleton'
 import { useJson } from '../../lib/useJson'
 import { withParams } from '../../lib/resultsUrl'
 import { snapshotFromFare, snapshotFromLegs } from '../../lib/trip'
-import { tripHref } from '../../lib/tripUrl'
+import { backHref, tripHref } from '../../lib/tripUrl'
 import { formatShortDate, nightsBetweenDates } from '../../lib/format'
 import { AIRPORTS } from '../../airportsList'
 import type { CompareResponse } from '../../tripTypes'
@@ -137,6 +137,12 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         )
       : null
 
+  // A picked one-way flight (Whole month, one way) can look for a flight back to any home airport.
+  const monthBackHref =
+    isMonth && oneWay && month.complete && month.selectedOutFare && !month.selectedOutFare.inbound
+      ? backHref(p.searchString, destination, snapshotFromFare(month.selectedOutFare))
+      : null
+
   const costProps = {
     destinationName: info?.name ?? cityName,
     info,
@@ -164,6 +170,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         outLoading={month.outLoading}
         backLoading={month.backLoading}
         detailsHref={monthDetailsHref}
+        findBackHref={monthBackHref}
         selection={month.selection}
       />
     ) : undefined,

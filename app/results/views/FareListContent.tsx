@@ -7,7 +7,7 @@ import { affordableText, compareEstimates, estimateTrip, type TripEstimate } fro
 import { levelLabel } from '../../lib/budget'
 import { formatDay, nightsBetweenDates } from '../../lib/format'
 import { snapshotFromFare } from '../../lib/trip'
-import { tripHref } from '../../lib/tripUrl'
+import { backHref, tripHref } from '../../lib/tripUrl'
 import type { Fare } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import BudgetEmpty from '../BudgetEmpty'
@@ -75,6 +75,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
         isPreviewed={fare.id === shownId}
         onPreview={() => onPreview(fare.id)}
         detailsHref={tripHref(p.searchString, p.destination, snapshotFromFare(fare))}
+        findBackHref={fare.kind === 'one-way' ? backHref(p.searchString, p.destination, snapshotFromFare(fare)) : undefined}
         shareTitle={info?.name}
         stayLine={
           stay.total !== null

@@ -683,3 +683,31 @@ export function flightToFare(f: Flight, requestedReturnDate?: string | null): Fa
     seenAt: f.foundAt,
   }
 }
+
+/** Cheapest first: the cached ONE-WAY fares from one place back to each of the given airports, for a day or a range of days.
+ * Used by "Find a flight back". Only fares dated from `after` on, never expired or stale. Airline names are filled in
+ * where the data has an airline code. Each airport is looked at on its own (one-way list + the calendar months of the window). */
+export async function getReturnFares(
+  from: string,
+  toAirports: string[],
+  token: string | undefined,
+  window: { start: string; end: string; after?: string | null },
+  limit = 60
+): Promise<{ fares: Flight[]; total: number }> {
+  const months = monthsBetween(window.start, window.end)
+  const lists = await Promise.all(toAirports.filter((a) => a !== from).map((a) => getOneWayFares(from, a, token, months)))
+  const inWindow = lists
+    .flat()
+    .filter((f) => f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after))
+  // The same flight can be in the one-way list and in the calendar: keep each airport/day/price once.
+  const seen = new Set<string>()
+  const unique = inWindow.filter((f) => {
+    const key = `${f.destination}|${f.departureDate}|${f.price}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  unique.sort((a, b) => a.price - b.price || a.departureDate.localeCompare(b.departureDate))
+  const top = await resolveAirlineNames(unique.slice(0, limit))
+  return { fares: top, total: unique.length }
+}

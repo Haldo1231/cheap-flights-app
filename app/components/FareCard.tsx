@@ -12,6 +12,8 @@ type Props = {
   detailsHref?: string
   /** Called when the card is hovered or focused (lets the page preview its cost). */
   onPreview?: () => void
+  /** One-way flight: where "Find a flight back" opens (searches return flights to all home airports). */
+  findBackHref?: string
   /** Highlight this card (e.g. it is the one the cost panel is showing). */
   isPreviewed?: boolean
   /** One line with the fare plus the stay, e.g. "≈ €328 with 5 days of stay costs". */
@@ -28,7 +30,7 @@ type Props = {
 
 /** One cached fare. A round-trip fare shows BOTH flights; its single price
  * covers them together, which the card says plainly. */
-export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, heading, shareHref, shareTitle }: Props) {
+export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, findBackHref, heading, shareHref, shareTitle }: Props) {
   const shareTarget = shareHref ?? detailsHref
   const isRoundTrip = fare.kind === 'round-trip' && fare.inbound
   const nights = fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 0
@@ -118,6 +120,11 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
             className="btn btn-outline"
           >
             Trip details →
+          </DrillLink>
+        )}
+        {findBackHref && (
+          <DrillLink href={findBackHref} className="btn btn-outline">
+            Find a flight back →
           </DrillLink>
         )}
         {shareTarget && (

@@ -1,5 +1,11 @@
 # Progress log — upgrade-1 branch
 
+# Find a flight back (branch `feature/anywhere-return-and-flight-back`, commit 2)
+New page `/back` and `/api/return-flights`: from a one-way flight, look for cached one-way flights back from the destination to any of the five
+home airports (exact date or date range, cheapest first), pick one and see the combined trip with the total and both booking links. Button on
+one-way result cards, on the one-way trip page and on a picked one-way flight in Whole month. Tested with fake price data; real cache coverage of
+one-way fares decides how many return flights show up (the page says so when there are none).
+
 Working step by step, one task at a time, each approved before starting and verified after.
 
 ## Task 1: Money check — confirm every flight/booking link uses the Travelpayouts marker

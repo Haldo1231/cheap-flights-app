@@ -238,6 +238,17 @@ Checklist before you publish a trip:
   knows the exact web address. Do not put photos there that you would not show publicly.
 - `/sitemap.xml` and `/robots.txt` are generated; they list only published (not draft) trips and guides.
 
+## Find a flight back (from a one-way flight)
+
+On a one-way flight (a one-way search result, the trip page of a one-way flight, or a one-way flight picked in Whole month) the button
+"Find a flight back" opens `/back`. It shows the outbound flight and asks for the return days (a date range, by default the two weeks
+after the outbound flight, or one exact date). It then lists the cached one-way flights from that destination to any of BTS, VIE, BUD, KSC
+and PRG, cheapest first, with airport, date, time, airline, price and how old the price is. Picking one shows the combined trip: outbound +
+return, the total price, and one booking button for each flight (both are Travelpayouts links with the affiliate marker, built by
+`buildBookingLink`), plus "Trip details". If nothing is cached for those days the page says so ("No cached flights back from ... Try a
+wider date range or another day"). The flight, the days and the pick are all in the address, so the page can be shared and Back works.
+The data comes from `/api/return-flights` (`getReturnFares`: the one-way list plus calendar entries without a return date).
+
 ## Where things are
 
 See `AGENTS.md` for the map of the code, and `PROGRESS.md` for what was changed and why.

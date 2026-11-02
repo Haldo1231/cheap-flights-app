@@ -16,12 +16,14 @@ type Props = {
   outLoading?: boolean
   backLoading?: boolean
   detailsHref: string | null
+  /** One-way trip: where "Find a flight back" opens. */
+  findBackHref?: string | null
   /** What the picked flights cost together (never counts a flight twice), see monthSelection. */
   selection: MonthSelection
 }
 
 /** The flights picked so far in Whole Month mode, with what is still missing. */
-export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, selection }: Props) {
+export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, findBackHref, selection }: Props) {
   const total = selection.total
   const roundTripFare = !oneWay && !!outbound?.inbound
 
@@ -65,6 +67,11 @@ export default function TripSummary({ oneWay, outbound, inbound, outDate, backDa
           className="btn btn-primary mt-3"
         >
           Trip details →
+        </DrillLink>
+      )}
+      {findBackHref && (
+        <DrillLink href={findBackHref} className="btn btn-outline mt-2 ml-2">
+          Find a flight back →
         </DrillLink>
       )}
     </section>

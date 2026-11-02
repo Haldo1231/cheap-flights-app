@@ -1,3 +1,6 @@
+'use client'
+
+import { useId } from 'react'
 import type { Fare } from '../tripTypes'
 import type { MonthSelection } from '../lib/trip'
 import { formatDay } from '../lib/format'
@@ -20,19 +23,25 @@ type Props = {
   findBackHref?: string | null
   /** What the picked flights cost together (never counts a flight twice), see monthSelection. */
   selection: MonthSelection
+  /** Round trip: the button "Fly back to a different airport". `href` is where it opens (the month calendar of flights back to the
+   * other home airports); `note` says what it is based on, or why it can not be offered (no one-way outbound cached). */
+  jawBack?: { href: string | null; note: string } | null
 }
 
 /** The flights picked so far in Whole Month mode, with what is still missing. */
-export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, findBackHref, selection }: Props) {
+export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, findBackHref, selection, jawBack }: Props) {
+  const noteId = useId()
   const total = selection.total
-  const roundTripFare = !oneWay && !!outbound?.inbound
+  // The outbound flight shown: the picked fare, or (a flight back that is a ticket of its own) the one-way fare standing in for a round-trip one.
+  const shownOut = selection.outFare ?? outbound
+  const roundTripFare = !oneWay && !!shownOut?.inbound
 
   return (
     <section aria-label="Your trip" className="mb-4 border-b border-line pb-4">
       <p className="mb-1 font-semibold text-ink">Your trip</p>
       <div className="divide-y divide-line">
-        {outbound ? (
-          <FlightLeg compact label="Out" leg={outbound.outbound} price={roundTripFare ? null : outbound.price} />
+        {shownOut ? (
+          <FlightLeg compact label="Out" leg={shownOut.outbound} price={roundTripFare ? null : shownOut.price} />
         ) : (
           <p className="py-2 text-xs text-slate">
             {outLoading ? `Loading flights on ${formatDay(outDate)}…` : 'Outbound: pick a departure day in the calendar.'}
@@ -73,6 +82,22 @@ export default function TripSummary({ oneWay, outbound, inbound, outDate, backDa
         <DrillLink href={findBackHref} className="btn btn-outline mt-2 ml-2">
           Find a flight back →
         </DrillLink>
+      )}
+      {jawBack && (
+        <div className="mt-3 border-t border-line pt-3">
+          {jawBack.href ? (
+            <DrillLink href={jawBack.href} className="btn btn-outline" aria-describedby={noteId}>
+              Fly back to a different airport →
+            </DrillLink>
+          ) : (
+            <button type="button" disabled aria-describedby={noteId} className="btn btn-outline cursor-not-allowed opacity-60">
+              Fly back to a different airport →
+            </button>
+          )}
+          <p id={noteId} className="mt-1 text-xs text-slate">
+            {jawBack.note}
+          </p>
+        </div>
       )}
     </section>
   )

@@ -28,7 +28,7 @@ export type TripSnapshot = {
   seenAt: string | null
 }
 
-const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg', 'ts', 'bm', 'bs', 'be', 'pick']
+const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg', 'ts', 'bm', 'bs', 'be', 'pick', 'bmon', 'bday', 'bx']
 
 /** The address pieces that describe a trip (used by the trip page and by "Find a flight back"). */
 export function tripParamChanges(destination: string, trip: TripSnapshot): Record<string, string | null> {
@@ -57,14 +57,17 @@ export function tripHref(current: URLSearchParams | string, destination: string,
   return withParams(current, tripParamChanges(destination, trip), '/trip')
 }
 
-/** The address pieces of the "Find a flight back" page: which days to look at and which return was picked. */
-export const BACK_KEYS = ['bm', 'bs', 'be', 'pick'] as const
+/** The address pieces of the "Find a flight back" page: how to look (bm = exact | range | month), the days or the month
+ * (bs, be | bmon), the day tapped in the month calendar (bday), "not back to the airport the flight left from" (bx),
+ * and which return was picked (pick). */
+export const BACK_KEYS = ['bm', 'bs', 'be', 'pick', 'bmon', 'bday', 'bx'] as const
 
 /** URL of "Find a flight back" for a one-way flight: the flight itself travels in the address (like a trip), and the
- * days to look at start empty (the page then proposes the days after the flight). */
-export function backHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot): string {
+ * days to look at start empty (the page then proposes the days after the flight). `extra` sets some of the BACK_KEYS
+ * from the start, for example `{ bm: 'month', bmon: '2026-12', bx: '1' }` for the month calendar of the other airports. */
+export function backHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot, extra: Record<string, string | null> = {}): string {
   const cleared: Record<string, string | null> = Object.fromEntries(BACK_KEYS.map((k) => [k, null]))
-  return withParams(current, { ...tripParamChanges(destination, trip), ...cleared }, '/back')
+  return withParams(current, { ...tripParamChanges(destination, trip), ...cleared, ...extra }, '/back')
 }
 
 /** The results-screen URL a trip page came from (trip data removed). */

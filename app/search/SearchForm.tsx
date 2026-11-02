@@ -424,7 +424,7 @@ export default function SearchForm() {
                 dateMode === 'month'
                   ? 'In the return calendar, show the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day (two one-way tickets), with the price difference.'
                   : isAnywhere
-                  ? 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). The extra lines load after the normal results.'
+                  ? 'Also look at trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Each country and city shows its cheaper trip, round trip or not, and says which it is. These trips load after the round trips.'
                   : 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets).'
               }
             />

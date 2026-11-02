@@ -10,6 +10,8 @@ import {
 } from '../../anywhereSearch'
 import type { AnywhereCity, AnywhereTrip } from '../../tripTypes'
 
+export const maxDuration = 60
+
 export type AnywhereJawResponse = {
   /** The best trip back to a different home airport, by city code. A city with no such trip is not listed. */
   trips: Record<string, AnywhereTrip>
@@ -17,9 +19,9 @@ export type AnywhereJawResponse = {
   checked: number
 }
 
-// The extra work of the "fly back to a different airport" switch on the Anywhere screens. It is a separate request, so
-// the normal results never wait for it: the page shows them first and adds these trips as an extra line when they arrive
-// (the main price stays the cheapest same-airport round trip).
+// The extra work of the "fly back to a different airport" switch on the Anywhere screens (exact dates and date range). It
+// is a separate request, so the normal results never wait for it: the page shows the round trips first, then mixes these
+// trips in by price when they arrive (a city shows whichever is cheaper: the round trip or the trip back to another airport).
 //  - without `country`: the cheapest-looking city of each top country (the same cities the country cards are built from)
 //  - with `country`: every city of that country (the same cities the country page checks)
 export async function GET(request: Request) {
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
 
   const found = await mapWithLimit(cities, 4, async (city) => ({
     city,
-    trip: await checkCityOpenJaw(city.cityCode, city.options.map((o) => o.origin), origins, params, token),
+    trip: await checkCityOpenJaw(city.cityCode, origins, params, token),
   }))
 
   const trips: Record<string, AnywhereTrip> = {}

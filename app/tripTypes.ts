@@ -95,6 +95,9 @@ export type AnywhereCity = {
   example: { price: number; outbound: Leg; inbound: Leg | null } | null
   /** Trip that honors every filter. null = checked, nothing matches. undefined = not checked. */
   trip?: AnywhereTrip | null
+  /** Only set by the page, never by the server: when `trip` is a trip back to a DIFFERENT airport (switch on), the price of
+   * the same-airport round trip it was cheaper than, or null when this city has no round trip on your days. */
+  roundTripPrice?: number | null
 }
 
 export type AnywhereCountry = {

@@ -275,7 +275,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
               <ul className="space-y-2">
                 {unmatchedCities.map((city) => (
                   <li key={city.code}>
-                    <AnywhereCityRow city={city} href={cityHref(city.code)} />
+                    <AnywhereCityRow city={city} href={cityHref(city.code)} oneWay={p.oneWay} />
                   </li>
                 ))}
               </ul>

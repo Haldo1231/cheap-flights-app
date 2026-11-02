@@ -376,3 +376,16 @@ the cheapest same-airport round trip and the different-airport trip is an extra 
 - Tested with a fake price server (the cloud workspace cannot reach Travelpayouts): points 1, 2b and 3 in a browser (desktop + phone), plus the
   whole earlier regression suite. Not verifiable from here: how many real days have a cached ONE-WAY fare (the free data is thin; if a month
   shows few priced days, that is the data, not an error).
+
+# Anywhere: month guard and no unchecked example (branch `fix/anywhere-month-guard`)
+Real examples from the live site: a December Anywhere search showed trips in November and January and called them "matches your filters"; a one-way
+search showed a round-trip "example" fare in January. Cause (from the code): the month branch kept every day the calendar answer listed and never
+compared it with the searched month or the return month; and the "example" was the rough `city-directions` ticket (any date, often a round trip).
+- **Month guard:** `fetchMonthCalendarDetailed` keeps only days of the asked month (covers the Anywhere overview, the country screen, the normal
+  search calendars and the one-way calendars); `findBestCombinations` got an optional `months` argument (departure month, return month) used by
+  Anywhere and by the Whole month day pairs. `getCheapestOneWayLeg` (old month branch of `/api/compare`, not reachable from the site) got the same rule.
+- **No example block:** removed from `AnywhereCityRow`. The rough "~€" price stays for round-trip searches only. A one-way Anywhere check (exact date
+  and date range) now ignores fares that have a return date.
+- **Effect to expect:** fewer countries match a month search (days outside the month no longer count, a round trip must return in the return month).
+- **Tested:** with the fake price server and with a SIMULATION that also lists the 25 days before and after the month: before the fix 7 of 10
+  country cards were outside the month, after it 0. The real behaviour of the Travelpayouts calendar answer is still unverified from the cloud.

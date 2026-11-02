@@ -160,7 +160,7 @@ export function useMonthTrip(p: ResultsParams, enabled: boolean) {
   // prices) plus the round-trip fares of the latest-prices list. The same two days from two sources keep the cheaper.
   const allCombinations = useMemo(() => {
     if (!enabled || oneWay) return []
-    const fromCalendars = findBestCombinations(outboundData, inboundData, p.outDays, p.backDays, p.minNights, p.maxNights, 5000)
+    const fromCalendars = findBestCombinations(outboundData, inboundData, p.outDays, p.backDays, p.minNights, p.maxNights, 5000, { out: departMonth, back: returnMonth })
     const fromFares: Combination<CalendarDay>[] = []
     for (const fare of fareList.data?.results ?? []) {
       const combo = combinationFromFare(fare)

@@ -167,8 +167,9 @@ export default function SearchForm() {
   const [destinationCity, setDestinationCity] = useState(toParam === 'ANYWHERE' ? 'Anywhere' : prefill?.city ?? '')
 
   const [oneWay, setOneWay] = useState(false)
-  // On by default: with several home airports, a trip may leave from one and come back to another.
-  const [openJaw, setOpenJaw] = useState(true)
+  // Off by default (the normal round trips are what most people want first); the switch turns on trips that come back
+  // to a different one of the home airports.
+  const [openJaw, setOpenJaw] = useState(false)
   const [dateMode, setDateMode] = useState<'exact' | 'month' | 'range'>('exact')
 
   const [departDate, setDepartDate] = useState('')
@@ -244,7 +245,7 @@ export default function SearchForm() {
     }
 
     // Back to a different airport: exact dates and date range (Whole month already mixes airports on its own).
-    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'month' && openJaw && allOrigins.length > 1
+    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'month' && openJaw
 
     const params = new URLSearchParams({
       origins: allOrigins.join(','),
@@ -412,19 +413,35 @@ export default function SearchForm() {
               One way
             </Chip>
           </div>
-          {!oneWay && !isAnywhere && dateMode !== 'month' && selectedAirports.length + extraOrigins.length > 1 && (
-            <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
-              <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
-              <span>
-                Also look at flying back to a different airport
-                <span className="block text-slate">
-                  For example out from Bratislava, back to Prague. Two one-way tickets, shown next to the normal round trips.
+          {!oneWay && !isAnywhere && dateMode !== 'month' && (
+            <div className="mt-4 flex items-start justify-between gap-4 rounded-lg border border-line bg-paper/60 px-3 py-2">
+              <div className="min-w-0 text-sm">
+                <p id="open-jaw-label" className="font-semibold text-ink">
+                  Fly back to a different airport
+                </p>
+                <p id="open-jaw-help" className="text-slate">
+                  Also show trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Works with exact dates
+                  or a date range.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={openJaw}
+                aria-labelledby="open-jaw-label"
+                aria-describedby="open-jaw-help"
+                onClick={() => setOpenJaw((on) => !on)}
+                className="inline-flex min-h-11 shrink-0 items-center rounded-full px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+              >
+                <span className="mr-2 text-sm font-medium text-ink">{openJaw ? 'On' : 'Off'}</span>
+                <span aria-hidden="true" className={`relative h-6 w-11 rounded-full transition-colors duration-200 motion-reduce:transition-none ${openJaw ? 'bg-amber' : 'bg-faint'}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 motion-reduce:transition-none ${openJaw ? 'translate-x-5' : ''}`} />
                 </span>
-              </span>
-            </label>
+              </button>
+            </div>
           )}
-          {!oneWay && !isAnywhere && dateMode === 'month' && selectedAirports.length + extraOrigins.length > 1 && (
-            <p className="mt-4 text-sm text-slate">Whole month also checks flying back to a different one of your airports.</p>
+          {!oneWay && !isAnywhere && dateMode === 'month' && (
+            <p className="mt-4 text-sm text-slate">Whole month already checks flying back to a different one of your airports.</p>
           )}
         </section>
 

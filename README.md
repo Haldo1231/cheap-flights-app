@@ -57,12 +57,13 @@ A country without a photo shows a gradient with its flag, so nothing ever looks 
 
 ## Flying back to a different home airport
 
-When you search with 2 or more home airports (for example all 5), the search form has "Also look at flying back to a different airport",
-on by default. For a destination with exact dates or a date range, the results then show two lists: the normal round-trip fares (back to the
-airport you left from) and, below them, "Fly back to a different airport": a one-way fare out from one of your airports plus a one-way fare
-back to another, added together (two separate tickets, each with its own price and age, each with its own booking button). Weekday filters,
-trip length and the budget apply to both lists. Only one-way fares are used for these trips, because a round-trip fare already pays for two
-flights. Whole month already mixes airports in its calendars, and Anywhere searches only return to the airport you left from.
+The search form has a switch "Fly back to a different airport" (OFF by default) for round trips with exact dates or a date range. When
+it is on, a destination's results show two lists: the normal round-trip fares (back to the airport you left from) and, below them, "Fly
+back to a different airport": a one-way fare out from one of your airports plus a one-way fare back to a DIFFERENT one of BTS, VIE, BUD,
+KSC or PRG, added together (two separate tickets, each with its own price and age and its own booking button). The return can be to any of
+the five home airports, even if only one was ticked for leaving. Weekday filters, trip length and the budget apply to both lists. Only one-way
+fares are used (a round-trip fare already pays for two flights). If none are cached, the page says "No cached fares for returning to a
+different airport on these dates." Whole month already mixes airports in its calendars; Anywhere returns to the airport you left from.
 
 ## How prices are chosen, and how old they are
 

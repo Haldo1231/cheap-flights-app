@@ -38,25 +38,20 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
   const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
   const noData = budget !== null && rows.length > 0 && totals.length === 0
   const ultraHelps = budget !== null && data.results.some((c) => estimateTrip({ flight: c.total, nights: nightsBetweenDates(c.outbound.date, c.inbound.date), info, level: 'ultra', budget }).status === 'within')
-  const nothing = data.results.length === 0 && !data.missingOutbound && !data.missingReturn
 
   return (
     <div>
-      {nothing && (
-        <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached one-way fares pair up into a trip back to a different airport for these days. Try a wider date range, more weekdays, or another day.
-        </p>
-      )}
-      {data.missingOutbound && (
-        <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached one-way outbound fare found from your airports to {destination} on these days, so no trip back to a different
-          airport can be built.
-        </p>
-      )}
-      {data.missingReturn && !data.missingOutbound && (
+      {data.results.length === 0 && (
         <div role="status" className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached one-way return fare found from {destination} to your airports, so no trip back to a different airport can be
-          built. The round-trip fares above are not affected.
+          <p className="font-semibold text-ink">No cached fares for returning to a different airport on these dates.</p>
+          <p className="mt-1">
+            {data.missingOutbound
+              ? `We found no cached one-way fare from your airports to ${destination} on these days.`
+              : data.missingReturn
+              ? `We found no cached one-way fare from ${destination} back to BTS, VIE, BUD, KSC or PRG on these days.`
+              : 'The one-way fares we have cached do not pair up into a trip that fits your days.'}{' '}
+            Try a wider date range, more weekdays or another day. Ordinary round-trip fares are not affected.
+          </p>
         </div>
       )}
 

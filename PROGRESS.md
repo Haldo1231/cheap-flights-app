@@ -333,3 +333,9 @@ The option "fly back to a different airport" was hidden for Date range and Anywh
 Now: on by default with 2+ home airports, offered for exact dates and date range, and shown as a second list under the normal round-trip fares
 (one-way fare out + one-way fare back, A != B, all your airports paired, weekday/nights/budget apply). Anywhere is not covered (it would add
 many price requests per country).
+
+# Different return airport, restored as a switch (branch `fix/different-airport-toggle`)
+Why it looked broken: the box was renamed, switched on by default and hidden when fewer than 2 airports were ticked (and never offered for
+Anywhere / Whole month); the trips themselves now need real one-way fares (before: the cheapest fare of each day per airport, which could be a
+round-trip price counted twice), so with thin cached data nothing may be found. Now: a visible switch, OFF by default, shown for exact dates and
+date range on every round trip; returns to any of the five home airports; one-way fares from the one-way list and the calendar; and a clear message when none exist.

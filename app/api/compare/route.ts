@@ -59,7 +59,9 @@ export async function GET(request: Request) {
         backDays,
       }
     }
-    const { pairs, outCount, backCount } = await findOpenJawPairs(origins, destination, token, filter)
+    // Out from the chosen airports; back to ANY of the home airports (BTS, VIE, BUD, KSC, PRG) or the chosen ones.
+    const returnTo = Array.from(new Set([...origins, ...HOME_AIRPORTS]))
+    const { pairs, outCount, backCount } = await findOpenJawPairs(origins, returnTo, destination, token, filter)
     const body: CompareResponse = {
       openJaw: true,
       destination,

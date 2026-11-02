@@ -448,13 +448,58 @@ export async function getCheapestOneWayLeg(
   return named
 }
 
-/** Every fresh one-way fare in the one-way list for one direction (no return date, not expired, not stale).
- * Cached for an hour like every other price request. */
-export async function getOneWayFares(origin: string, destination: string, token: string | undefined): Promise<Flight[]> {
-  const entries = await fetchLatest(origin, destination, token, { oneWay: true })
-  return entries
+/** Every fresh ONE-WAY fare for one direction: the one-way list (v2 `one_way=true`), plus the calendar's entries that
+ * have no return date for the given months (YYYY-MM). A calendar entry WITH a return date is a round-trip price and is
+ * left out. Not expired, not stale. Cached for an hour like every other price request. */
+export async function getOneWayFares(origin: string, destination: string, token: string | undefined, months: string[] = []): Promise<Flight[]> {
+  const [entries, calendars] = await Promise.all([
+    fetchLatest(origin, destination, token, { oneWay: true }),
+    Promise.all(months.map((m) => fetchMonthCalendarDetailed(origin, destination, m, token))),
+  ])
+  const fares = entries
     .map((e) => normalizeFromLatest(e, origin, destination))
     .filter((f): f is Flight => f !== null && f.returnDate === null)
+  for (const days of calendars) {
+    for (const [date, day] of Object.entries(days)) {
+      if (day.returnDate !== null) continue
+      fares.push({
+        origin,
+        destination,
+        price: day.price,
+        departureDate: date,
+        departureTime: day.time,
+        returnDate: null,
+        returnTime: null,
+        stops: day.stops,
+        airlineCode: day.airlineCode,
+        airlineName: null,
+        gate: null,
+        bookingUrl: buildBookingLink(origin, destination, date),
+        foundAt: null,
+        expiresAt: day.expiresAt,
+      })
+    }
+  }
+  return fares
+}
+
+/** The months (YYYY-MM) from one day to another, inclusive (at most 4, so a wide range cannot cause a flood of requests). */
+function monthsBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  let [y, m] = from.slice(0, 7).split('-').map(Number)
+  const [ty, tm] = to.slice(0, 7).split('-').map(Number)
+  while ((y < ty || (y === ty && m <= tm)) && out.length < 4) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    m += 1
+    if (m > 12) { m = 1; y += 1 }
+  }
+  return out
+}
+
+function addDaysTo(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d + days))
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`
 }
 
 export type OpenJawFilter = {
@@ -477,14 +522,18 @@ export type OpenJawPair = { out: Flight; back: Flight; total: number }
  * used: a fare with a return date already pays for two flights and would be counted twice. Cheapest first. */
 export async function findOpenJawPairs(
   origins: string[],
+  /** The airports the traveller may come back to (their own airports plus all home airports). */
+  returnTo: string[],
   destination: string,
   token: string | undefined,
   filter: OpenJawFilter,
   limit = 30
 ): Promise<{ pairs: OpenJawPair[]; outCount: number; backCount: number }> {
+  const outMonths = monthsBetween(filter.outFrom, filter.outTo)
+  const backMonths = monthsBetween(addDaysTo(filter.outFrom, 1), filter.backDate ?? addDaysTo(filter.outTo, filter.maxNights))
   const [outLists, backLists] = await Promise.all([
-    Promise.all(origins.map((o) => getOneWayFares(o, destination, token))),
-    Promise.all(origins.map((o) => getOneWayFares(destination, o, token))),
+    Promise.all(origins.map((o) => getOneWayFares(o, destination, token, outMonths))),
+    Promise.all(returnTo.map((o) => getOneWayFares(destination, o, token, backMonths))),
   ])
   const outs = outLists.flat().filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
   const backs = backLists.flat().filter((f) => filter.backDays.includes(dayOfWeek(f.departureDate)) && (!filter.backDate || f.departureDate === filter.backDate))

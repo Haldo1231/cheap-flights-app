@@ -269,6 +269,9 @@ export async function fetchMonthCalendarDetailed(
 
     const result: Record<string, CalendarDayDetail> = {}
     for (const [date, entry] of Object.entries(data)) {
+      // Only the days of the month that was asked for: the answer is not trusted to stay inside it (a day of the
+      // month before or after must never count as a day of this month).
+      if (!date.startsWith(month)) continue
       if (typeof entry?.price !== 'number') continue
       if (!isFreshPrice({ expiresAt: entry.expires_at })) continue
       result[date] = {
@@ -441,7 +444,10 @@ export async function getCheapestOneWayLeg(
   const fromLatest = latestEntries
     .filter((e) => !dateOrMonth || (e.depart_date || '').startsWith(dateOrMonth))
     .map((e) => normalizeFromLatest(e, origin, destination))
-  const oneWay = [...fromCheap, ...fromLatest].filter((f): f is Flight => f !== null && f.returnDate === null)
+  // Only fares of the asked day or month (the answer for a month may also list days outside it).
+  const oneWay = [...fromCheap, ...fromLatest].filter(
+    (f): f is Flight => f !== null && f.returnDate === null && (!dateOrMonth || f.departureDate.startsWith(dateOrMonth))
+  )
   if (oneWay.length === 0) return null
   const cheapest = oneWay.reduce((min, f) => (f.price < min.price ? f : min))
   const [named] = await resolveAirlineNames([cheapest])

@@ -111,6 +111,13 @@ All prices come from the free, cached Travelpayouts Data API (always asked for i
   is left out. If an answer says it is not in euro, the whole answer is thrown away (a dollar price is never shown with a euro sign).
 - **Age on every price.** Fares show "price seen 6 h ago" when the data says when a traveller saw the price (`found_at`, only the
   "latest prices" source has it). Otherwise they say "price age not in the data". Nothing is guessed.
+- **Month searches stay inside the month.** In every Whole month search (the Anywhere overview, a country, a destination) a day only counts when
+  the flight out leaves in the searched month, and for a round trip the flight back (a round-trip fare's own return too) must be in the return
+  month. The month calendars drop any day outside the asked month (`fetchMonthCalendarDetailed`), and the day pairs check the return month
+  (`findBestCombinations` with `months`). The price service is not trusted to stay inside the month it was asked for.
+- **Anywhere only shows what was checked against your filters.** A city with no matching day shows just its rough "~€" price (round-trip
+  searches only; nothing in a one-way search, because that rough price comes from a ticket that can be a round trip). The old "Example of a
+  cached fare (dates not filtered)" block is gone. A one-way Anywhere check ignores every fare that has a return date.
 - **A flight is never counted twice.** A fare with a return date is a round-trip fare: ONE price that already pays for both flights. In
   Whole Month (and in Anywhere's whole-month check) such a fare is one pair at its own price; two prices are only added when both are
   one-way prices. The open-jaw search (fly back to another airport) adds two prices, so it only uses one-way prices.

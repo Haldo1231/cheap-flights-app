@@ -16,17 +16,19 @@ type Props = {
   estimate?: TripEstimate | null
   /** A short line under the flights, e.g. how a different-airport trip compares with the round trip. */
   note?: string | null
+  /** A one-way search: the rough price of a city with no matching day comes from a cached ticket that may be a round
+   * trip, so it is not shown. */
+  oneWay?: boolean
 }
 
 function legPrice(leg: Leg & { price?: number | null }) {
   return leg.price ?? null
 }
 
-/** One city inside an Anywhere country: its trip (when it was checked against
- * the filters) or, otherwise, one real cached example fare marked as unfiltered. */
-export default function AnywhereCityRow({ city, href, highlight = false, estimate = null, note = null }: Props) {
+/** One city inside an Anywhere country: its trip when it was checked against the filters. A city with no matching
+ * day only shows the rough price (round-trip searches); it never shows a fare that was not checked against the filters. */
+export default function AnywhereCityRow({ city, href, highlight = false, estimate = null, note = null, oneWay = false }: Props) {
   const trip = city.trip
-  const example = city.example
 
   return (
     <DrillLink
@@ -61,7 +63,7 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
                 <PriceAge seenAt={trip.seenAt} />
               </p>
             </>
-          ) : (
+          ) : oneWay ? null : (
             <p className="font-mono text-base tabular-nums text-slate">~€{city.roughPrice}</p>
           )}
         </div>
@@ -82,14 +84,6 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
       )}
 
       {trip && note && <p className="mt-1 border-t border-line pt-2 text-xs font-medium text-ink">{note}</p>}
-
-      {!trip && example && (
-        <div className="mt-2 border-t border-line pt-1">
-          <p className="mt-1 text-xs text-slate">Example of a cached fare (dates not filtered): €{example.price}</p>
-          <FlightLeg compact label="Out" leg={example.outbound} />
-          {example.inbound && <FlightLeg compact label="Back" leg={example.inbound} />}
-        </div>
-      )}
     </DrillLink>
   )
 }

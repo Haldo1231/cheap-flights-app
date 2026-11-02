@@ -195,8 +195,9 @@ async function checkCityFromOrigin(
       origin, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
       params.minDays, params.maxDays, token, { enrich: false, oneWay: params.oneWay }
     )
-    // Only fares on the chosen weekdays count (cheapest first, so the first one left is the winner).
-    const matching = flights.filter((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay))
+    // Only fares on the chosen weekdays count (cheapest first, so the first one left is the winner). A one-way search
+    // never takes a fare with a return date: that is a round-trip price.
+    const matching = flights.filter((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay) && (!params.oneWay || f.returnDate === null))
     if (matching.length === 0) return null
     const [winner] = await completeFlights([matching[0]], token)
     return tripFromFare(flightToFare(winner))
@@ -230,8 +231,10 @@ async function checkCityFromOrigin(
     for (const [date, e] of Object.entries(backDetailed)) {
       backDays[date] = { ...e, origin, airlineName: null }
     }
+    // The trip must leave in the departure month and come back in the return month.
     const [best] = findBestCombinations(
-      outDays, backDays, params.outDays, params.backDays, params.minNights, params.maxNights, 1
+      outDays, backDays, params.outDays, params.backDays, params.minNights, params.maxNights, 1,
+      { out: params.month, back: params.returnMonth }
     )
     if (!best) return null
     if (best.kind === 'fare' || !best.back) {
@@ -255,9 +258,13 @@ async function checkCityFromOrigin(
     oneWay: params.oneWay,
     returnDate: params.oneWay ? null : params.returnDate,
   })
-  // A round trip asked for an exact return date: only a fare with that return counts.
-  const usable =
-    !params.oneWay && params.returnDate ? flights.filter((f) => f.returnDate === params.returnDate) : flights
+  // A round trip asked for an exact return date: only a fare with that return counts. A one-way search never takes a
+  // fare with a return date (the "cheap" list holds round-trip fares even when one way is asked).
+  const usable = params.oneWay
+    ? flights.filter((f) => f.returnDate === null)
+    : params.returnDate
+    ? flights.filter((f) => f.returnDate === params.returnDate)
+    : flights
   if (usable.length === 0) return null
   const [winner] = await completeFlights([usable[0]], token)
   return tripFromFare(flightToFare(winner, params.returnDate))

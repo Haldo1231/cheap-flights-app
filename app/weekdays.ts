@@ -94,16 +94,21 @@ export function findBestCombinations<T extends DayPrice>(
   backDays: number[],
   minNights: number,
   maxNights: number,
-  limit = 10
+  limit = 10,
+  /** The searched months (YYYY-MM): the flight out must leave in `out` and the flight back (a round-trip fare's own
+   * return too) must be in `back`. Without it any day counts. */
+  months?: { out: string; back: string }
 ): Combination<T>[] {
   const combos: Combination<T>[] = []
 
   for (const [outDate, outEntry] of Object.entries(outboundData)) {
     if (!outDays.includes(dayOfWeek(outDate))) continue
+    if (months && !outDate.startsWith(months.out)) continue
 
     if (outEntry.returnDate) {
       const backDate = outEntry.returnDate
       if (backDate <= outDate || !backDays.includes(dayOfWeek(backDate))) continue
+      if (months && !backDate.startsWith(months.back)) continue
       const nights = nightsBetweenDates(outDate, backDate)
       if (nights < minNights || nights > maxNights) continue
       combos.push({
@@ -119,6 +124,7 @@ export function findBestCombinations<T extends DayPrice>(
       if (backEntry.returnDate) continue
       if (!backDays.includes(dayOfWeek(backDate))) continue
       if (backDate <= outDate) continue
+      if (months && !backDate.startsWith(months.back)) continue
       const nights = nightsBetweenDates(outDate, backDate)
       if (nights < minNights || nights > maxNights) continue
       combos.push({

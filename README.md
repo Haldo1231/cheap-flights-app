@@ -104,6 +104,26 @@ for the 4 other airports (4 one-way lists + 4 month calendars), 10 for all 5; th
 already cached), and going back to a month you already saw, or repeating the search within an hour, costs 0. In the real click path (Whole month
 page already open, so this month's calendars are cached) the button costs **4 new requests**, and turning the Whole month switch ON costs 5.
 
+## Whole month, round trip (a city's page)
+
+- **Two calendars at the top:** Departing and Returning. Each day shows the cheapest **one-way** ticket from (Departing) or to
+  (Returning) any of your airports. Hover or tap a day to see its airport. Round-trip fares are never shown in a calendar, because the
+  plain calendar answer of Travelpayouts holds round-trip fares: in the one real answer we have (BTS to ROM, October 2026) all 39 days carry
+  a return date. One-way prices come from the one-way list (`/v2/prices/latest?one_way=true`); a row counts as one-way only when it has no
+  return date. A day without a cached one-way ticket stays empty.
+- **Best combinations** (below the calendars): round-trip fares and "2 one-way tickets" mixed, cheapest total first, each labelled. The month
+  guard, the nights filter and the copy-row filter apply to every pair.
+- **Picking a day in each calendar** gives the total = the sum of the two one-way tickets, with a booking link for each ticket (`buildBookingLink`).
+  If a round-trip fare exists for the same two days and costs less, it is shown next to the total as an alternative, with its own link.
+- **Copy rows:** the one-way list sometimes repeats one price on neighbouring days, with no booking site, a flight duration of 0 and a distance
+  of 0. Those rows are dropped (`isCopyRow`), and a calendar entry whose own departure day is not the day it is listed under is dropped too.
+  A price only shows on the day it was really found.
+- **Requests (cold cache, fake price server, five airports, one page load):** 20 before, 30 now. The extra 10 are the one-way lists, five per
+  direction. The round-trip answer and the date-range list reuse the calendar's cache.
+- **Not verified yet:** whether Travelpayouts really returns only one-way rows for `one_way=true`. No real one-way answer is in our history.
+  `/api/debug-prices?key=...&origins=BTS,VIE,BUD,KSC,PRG&destination=PMO&month=2026-12&oneWay=true` shows this, and also how the calendar
+  answers when asked with `one_way=true`.
+
 ## How prices are chosen, and how old they are
 
 All prices come from the free, cached Travelpayouts Data API (always asked for in euro). What the site does with them:

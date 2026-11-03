@@ -59,6 +59,15 @@ type LatestEntry = {
   gate?: string
   number_of_changes?: number
   found_at?: string | null
+  duration?: number
+  distance?: number
+}
+
+/** A COPY row of the "latest prices" list, not a real fare: a price repeated on neighbouring days, with no booking site
+ * (`gate` empty) and a flight duration and distance of 0 (seen in real answers, e.g. BTS-ROM, 22 Oct: value 55 four times
+ * for 1 Nov). Only rows that say all three things explicitly are dropped, so a real fare is never removed by mistake. */
+export function isCopyRow(entry: { gate?: unknown; duration?: unknown; distance?: unknown }): boolean {
+  return (entry.gate === '' || entry.gate === null) && entry.duration === 0 && entry.distance === 0
 }
 
 type CalendarEntry = {
@@ -194,6 +203,7 @@ export function normalizeFromCheap(entry: CheapEntry, origin: string, destinatio
 
 function normalizeFromLatest(entry: LatestEntry, origin: string, destination: string): Flight | null {
   if (typeof entry?.value !== 'number' || !entry?.depart_date) return null
+  if (isCopyRow(entry)) return null
   if (!isFreshPrice({ foundAt: entry.found_at })) return null
   return {
     origin,
@@ -272,6 +282,8 @@ export async function fetchMonthCalendarDetailed(
       // Only the days of the month that was asked for: the answer is not trusted to stay inside it (a day of the
       // month before or after must never count as a day of this month).
       if (!date.startsWith(month)) continue
+      // A calendar entry whose own departure day is not the day it is listed under is not that day's fare: dropped.
+      if (entry?.departure_at && dateOnly(entry.departure_at) !== date) continue
       if (typeof entry?.price !== 'number') continue
       if (!isFreshPrice({ expiresAt: entry.expires_at })) continue
       result[date] = {

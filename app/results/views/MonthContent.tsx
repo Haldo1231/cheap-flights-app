@@ -20,11 +20,19 @@ import { returnCalendar } from '../../lib/returnMonth'
 import { airportCity } from '../../airportsList'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
 import { todayString } from '../../lib/searchValidation'
-import type { Fare } from '../../tripTypes'
+import type { CalendarDayMap, Fare } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import type { MonthTrip } from './useMonthTrip'
 
 type Combo = MonthTrip['bestCombinations'][number]
+
+/** The airport of each one-way price of a calendar: shown on hover (and read out), never written on the calendar. Where the ticket
+ * leaves from (Departing) or flies back to (Returning). */
+function airportHints(data: CalendarDayMap, leg: 'out' | 'back'): Record<string, string> {
+  const hints: Record<string, string> = {}
+  for (const [date, day] of Object.entries(data)) hints[date] = leg === 'out' ? `one-way flight from ${day.origin}` : `one-way flight back to ${day.origin}`
+  return hints
+}
 
 export default function MonthContent({ p, m, info, infoReady }: { p: ResultsParams; m: MonthTrip; info: DestInfo | null; infoReady: boolean }) {
   const [drawer, setDrawer] = useState<'out' | 'back' | null>(null)
@@ -104,7 +112,9 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
       )}
 
       <p className="mb-3 text-sm text-slate">
-        Tap a day to see its flights. Each price is the cheapest cached fare for that day.
+        {oneWay
+          ? 'Tap a day to see its flights. Each price is the cheapest cached fare for that day.'
+          : 'Tap a day to see its flights. Each price is the cheapest cached ONE-WAY ticket for that day; hover or tap a day to see its airport. Round-trip fares are in the combinations below.'}
       </p>
 
       {loading ? (
@@ -114,6 +124,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
           <CalendarGrid
             title="Departing"
             data={m.outboundData}
+            hints={!oneWay ? airportHints(m.outboundData, 'out') : undefined}
             month={departMonth}
             onPrev={() => p.setParams({ month: shiftMonth(departMonth, -1) })}
             onNext={() => p.setParams({ month: shiftMonth(departMonth, 1) })}
@@ -152,6 +163,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
               <CalendarGrid
                 title="Returning"
                 data={m.inboundData}
+                hints={!oneWay ? airportHints(m.inboundData, 'back') : undefined}
                 month={returnMonth}
                 onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
                 onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
@@ -204,9 +216,10 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
 
       {!oneWay && (
         <section className="mb-6" aria-labelledby="best-combos">
-          <h2 id="best-combos" className="mb-2 text-base font-semibold">
+          <h2 id="best-combos" className="mb-1 text-base font-semibold">
             Best combinations
           </h2>
+          <p className="mb-2 text-xs text-slate">Round-trip fares and two one-way tickets, mixed, cheapest total first.</p>
           {combosPending && <FareListSkeleton count={2} label="Finding the best day pairs" />}
           {!combosPending && mb && mb.rows.length > 0 && (
             <p className="mb-3 text-sm text-slate" aria-live="polite">
@@ -263,6 +276,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-line px-2 py-0.5 text-xs font-medium text-ink">{isFare ? 'round-trip fare' : '2 one-way tickets'}</span>
                           {i === 0 && (
                             <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">
                               {estimate && estimate.status === 'within' ? 'Best for your budget' : 'Cheapest'}
@@ -274,7 +288,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                         <FlightLeg compact label="Out" leg={outLeg} price={isFare ? null : combo.outPrice} />
                         <FlightLeg compact label="Back" leg={backLeg} price={isFare ? null : combo.backPrice} />
                         <p className="text-xs text-slate">
-                          {isFare ? 'One round-trip price for both flights, not split per flight. ' : 'Two one-way prices added together. '}
+                          {isFare ? 'One price for both flights, not split. ' : 'Two one-way prices added, each with its own booking link. '}
                           <PriceAge seenAt={combo.out.foundAt} />
                         </p>
                         {estimate && (estimate.total !== null || hint) && (

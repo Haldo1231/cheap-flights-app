@@ -103,99 +103,6 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
         </div>
       )}
 
-      {!oneWay && (
-        <section className="mb-6" aria-labelledby="best-combos">
-          <h2 id="best-combos" className="mb-2 text-base font-semibold">
-            Best combinations
-          </h2>
-          {combosPending && <FareListSkeleton count={2} label="Finding the best day pairs" />}
-          {!combosPending && mb && mb.rows.length > 0 && (
-            <p className="mb-3 text-sm text-slate" aria-live="polite">
-              {!mb.dataOk ? (
-                <>No cost data for {place}: flight prices only, nothing is counted as within your €{budget} budget.</>
-              ) : (
-                <>
-                  <span className="font-semibold text-ink">
-                    {mb.withinCount} of {mb.rows.length}
-                  </span>{' '}
-                  day pair{mb.rows.length === 1 ? '' : 's'} fit your €{budget} budget ({levelLabel(level)} style, flights plus stay), best first.
-                </>
-              )}
-            </p>
-          )}
-          {!combosPending && m.bestCombinations.length === 0 && (
-            <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-              {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
-                ? 'No pair of days fits your weekday and nights filters in these months. A trip needs a cached price on both the outbound and the return day. Loosen the filters, or browse other months with the arrows below.'
-                : `No complete round trip to suggest: ${
-                    Object.keys(m.outboundData).length === 0
-                      ? `no cached outbound prices in ${formatMonth(departMonth)}`
-                      : `no cached return prices in ${formatMonth(returnMonth)}`
-                  }.`}
-            </p>
-          )}
-          {!combosPending && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
-            <BudgetEmpty
-              p={p}
-              cheapestTotal={mb.cheapestTotal}
-              ultraHelps={mb.ultraHelps}
-              noData={!mb.dataOk}
-              noun="day pairs"
-            />
-          )}
-          {!combosPending && listRows.length > 0 && (
-            <ul className="space-y-2">
-              {listRows.map(({ combo, estimate }, i) => {
-                const outFare = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
-                const outLeg = outFare.outbound
-                const isFare = combo.kind === 'fare' || !combo.back
-                const backLeg = isFare && outFare.inbound ? outFare.inbound : calendarDayToFare(combo.back ?? combo.out, combo.backDate, destination, (combo.back ?? combo.out).origin).outbound
-                const picked = m.outDate === combo.outDate && m.backDate === combo.backDate
-                const hint = estimate ? affordableText(estimate, place, false, budget) : null
-                return (
-                  <li key={`${combo.outOrigin}-${combo.outDate}-${combo.backDate}-${combo.total}`}>
-                    <button
-                      type="button"
-                      onClick={() => pickCombo(combo)}
-                      aria-pressed={picked}
-                      className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink motion-reduce:transition-none ${
-                        picked ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-surface hover:border-ink/40 hover:bg-paper'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {i === 0 && (
-                            <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">
-                              {estimate && estimate.status === 'within' ? 'Best for your budget' : 'Cheapest'}
-                            </span>
-                          )}
-                          <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
-                          {estimate && <BudgetBadge estimate={estimate} />}
-                        </div>
-                        <FlightLeg compact label="Out" leg={outLeg} price={isFare ? null : combo.outPrice} />
-                        <FlightLeg compact label="Back" leg={backLeg} price={isFare ? null : combo.backPrice} />
-                        <p className="text-xs text-slate">
-                          {isFare ? 'One round-trip price for both flights, not split per flight. ' : 'Two one-way prices added together. '}
-                          <PriceAge seenAt={combo.out.foundAt} />
-                        </p>
-                        {estimate && (estimate.total !== null || hint) && (
-                          <p className="mt-1 text-xs text-slate">
-                            {estimate.total !== null && <span className="font-medium text-ink">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}
-                            {estimate.total !== null && hint ? ' · ' : ''}
-                            {hint}
-                          </p>
-                        )}
-                      </div>
-                      <p className={`whitespace-nowrap font-mono text-xl font-semibold tabular-nums ${i === 0 ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{combo.total}</p>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
-      )}
-
       <p className="mb-3 text-sm text-slate">
         Tap a day to see its flights. Each price is the cheapest cached fare for that day.
       </p>
@@ -294,6 +201,99 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
           </>
         )}
       </ul>
+
+      {!oneWay && (
+        <section className="mb-6" aria-labelledby="best-combos">
+          <h2 id="best-combos" className="mb-2 text-base font-semibold">
+            Best combinations
+          </h2>
+          {combosPending && <FareListSkeleton count={2} label="Finding the best day pairs" />}
+          {!combosPending && mb && mb.rows.length > 0 && (
+            <p className="mb-3 text-sm text-slate" aria-live="polite">
+              {!mb.dataOk ? (
+                <>No cost data for {place}: flight prices only, nothing is counted as within your €{budget} budget.</>
+              ) : (
+                <>
+                  <span className="font-semibold text-ink">
+                    {mb.withinCount} of {mb.rows.length}
+                  </span>{' '}
+                  day pair{mb.rows.length === 1 ? '' : 's'} fit your €{budget} budget ({levelLabel(level)} style, flights plus stay), best first.
+                </>
+              )}
+            </p>
+          )}
+          {!combosPending && m.bestCombinations.length === 0 && (
+            <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
+              {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
+                ? 'No pair of days fits your weekday and nights filters in these months. A trip needs a cached price on both the outbound and the return day. Loosen the filters, or browse other months with the arrows below.'
+                : `No complete round trip to suggest: ${
+                    Object.keys(m.outboundData).length === 0
+                      ? `no cached outbound prices in ${formatMonth(departMonth)}`
+                      : `no cached return prices in ${formatMonth(returnMonth)}`
+                  }.`}
+            </p>
+          )}
+          {!combosPending && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
+            <BudgetEmpty
+              p={p}
+              cheapestTotal={mb.cheapestTotal}
+              ultraHelps={mb.ultraHelps}
+              noData={!mb.dataOk}
+              noun="day pairs"
+            />
+          )}
+          {!combosPending && listRows.length > 0 && (
+            <ul className="space-y-2">
+              {listRows.map(({ combo, estimate }, i) => {
+                const outFare = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
+                const outLeg = outFare.outbound
+                const isFare = combo.kind === 'fare' || !combo.back
+                const backLeg = isFare && outFare.inbound ? outFare.inbound : calendarDayToFare(combo.back ?? combo.out, combo.backDate, destination, (combo.back ?? combo.out).origin).outbound
+                const picked = m.outDate === combo.outDate && m.backDate === combo.backDate
+                const hint = estimate ? affordableText(estimate, place, false, budget) : null
+                return (
+                  <li key={`${combo.outOrigin}-${combo.outDate}-${combo.backDate}-${combo.total}`}>
+                    <button
+                      type="button"
+                      onClick={() => pickCombo(combo)}
+                      aria-pressed={picked}
+                      className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink motion-reduce:transition-none ${
+                        picked ? 'border-ink bg-amber-soft shadow-card ring-1 ring-ink' : 'border-line bg-surface hover:border-ink/40 hover:bg-paper'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {i === 0 && (
+                            <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">
+                              {estimate && estimate.status === 'within' ? 'Best for your budget' : 'Cheapest'}
+                            </span>
+                          )}
+                          <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
+                          {estimate && <BudgetBadge estimate={estimate} />}
+                        </div>
+                        <FlightLeg compact label="Out" leg={outLeg} price={isFare ? null : combo.outPrice} />
+                        <FlightLeg compact label="Back" leg={backLeg} price={isFare ? null : combo.backPrice} />
+                        <p className="text-xs text-slate">
+                          {isFare ? 'One round-trip price for both flights, not split per flight. ' : 'Two one-way prices added together. '}
+                          <PriceAge seenAt={combo.out.foundAt} />
+                        </p>
+                        {estimate && (estimate.total !== null || hint) && (
+                          <p className="mt-1 text-xs text-slate">
+                            {estimate.total !== null && <span className="font-medium text-ink">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}
+                            {estimate.total !== null && hint ? ' · ' : ''}
+                            {hint}
+                          </p>
+                        )}
+                      </div>
+                      <p className={`whitespace-nowrap font-mono text-xl font-semibold tabular-nums ${i === 0 ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{combo.total}</p>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       <Drawer
         open={drawer !== null}

@@ -57,26 +57,28 @@ A country without a photo shows a gradient with its flag, so nothing ever looks 
 
 ## Flying back to a different home airport
 
-The switch "Fly back to a different airport" is OFF by default and only exists for round trips. It never replaces a normal round trip:
-the main price is always the cheapest round trip from the SAME airport, and the different-airport trip is shown next to it. A trip that
-comes back to a different airport is always two separate one-way tickets (a one-way fare out from one of your airports plus a one-way fare
-back to a DIFFERENT one of BTS, VIE, BUD, KSC or PRG, each with its own price, age and booking button). A round-trip fare already pays for
-its own way back, so its price is never reused for this.
+The switch "Fly back to a different airport" is OFF by default and only exists for round trips. A trip that comes back to a different airport
+is always two separate one-way tickets (a one-way fare out from one of your airports plus a one-way fare back to a DIFFERENT one of BTS, VIE,
+BUD, KSC or PRG, each with its own price, age and booking button). A round-trip fare already pays for its own way back, so its price is never
+reused for this.
 
-**Narrow searches (exact dates, date range, weekdays), a destination or Anywhere.** With the switch ON:
-- *Anywhere cards:* each country card keeps its round-trip price and its place in the list; under the flights it gets one extra line, for
-  example "BTS → Barcelona → PRG, €68 (+€8 vs round trip)", the cheapest such trip for the card's city with the difference to the card's
-  round trip. No such trip cached = no extra line. A country with no round trip on your days but with a different-airport trip is listed
-  under "No matching day found" with the extra line.
-- *A country's page:* the round trips are listed first (same as with the switch OFF), then a list "Fly back to a different airport" below
-  them, cheapest trip first, each row with how much more or less it costs than that city's round trip.
-- *A city's page (destination):* the round-trip fares come first. Under the switch there is one extra line with the cheapest trip back to
-  another airport and the difference to the cheapest round trip, linking to the full list "Fly back to a different airport" further down.
-- The extra trips load in a second request, so the normal results never wait for them (a status line says it is still working). Measured
-  with a fake price server (about 150 ms per request, cold cache, 5 home airports): the Anywhere overview needs about 25-55 price requests
-  with the switch OFF and about 110-140 with it ON (the extra ~85 are one-way lists, shared between searches and cached for an hour, so a
-  repeat visit needs none). Turn it ON only when you want it: a first search with it on asks the free price service for about three to
-  four times as much data.
+**Narrow searches (exact dates, date range, weekdays), Anywhere and a country's page.** With the switch ON there is ONE list, never two
+sections:
+- Each country card (Anywhere) and each city row (a country's page) shows the CHEAPER of two trips: the cheapest round trip from the same
+  airport, or the cheapest two-one-way-tickets trip back to another airport. The list is sorted by that price, the card's "from €X" and the
+  country ranking use it too, and a city that only has a different-airport trip is in the list (not under "no matching day"). On equal prices the
+  round trip stays.
+- Every trip says what it is: "round trip, back to BTS" or "two one-way tickets, back to PRG". A two-one-way row on a country's page also says
+  how it compares with the round trip ("−€9 vs round trip (round trip from the same airport: €28)").
+- The different-airport trips load in a second request, so the round trips are on screen first; a status line says it is still looking and the
+  list sorts itself again when the trips arrive. With the switch OFF there is no second request and nothing changes: same-airport round trips
+  only, with the old wording.
+- *A city's page (destination search):* unchanged. The round-trip fares come first; under the switch there is one extra line with the cheapest
+  trip back to another airport and the difference to the cheapest round trip, linking to the full list "Fly back to a different airport".
+
+Cost (fake price server, about 150 ms per request, cold cache, 5 home airports, 10 countries): the Anywhere overview asks the free price service for
+about 65 (date range) to 115 (exact dates) price requests; with the switch ON about 100 more (one-way lists, cached for an hour like everything
+else) are asked in the second request. A repeat visit within the hour needs none.
 
 **Whole month.**
 - *Anywhere + Whole month:* no switch. It only looks at same-airport round trips. The way to another airport is the button below.
@@ -121,6 +123,16 @@ All prices come from the free, cached Travelpayouts Data API (always asked for i
 - **A flight is never counted twice.** A fare with a return date is a round-trip fare: ONE price that already pays for both flights. In
   Whole Month (and in Anywhere's whole-month check) such a fare is one pair at its own price; two prices are only added when both are
   one-way prices. The open-jaw search (fly back to another airport) adds two prices, so it only uses one-way prices.
+- **The country screen agrees with the city's page.** Anywhere checks every city from EVERY airport you chose, reading the very same month
+  calendars and fare lists the city's own page uses (`getMonthDaysByOrigin` / `cheapestPerDay` in `app/flightSources.ts`: same requests, same
+  one-hour cache, so opening the city afterwards costs no new request). A city is only "no matching day" when none of your airports has a fare on
+  a matching day. Cost: a city checked on the overview or a country page = 5 airports × 2 requests (Whole month and exact dates: 10, date range:
+  5); a country page opened from the overview needs the same again for each further city, up to 10 cities. Measured on a cold cache in the fake
+  world, a country with 4 cities: 30 new requests in Whole month (one way and round trip), 17 for a date range, 31 for exact dates (the cheapest-looking
+  city was already cached by the overview); opened directly from a shared link: 45, 28 and 47. For a real country with 10 cities count about 90-100
+  (month and exact dates) or 50 (date range). One known difference: in a Whole month round trip the country screen pairs the days inside each
+  airport (a round trip comes back to the airport it left from), while the city page's "Best combinations" may also pair a flight out from one
+  airport with a flight back to another; the country screen can then say "no matching day" for a city whose page lists such a pair.
 - **Still "from €X".** The free data is a cache of what travellers recently searched, so the real price on the booking site can differ.
 
 Checking real prices on the preview (the cloud tool that builds this code cannot reach Travelpayouts): in Vercel, add the environment
@@ -128,6 +140,12 @@ variable `DEBUG_PRICES_KEY` (any long random text) to the Preview environment an
 `/api/debug-prices?key=YOUR_KEY&origin=BTS&destination=WAW&date=2026-11-09` on the preview address. It asks Travelpayouts live and lists,
 for each source, the fares it returned (price, return date, `found_at`, `expires_at`, whether the site would use it). Without the key the
 page does not exist (404), and the Travelpayouts token is never shown.
+
+The same tool can look at a whole month, to answer "is this price really there on every day, or is one price copied to many days?":
+`/api/debug-prices?key=YOUR_KEY&origins=BTS,VIE,BUD,KSC,PRG&destination=PMO&month=2026-12&oneWay=true`. It lists, day by day, what the city
+calendar shows and from which list each price comes, and marks the entries of the "latest prices" list that LOOK LIKE COPIES (no booking site,
+flight duration 0 and distance 0: the pattern of the filler rows seen in real answers, the same price repeated on neighbouring dates). Start with
+`pattern` and `readThis` at the top. It only reads; it changes nothing on the site.
 
 ## Budget ("I want to go, max 300 EUR")
 

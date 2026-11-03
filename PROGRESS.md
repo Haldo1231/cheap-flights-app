@@ -389,3 +389,37 @@ compared it with the searched month or the return month; and the "example" was t
 - **Effect to expect:** fewer countries match a month search (days outside the month no longer count, a round trip must return in the return month).
 - **Tested:** with the fake price server and with a SIMULATION that also lists the 25 days before and after the month: before the fix 7 of 10
   country cards were outside the month, after it 0. The real behaviour of the Travelpayouts calendar answer is still unverified from the cloud.
+
+# Anywhere: one mixed list, country screen = city calendar (branch `feature/anywhere-mixed-list-country-calendar`)
+Three requests from the owner.
+- **1a Whole month (nothing new to build, re-checked):** Anywhere + Whole month has no switch on the overview and the country screen; after picking a
+  trip the button "Fly back to a different airport" opens the month calendar of flights back to the OTHER home airports, a tapped day lists all
+  airports cheapest first, choosing one shows the combined trip with the total and both booking links (`buildBookingLink`). Covered by the existing
+  tests t25/t27 (all pass).
+- **1b Exact dates / date range:** with the switch ON the Anywhere cards and the country page are ONE list sorted by total price. Each card / row
+  shows the cheaper of its round trip and its two-one-way-tickets trip; "from €X" and the country ranking use it; every trip says "round trip, back
+  to BTS" or "two one-way tickets, back to PRG". The separate extra line and the separate list are gone (Anywhere only). OFF = exactly as before
+  (old wording, no second request). The destination (city) page keeps its switch and its extra line (1c).
+- **2 Bug "No matching day" although the city calendar has fares:** cause: the country check only tried up to 3 airports (those whose "popular
+  destinations" list names the city), the city page asks every chosen airport. Now `checkCity` checks EVERY chosen airport with the same
+  functions the city page uses (`getMonthDaysByOrigin` / `cheapestPerDay`, shared with `/api/calendar`; same requests, same cache). Palermo case
+  reproduced with the fake server (city calendar: 30 days, country screen: "No matching day") and fixed. An agreement test compares every city of
+  every country with the city page's own data: one way + Whole month (also with a weekday limit), round trip + Whole month (against an independent
+  pairing of each airport's calendars), date range, exact dates, date range + weekdays: 21 of 21 cities agree in each case.
+  **Cost (fake world, cold cache, 5 airports):** overview 25 → 105 requests (month), 25 → 65 (date range), 59 → 114 (exact); a country page with 4
+  cities: 10 → 30 (month), 7 → 17 (range), 15 → 31 (exact); opened directly 45 / 28 / 47. The switch's second request: 80 → 100.
+- **3 The repeated €46 in Palermo's December calendar (investigation, NOTHING changed in what the site shows):** the Travelpayouts API cannot be
+  reached from the cloud workspace, so the real Palermo answer was not read. Found: (a) the one-way month calendar is built from two lists, the
+  calendar (`/v1/prices/calendar`) and the one-way latest-prices list (`/v2/prices/latest?one_way=true`), the cheapest entry per day wins; (b) real
+  answers seen earlier in this project contain COPY rows in the latest-prices list (no booking site, duration 0, distance 0, found at midnight of the
+  request day, the same price repeated on neighbouring dates, for example BTS→ROM 22 Oct: value 55 four times for 1 Nov) next to real rows (booking
+  site Kiwi.com, duration, distance, found hours earlier); (c) the site does not filter them (`normalizeFromLatest`), and a calendar entry's own
+  `departure_at` day is never compared with the day it is listed under; (d) a simulation with such rows reproduces the look exactly (€46 on 28 of 31
+  days, the three real fares stand out). Not proven for Palermo. New read-only check `/api/debug-prices?...&month=...` (`app/lib/debugMonth.ts`).
+  Proposed fix, NOT applied until the owner says OK: ignore latest-prices rows that look like copies, and calendar rows whose own departure day is not
+  the day they are listed under, so a price only shows on the day it was really found (more empty days, fewer false "matches").
+- **Tested** (fake price server, production build): new `t24` (50 checks: form, OFF vs ON, one mixed list, labels, sorted, cheaper-of-both against both
+  API answers, country page, budget, city page unchanged, exact dates, Whole month without switch, agreement of every city) plus the regression
+  suites t21, t23, t25, t26, t27 (budget part rewritten for the single list), t28, t29, t30, axe (WCAG, light/dark, phone/desktop) and the tap-size
+  sweep. One axe finding exists on `main` too (search form, "Change destination" button: aria-label does not start with the visible text) and was left alone.
+

@@ -2,11 +2,12 @@
 // the pages use. Everything here is best effort: when something is missing or slow the
 // caller falls back to the plain brand picture. Server code only.
 
-import { parseAnywhereParams, rankCountries, checkCity } from '../anywhereSearch'
+import { parseAnywhereParams, rankCountries, checkCity, checkCityOpenJaw } from '../anywhereSearch'
 import { getCheapestFare } from '../flightSources'
 import { getCityInfo } from '../geoData'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { cleanCode } from './apiParams'
+import { cheaperTrip, returnsToOtherAirport } from './tripRoute'
 import { formatShortDate } from './format'
 import type { OgCard } from './ogCard'
 import type { TripSnapshot } from './tripUrl'
@@ -31,13 +32,19 @@ export async function countryShareCard(sp: URLSearchParams): Promise<OgCard | nu
   const { countries } = await rankCountries(origins, token)
   const country = countries.find((c) => c.code === code)
   if (!country) return null
-  const checked = await checkCity(country.cities[0], params, token)
-  const trip = checked?.trip
+  // The same trip the country's card shows: with the "fly back to a different airport" switch on (exact dates / date range
+  // round trips) the cheaper of the round trip and the trip back to another airport.
+  const withJaw = sp.get('openJaw') === 'true' && !params.oneWay && params.dateMode !== 'month'
+  const [checked, jawTrip] = await Promise.all([
+    checkCity(country.cities[0], params, origins, token),
+    withJaw ? checkCityOpenJaw(country.cities[0].cityCode, origins, params, token) : null,
+  ])
+  const trip = cheaperTrip(checked?.trip, jawTrip)
   return {
     title: country.name,
     eyebrow: fromLabel(origins),
     price: trip ? trip.price : null,
-    note: trip ? (trip.inbound ? 'round trip' : 'one way') : '',
+    note: trip ? (!trip.inbound ? 'one way' : returnsToOtherAirport(trip) ? 'two one-way tickets' : 'round trip') : '',
     line: trip ? datesLine(trip.outbound.date, trip.inbound?.date) : `${country.cities.length} destination${country.cities.length === 1 ? '' : 's'}`,
     cc: country.code,
   }

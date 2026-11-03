@@ -3,8 +3,9 @@ import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
 import BudgetBadge from './BudgetBadge'
 import PriceAge from './PriceAge'
+import { vsRoundTrip } from './DifferentAirportLine'
 import type { TripEstimate } from '../lib/budget'
-import { returnsToOtherAirport } from '../lib/anywhereJaw'
+import { tripRouteLabel } from '../lib/tripRoute'
 
 type Props = {
   city: AnywhereCity
@@ -14,8 +15,10 @@ type Props = {
   highlight?: boolean
   /** Budget estimate for this city's trip (flight + stay). Only set when a budget is. */
   estimate?: TripEstimate | null
-  /** A short line under the flights, e.g. how a different-airport trip compares with the round trip. */
-  note?: string | null
+  /** The "fly back to a different airport" switch is on: the trip says what it is ("round trip, back to BTS" / "two
+   * one-way tickets, back to PRG"), and a trip back to another airport says what the same-airport round trip costs.
+   * Off = the wording stays exactly as it was. */
+  routeLabel?: boolean
   /** A one-way search: the rough price of a city with no matching day comes from a cached ticket that may be a round
    * trip, so it is not shown. */
   oneWay?: boolean
@@ -25,10 +28,18 @@ function legPrice(leg: Leg & { price?: number | null }) {
   return leg.price ?? null
 }
 
+/** Under a trip that comes back to another airport: how it compares with the round trip from the same airport. */
+function compareNote(price: number, roundTripPrice: number | null): string {
+  return roundTripPrice === null
+    ? 'No round trip from the same airport on your days to compare with.'
+    : `${vsRoundTrip(price - roundTripPrice)} (round trip from the same airport: €${roundTripPrice})`
+}
+
 /** One city inside an Anywhere country: its trip when it was checked against the filters. A city with no matching
  * day only shows the rough price (round-trip searches); it never shows a fare that was not checked against the filters. */
-export default function AnywhereCityRow({ city, href, highlight = false, estimate = null, note = null, oneWay = false }: Props) {
+export default function AnywhereCityRow({ city, href, highlight = false, estimate = null, routeLabel = false, oneWay = false }: Props) {
   const trip = city.trip
+  const note = trip && routeLabel && city.roundTripPrice !== undefined ? compareNote(trip.price, city.roundTripPrice) : null
 
   return (
     <DrillLink
@@ -56,7 +67,7 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
             <>
               <p className={`font-mono text-lg font-semibold tabular-nums text-ink ${highlight ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{trip.price}</p>
               <p className="text-xs text-slate">
-                {trip.inbound ? (returnsToOtherAirport(trip) ? `back to ${trip.inbound.destination}, two one-way tickets` : trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
+                {routeLabel ? tripRouteLabel(trip) : trip.inbound ? (trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
               </p>
               {estimate?.total != null && <p className="mt-0.5 font-mono text-xs font-semibold text-ink">~€{estimate.total} total</p>}
               <p className="text-xs text-slate first-letter:uppercase">

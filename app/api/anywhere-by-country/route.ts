@@ -12,6 +12,9 @@ import {
 } from '../../anywhereSearch'
 import type { AnywhereCity, AnywhereCountry } from '../../tripTypes'
 
+// Each city is looked at from every chosen airport (a few requests each): give a cold, uncached search room.
+export const maxDuration = 60
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const token = process.env.TRAVELPAYOUTS_TOKEN
@@ -36,7 +39,7 @@ export async function GET(request: Request) {
   const top = ranked.slice(0, TOP_N_COUNTRIES)
   const checked = await mapWithLimit(top, 5, async (country) => {
     const first = country.cities[0]
-    return { country, first, result: await checkCity(first, params, token) }
+    return { country, first, result: await checkCity(first, params, origins, token) }
   })
 
   const matched: AnywhereCountry[] = []

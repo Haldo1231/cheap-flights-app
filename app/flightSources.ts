@@ -621,6 +621,36 @@ export async function fetchMonthOneWayDays(
   return days
 }
 
+/** The month calendars of ONE direction for several home airports: one entry per airport, each holding that airport's days.
+ * The city page (`/api/calendar`) and the Anywhere check both read their days through this, so they ask for exactly the same
+ * addresses and share the one-hour data cache, and the same fare is on the same day on both screens.
+ * `leg` "outbound" = from the airport to the city, "inbound" = from the city back to the airport. A one-way search only
+ * keeps one-way prices (see fetchMonthOneWayDays). */
+export async function getMonthDaysByOrigin(
+  origins: string[],
+  city: string,
+  month: string,
+  leg: 'outbound' | 'inbound',
+  oneWay: boolean,
+  token: string | undefined
+): Promise<Record<string, Record<string, CalendarDayDetail>>> {
+  const fetchDays = oneWay ? fetchMonthOneWayDays : fetchMonthCalendarDetailed
+  const lists = await Promise.all(origins.map((origin) => (leg === 'inbound' ? fetchDays(city, origin, month, token) : fetchDays(origin, city, month, token))))
+  return Object.fromEntries(origins.map((origin, i) => [origin, lists[i]]))
+}
+
+/** For every day the cheapest fare among the airports, which is what the calendar of a city page shows. `origin` is the
+ * home airport the fare belongs to; equal prices keep the airport listed first. */
+export function cheapestPerDay(byOrigin: Record<string, Record<string, CalendarDayDetail>>): Record<string, CalendarDayDetail & { origin: string }> {
+  const result: Record<string, CalendarDayDetail & { origin: string }> = {}
+  for (const [origin, days] of Object.entries(byOrigin)) {
+    for (const [date, entry] of Object.entries(days)) {
+      if (!result[date] || entry.price < result[date].price) result[date] = { ...entry, origin }
+    }
+  }
+  return result
+}
+
 /** The single cheapest cached round-trip/one-way fare to a destination across
  * several home airports (no particular date), or null when none is cached. */
 export async function getCheapestFare(

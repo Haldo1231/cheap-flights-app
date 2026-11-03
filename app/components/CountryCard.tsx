@@ -7,11 +7,10 @@ import CountryPhoto, { PhotoCredit } from './CountryPhoto'
 import Flag from './Flag'
 import ShareButton from './ShareButton'
 import BudgetBadge from './BudgetBadge'
-import DifferentAirportLine from './DifferentAirportLine'
 import PriceAge from './PriceAge'
 import type { AnywhereCountry } from '../tripTypes'
 import type { TripEstimate } from '../lib/budget'
-import { returnsToOtherAirport, type JawExtra } from '../lib/anywhereJaw'
+import { tripRouteLabel } from '../lib/tripRoute'
 
 type Props = {
   country: AnywhereCountry
@@ -25,20 +24,21 @@ type Props = {
   index?: number
   /** Budget estimate for the trip behind the price (flight + stay). Only set when a budget is. */
   estimate?: TripEstimate | null
-  /** The cheapest trip back to a DIFFERENT home airport, shown as an extra line. The price above stays the round trip. */
-  jaw?: JawExtra | null
+  /** The "fly back to a different airport" switch is on: the trip behind the price says what it is ("round trip, back to
+   * BTS" / "two one-way tickets, back to PRG"). Off = the wording stays exactly as it was. */
+  routeLabel?: boolean
 }
 
 const PHOTO_SIZES = '(min-width: 1024px) 320px, (min-width: 640px) 45vw, 100vw'
 
 /** One country as a photo card: picture, name, "from €X", how many destinations,
  * and (under the picture) the cheapest trip that matches the filters. */
-export default function CountryCard({ country, href, cheapest = false, eager = false, index = 0, estimate = null, jaw = null }: Props) {
+export default function CountryCard({ country, href, cheapest = false, eager = false, index = 0, estimate = null, routeLabel = false }: Props) {
   const [failed, setFailed] = useState(false)
   const city = country.verifiedCity
   const trip = city?.trip
   const destinations = `${country.candidateCityCount} destination${country.candidateCityCount === 1 ? '' : 's'}`
-  const kind = trip?.inbound ? (returnsToOtherAirport(trip) ? `back to ${trip.inbound.destination}` : trip.kind === 'fare' ? 'round trip' : 'out + back') : 'one way'
+  const kind = !trip ? '' : routeLabel ? tripRouteLabel(trip) : trip.inbound ? (trip.kind === 'fare' ? 'round trip' : 'out + back') : 'one way'
   const credit = country.image && !failed ? country.image : null
 
   return (
@@ -95,17 +95,6 @@ export default function CountryCard({ country, href, cheapest = false, eager = f
                 <FlightLeg compact label="Out" leg={trip.outbound} price={trip.outbound.price} />
                 {trip.inbound && <FlightLeg compact label="Back" leg={trip.inbound} price={trip.inbound.price} />}
               </div>
-              {jaw && jaw.trip.inbound && (
-                <DifferentAirportLine
-                  className="mt-2 border-t border-dashed border-faint/70 pt-2 text-sm text-slate"
-                  from={jaw.trip.outbound.origin}
-                  place={city.name}
-                  to={jaw.trip.inbound.destination}
-                  price={jaw.trip.price}
-                  difference={jaw.difference}
-                  seenAt={jaw.trip.seenAt ?? null}
-                />
-              )}
             </>
           ) : (
             <p className="text-xs text-slate">Open to see every city and its flights.</p>

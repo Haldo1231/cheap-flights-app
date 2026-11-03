@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { cleanCode, cleanDate, cleanMonth } from '../../lib/apiParams'
+import { cleanCode, cleanCodes, cleanDate, cleanMonth } from '../../lib/apiParams'
+import { monthDiagnosis } from '../../lib/debugMonth'
 import { currencyIsEuro, isFreshPrice } from '../../flightSources'
 import { priceAgeText } from '../../lib/priceAge'
 
@@ -7,6 +8,11 @@ import { priceAgeText } from '../../lib/priceAge'
 // It is OFF unless DEBUG_PRICES_KEY is set (in Vercel: Settings > Environment Variables). Open
 //   /api/debug-prices?key=<your key>&origin=BTS&destination=WAW&date=2026-11-09
 // It asks Travelpayouts live (no cache) and shows the raw numbers. The Travelpayouts token is never shown.
+//
+// A whole month instead of one day (why does a calendar show the same price on many days?):
+//   /api/debug-prices?key=<your key>&origins=BTS,VIE,BUD,KSC,PRG&destination=PMO&month=2026-12&oneWay=true
+// lists, day by day, what the city calendar shows, which list each price comes from and whether the entry looks like a copy
+// (see app/lib/debugMonth.ts). It only reads; it changes nothing on the site.
 
 type Raw = Record<string, unknown>
 
@@ -55,6 +61,18 @@ export async function GET(request: Request) {
   if (!key || searchParams.get('key') !== key) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const token = process.env.TRAVELPAYOUTS_TOKEN
+
+  // One whole month of one route (all the given airports).
+  const wholeMonth = cleanMonth(searchParams.get('month'))
+  if (wholeMonth) {
+    const codes = cleanCodes(searchParams.get('origins') ?? searchParams.get('origin'), [])
+    const to = cleanCode(searchParams.get('destination'))
+    if (!token || codes.length === 0 || !to) {
+      return NextResponse.json({ error: 'Needs origins (e.g. BTS,VIE), destination and month (YYYY-MM), and TRAVELPAYOUTS_TOKEN must be set.' }, { status: 400 })
+    }
+    return NextResponse.json(await monthDiagnosis(codes, to, wholeMonth, token, searchParams.get('oneWay') !== 'false'))
+  }
+
   const origin = cleanCode(searchParams.get('origin'))
   const destination = cleanCode(searchParams.get('destination'))
   const date = cleanDate(searchParams.get('date'))

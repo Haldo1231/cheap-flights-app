@@ -6,15 +6,14 @@
 // rows we saw in a real answer (the price of a real fare repeated on neighbouring dates). It is a pattern, not a proof.
 // The Travelpayouts token is never part of the output.
 
-import { cheapestPerDay, currencyIsEuro, fetchMonthCalendarDetailed, fetchMonthOneWayDays, isFreshPrice, type CalendarDayDetail } from '../flightSources'
+import { cheapestPerDay, currencyIsEuro, fetchMonthCalendarDetailed, fetchMonthOneWayDays, isCopyRow, isFreshPrice, type CalendarDayDetail } from '../flightSources'
 import { formatAge, priceAgeMs } from './priceAge'
 
 type Raw = Record<string, unknown>
 
-/** An entry of the "latest prices" list that looks like a copy: no booking site, duration 0, distance 0 (all three). */
+/** An entry of the "latest prices" list that looks like a copy: the same rule the site uses (see isCopyRow). */
 export function looksLikeFiller(entry: Raw): boolean {
-  const empty = (v: unknown) => v === undefined || v === null || v === '' || v === 0
-  return empty(entry.gate) && empty(entry.duration) && empty(entry.distance)
+  return isCopyRow({ gate: entry.gate, duration: entry.duration, distance: entry.distance })
 }
 
 const day = (iso: unknown) => (typeof iso === 'string' ? iso.slice(0, 10) : null)
@@ -45,14 +44,18 @@ export async function monthDiagnosis(origins: string[], destination: string, mon
   const siteByOrigin: Record<string, Record<string, DayRow>> = {}
   const siteDetail: Record<string, Record<string, CalendarDayDetail>> = {}
   const facts: { origin: string; latestInMonth: number; copies: number; top: { price: number; entries: number } | null }[] = []
+  const oneWayCounts = { plainDays: 0, plainOneWayDays: 0, askedDays: 0, askedOneWayDays: 0 }
 
   for (const origin of origins) {
     const calUrl = shown('/v1/prices/calendar', { origin, destination, depart_date: month, calendar_type: 'departure_date' })
     const latestParams: Record<string, string> = { origin, destination, sorting: 'price', limit: '1000', ...(oneWay ? { one_way: 'true' } : {}) }
     const latestUrl = shown('/v2/prices/latest', latestParams)
-    const [cal, latest, siteDays] = await Promise.all([
+    // The same calendar asked WITH one_way=true: does the price service then answer with one-way tickets? (read-only check)
+    const calOneWayUrl = shown('/v1/prices/calendar', { origin, destination, depart_date: month, calendar_type: 'departure_date', one_way: 'true' })
+    const [cal, latest, calOneWay, siteDays] = await Promise.all([
       live(`${calUrl}&token=${token}`),
       live(`${latestUrl}&token=${token}`),
+      live(`${calOneWayUrl}&token=${token}`),
       // What the site itself uses for this airport (cached for up to an hour, like every other screen).
       oneWay ? fetchMonthOneWayDays(origin, destination, month, token) : fetchMonthCalendarDetailed(origin, destination, month, token),
     ])
@@ -117,6 +120,19 @@ export async function monthDiagnosis(origins: string[], destination: string, mon
 
     facts.push({ origin, latestInMonth: latestRows.length, copies: latestRows.filter((r) => r.looksLikeCopy).length, top: topValues[0] ?? null })
 
+    const askedEntries = Object.values((calOneWay.json?.data as Record<string, Raw> | undefined) ?? {})
+    const asked = {
+      url: calOneWayUrl,
+      status: calOneWay.status,
+      days: askedEntries.length,
+      oneWayDays: askedEntries.filter((e) => !e.return_at).length,
+      roundTripDays: askedEntries.filter((e) => !!e.return_at).length,
+    }
+    oneWayCounts.plainDays += calRows.length
+    oneWayCounts.plainOneWayDays += calRows.filter((r) => r.isOneWay).length
+    oneWayCounts.askedDays += asked.days
+    oneWayCounts.askedOneWayDays += asked.oneWayDays
+
     perOrigin[origin] = {
       calendarList: {
         url: calUrl,
@@ -139,6 +155,7 @@ export async function monthDiagnosis(origins: string[], destination: string, mon
         rows: latestRows.slice(0, 60),
       },
       daysTheSiteShowsForThisAirport: Object.keys(site).length,
+      calendarWithOneWayParam: asked,
     }
   }
 
@@ -161,6 +178,9 @@ export async function monthDiagnosis(origins: string[], destination: string, mon
   const copies = topList.filter((d) => d.looksLikeCopy === true).length
   const readThis: string[] = []
   readThis.push(`The calendar for ${destination} in ${month} (${oneWay ? 'one way' : 'round trip'}, from ${origins.join(', ')}) shows a price on ${days.length} days.`)
+  readThis.push(
+    `The plain calendar answer (all airports) has ${oneWayCounts.plainDays} days, ${oneWayCounts.plainOneWayDays} of them one-way. With one_way=true it has ${oneWayCounts.askedDays} days, ${oneWayCounts.askedOneWayDays} of them one-way. If the second number stays 0, the price service ignores one_way on the calendar.`
+  )
   if (topPrice !== null && topDays >= 3) {
     readThis.push(`The most repeated price is €${topPrice}: it is shown on ${topDays} of those ${days.length} days.`)
     readThis.push(`Those ${topDays} days come from: ${topList.length - fromLatest} × the calendar list (v1), ${fromLatest} × the latest-prices list (v2).`)

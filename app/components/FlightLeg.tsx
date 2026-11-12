@@ -53,6 +53,16 @@ export default function FlightLeg({ label, leg, price = null, searchLinkLabel, c
             {lowCost && <LowCostBadge />}
             {stops && <span>{stops}</span>}
           </p>
+          {searchLinkLabel && (
+            <a
+              href={leg.bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className="mt-1 inline-flex min-h-9 items-center text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-2 hover:text-amber-ink"
+            >
+              {searchLinkLabel}
+            </a>
+          )}
         </div>
         {price !== null && (
           <p className="shrink-0 font-mono text-sm font-semibold tabular-nums text-ink">€{price}</p>

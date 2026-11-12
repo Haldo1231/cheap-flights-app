@@ -204,6 +204,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         findBackHref={monthBackHref}
         selection={month.selection}
         jawBack={jawBack}
+        roundTripAlt={month.roundTripAlt}
       />
     ) : undefined,
   }

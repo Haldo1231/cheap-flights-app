@@ -31,6 +31,8 @@ type Props = {
   marks?: Record<string, 'fits' | 'over'>
   /** A label under the price of a day, by date (the month return calendar names the airport there). */
   notes?: Record<string, CalendarNote>
+  /** Words added to the hover text and the screen-reader text of a day only (nothing is written on the calendar), by date. */
+  hints?: Record<string, string>
   /** Earliest / latest month the arrows may reach (YYYY-MM). */
   minMonth?: string
   maxMonth?: string
@@ -49,6 +51,7 @@ export default function CalendarGrid({
   allowedDays = ALL_WEEKDAYS,
   marks,
   notes,
+  hints,
   minMonth,
   maxMonth,
 }: Props) {
@@ -108,13 +111,14 @@ export default function CalendarGrid({
           const airline = entry?.airlineName || entry?.airlineCode
           const mark = usable ? marks?.[dateStr] : undefined
           const note = usable ? notes?.[dateStr] : undefined
+          const hint = usable ? hints?.[dateStr] : undefined
           // Read out by screen readers in addition to the visible day number and price.
           const spoken = !isAllowedDay
             ? `${formatDay(dateStr)}, not one of your selected weekdays.`
             : entry
-            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}${note ? `, ${note.spoken}` : ''}${mark === 'fits' ? ', the whole trip fits your budget' : mark === 'over' ? ', the whole trip is over your budget' : ''}.`
+            ? `${formatDay(dateStr)}${entry.time ? `, departs ${entry.time}` : ''}${airline ? `, ${airline}` : ''}${note ? `, ${note.spoken}` : ''}${hint ? `, ${hint}` : ''}${mark === 'fits' ? ', the whole trip fits your budget' : mark === 'over' ? ', the whole trip is over your budget' : ''}.`
             : `${formatDay(dateStr)}, no cached price.`
-          const detail = entry ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${airline ? ` · ${airline}` : ''}${note ? ` · ${note.spoken}` : ''}` : undefined
+          const detail = entry ? `${formatDay(dateStr)} · €${entry.price}${entry.time ? ` · ${entry.time}` : ''}${airline ? ` · ${airline}` : ''}${note ? ` · ${note.spoken}` : ''}${hint ? ` · ${hint}` : ''}` : undefined
 
           return (
             <button

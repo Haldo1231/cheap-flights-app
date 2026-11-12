@@ -423,3 +423,16 @@ Three requests from the owner.
   suites t21, t23, t25, t26, t27 (budget part rewritten for the single list), t28, t29, t30, axe (WCAG, light/dark, phone/desktop) and the tap-size
   sweep. One axe finding exists on `main` too (search form, "Change destination" button: aria-label does not start with the visible text) and was left alone.
 
+# Whole month, round trip: one-way calendars, one mixed list (branch `feature/whole-month-one-way-calendars`)
+Two requests from the owner, in two commits (layout first).
+- **1 Layout:** the calendars (Departing, Returning) come first, then "Best combinations" with its flights. The tapped day's flights still open in the panel.
+- **2 Prices:**
+  - **Endpoint:** the plain calendar (`/v1/prices/calendar`) answers round-trip fares. The one real answer in the history (the owner's paste, BTS to ROM, Oct 2026) has 39 days, every one with a return date. One-way prices come from `/v2/prices/latest?one_way=true`, keeping only rows with no return date. The calendar's own `one_way` parameter is NOT used (not documented clearly). NOT verified: whether `one_way=true` returns only one-way rows. The debug month check now also asks the calendar with `one_way=true` and counts the one-way days.
+  - **Calendars:** one-way only, the airport on hover and for screen readers (not written on the calendar). Days without a one-way ticket stay empty.
+  - **Best combinations:** round-trip fares and "2 one-way tickets" in one list, cheapest total first, labelled. A picked pair is priced as two one-way tickets with a booking link each (`FlightLeg`). When a cheaper round-trip fare exists for the same two days, it is shown next to the total with its own link. A round-trip pick keeps its own return day (with the switch ON it used to turn into two tickets).
+  - **Day lists** on this page are one-way only, so picked days always add up to two one-way tickets.
+  - **Copy rows:** the copy-row rule was proposed in the previous item and is now applied (`isCopyRow`: no booking site, duration 0, distance 0), plus the calendar departure-day check. It applies to every search, so a price shows only on the day it was really found.
+  - **Requests (cold cache, fake world, five airports):** the page 20 before, 30 now (+10 one-way lists). The round-trip answer and the range list reuse the calendar cache because they start after the outbound calendar.
+- **Tests (fake price server, production build):** unit (crafted answers, 17/17): the Hamburg case (one-way 35, not round-trip 89), round-trip-only days empty, copy rows dropped, departure-day check, month guard, two airports. Browser `t31` (16/16 default; 18/18 with cheaper one-way prices): layout order, one-way calendars only, labels, sorting, nights, sum with two links per ticket, alternative with link, round-trip pick, from Anywhere. Regression: t21, t23, t24 (50/50), t25, t26 (38/38), t27, t28, t29, t30. Accessibility (axe, light/dark, phones and desktop) clean on the new page.
+- **Open decision:** Anywhere's round-trip Whole month check still counts round-trip fares only, so the country price can be higher than the city's cheapest for cities where two one-way tickets are cheaper. Making it match costs about 2 extra price requests per origin and city (cold cache).
+

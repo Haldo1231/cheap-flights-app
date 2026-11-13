@@ -19,6 +19,7 @@
 // for both flights. The data never splits it into a price per leg.
 
 import { getAirlineNames } from './airlines'
+import { tpFetch } from './lib/travelpayouts'
 import { buildBookingLink } from './aviasalesLink'
 import { MAX_PRICE_AGE_MS, parseTime } from './lib/priceAge'
 import { dayOfWeek } from './weekdays'
@@ -140,9 +141,9 @@ async function fetchCheapExact(
 ): Promise<CheapEntry[]> {
   warnIfNoToken(token)
   try {
-    let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur&token=${token}`
+    let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur`
     if (date) url += `&depart_date=${date}`
-    const res = await fetch(url, REVALIDATE)
+    const res = await tpFetch(url, token, REVALIDATE)
     if (!res.ok) return []
     const json = await res.json()
     if (!currencyIsEuro(json)) return []
@@ -161,11 +162,11 @@ async function fetchLatest(
   options: { minDuration?: number; maxDuration?: number; oneWay?: boolean } = {}
 ): Promise<LatestEntry[]> {
   try {
-    let url = `https://api.travelpayouts.com/v2/prices/latest?currency=eur&origin=${origin}&destination=${destination}&sorting=price&limit=1000&token=${token}`
+    let url = `https://api.travelpayouts.com/v2/prices/latest?currency=eur&origin=${origin}&destination=${destination}&sorting=price&limit=1000`
     if (options.minDuration !== undefined) url += `&min_trip_duration=${options.minDuration}`
     if (options.maxDuration !== undefined) url += `&max_trip_duration=${options.maxDuration}`
     if (options.oneWay) url += `&one_way=true`
-    const res = await fetch(url, REVALIDATE)
+    const res = await tpFetch(url, token, REVALIDATE)
     if (!res.ok) return []
     const json = await res.json()
     if (!currencyIsEuro(json)) return []
@@ -270,8 +271,8 @@ export async function fetchMonthCalendarDetailed(
   token: string | undefined
 ): Promise<Record<string, CalendarDayDetail>> {
   try {
-    const url = `https://api.travelpayouts.com/v1/prices/calendar?origin=${origin}&destination=${destination}&depart_date=${month}&calendar_type=departure_date&currency=eur&token=${token}`
-    const res = await fetch(url, REVALIDATE)
+    const url = `https://api.travelpayouts.com/v1/prices/calendar?origin=${origin}&destination=${destination}&depart_date=${month}&calendar_type=departure_date&currency=eur`
+    const res = await tpFetch(url, token, REVALIDATE)
     if (!res.ok) return {}
     const json = await res.json()
     if (!currencyIsEuro(json)) return {}

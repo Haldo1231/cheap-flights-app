@@ -8,6 +8,7 @@
 
 import { cheapestPerDay, currencyIsEuro, fetchMonthCalendarDetailed, fetchMonthOneWayDays, isCopyRow, isFreshPrice, type CalendarDayDetail } from '../flightSources'
 import { formatAge, priceAgeMs } from './priceAge'
+import { tpFetch } from './travelpayouts'
 
 type Raw = Record<string, unknown>
 
@@ -18,9 +19,9 @@ export function looksLikeFiller(entry: Raw): boolean {
 
 const day = (iso: unknown) => (typeof iso === 'string' ? iso.slice(0, 10) : null)
 
-async function live(url: string): Promise<{ ok: boolean; status: number; json: Raw | null }> {
+async function live(url: string, token: string): Promise<{ ok: boolean; status: number; json: Raw | null }> {
   try {
-    const res = await fetch(url, { cache: 'no-store' })
+    const res = await tpFetch(url, token, { cache: 'no-store' })
     return { ok: res.ok, status: res.status, json: res.ok ? ((await res.json()) as Raw) : null }
   } catch {
     return { ok: false, status: 0, json: null }
@@ -53,9 +54,9 @@ export async function monthDiagnosis(origins: string[], destination: string, mon
     // The same calendar asked WITH one_way=true: does the price service then answer with one-way tickets? (read-only check)
     const calOneWayUrl = shown('/v1/prices/calendar', { origin, destination, depart_date: month, calendar_type: 'departure_date', one_way: 'true' })
     const [cal, latest, calOneWay, siteDays] = await Promise.all([
-      live(`${calUrl}&token=${token}`),
-      live(`${latestUrl}&token=${token}`),
-      live(`${calOneWayUrl}&token=${token}`),
+      live(calUrl, token),
+      live(latestUrl, token),
+      live(calOneWayUrl, token),
       // What the site itself uses for this airport (cached for up to an hour, like every other screen).
       oneWay ? fetchMonthOneWayDays(origin, destination, month, token) : fetchMonthCalendarDetailed(origin, destination, month, token),
     ])

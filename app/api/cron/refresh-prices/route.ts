@@ -3,6 +3,7 @@ import { HOME_AIRPORTS } from '../../../homeAirports'
 import { DESTINATIONS } from '../../../destinationsList'
 import { fetchMonthSummary, fetchRouteMonth } from '../../../lib/tpV3'
 import { mapWithLimit } from '../../../lib/pool'
+import { coveredMonths } from '../../../lib/priceSource'
 import {
   addJobs,
   claimJobs,
@@ -21,7 +22,7 @@ import {
 } from '../../../lib/priceStore'
 
 // The nightly price refresh (vercel.json): fills the price store for BTS, VIE, BUD, KSC and PRG.
-//  1. For every airport and month (this month and the next MONTHS_AHEAD): the month summary, every destination with its
+//  1. For every airport and month (this month and the next MONTHS_AHEAD of priceSource): the month summary, every destination with its
 //     cheapest ticket, one way and round trip (2 requests per airport and month).
 //  2. For the destinations the site names and the TOP_PER_SUMMARY cheapest of each summary: every day of the route-month.
 //     For the named ones and the RETURN_TOP cheapest: also the one-way flights BACK (city to home airport), which the
@@ -36,7 +37,6 @@ import {
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-const MONTHS_AHEAD = 3
 const TOP_PER_SUMMARY = 30
 const RETURN_TOP = 10
 const MIN_GAP_MS = 320 // ≤ ~190 requests per minute
@@ -48,17 +48,6 @@ const STALE_RUN_MS = 30 * 60e3
 const DEFAULT_BUDGET_MS = 50_000
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-function monthOf(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-}
-
-/** This month and the next MONTHS_AHEAD months (YYYY-MM). */
-export function monthsToCover(now = new Date()): string[] {
-  const out: string[] = []
-  for (let i = 0; i <= MONTHS_AHEAD; i++) out.push(monthOf(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 1))))
-  return out
-}
 
 function summaryJobs(months: string[]): NewJob[] {
   const jobs: NewJob[] = []
@@ -77,7 +66,7 @@ export async function GET(request: Request) {
   const timeLeft = () => budget - (Date.now() - started)
   const url = new URL(request.url)
   const now = new Date()
-  const months = monthsToCover(now)
+  const months = coveredMonths(now)
   const namedDestinations = DESTINATIONS.map((d) => d.code)
 
   // The run: continue the one named in the address, or start a new one (unless one is still running).

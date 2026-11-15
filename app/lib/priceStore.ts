@@ -99,38 +99,52 @@ export async function setCoverage(origin: string, destination: string, month: st
   return error ? error.message : null
 }
 
-/** The coverage rows of several airports for one destination and month (or the month summaries with SUMMARY_DESTINATION). */
-export async function getCoverage(origins: string[], destination: string, month: string, oneWay: boolean): Promise<Coverage[]> {
+const uniq = (xs: string[]) => Array.from(new Set(xs))
+
+/** The coverage rows of the given routes (origin to destination pairs) for one month. The month summary of an airport is the
+ * pair (airport, SUMMARY_DESTINATION). */
+export async function readCoverage(pairs: { origin: string; destination: string }[], month: string, oneWay: boolean): Promise<Coverage[]> {
+  if (pairs.length === 0) return []
   const { data, error } = await supabaseAdmin
     .from('price_coverage')
     .select('origin, destination, month, one_way, fetched_at, tickets, source')
-    .in('origin', origins)
-    .eq('destination', destination)
+    .in('origin', uniq(pairs.map((p) => p.origin)))
+    .in('destination', uniq(pairs.map((p) => p.destination)))
     .eq('month', month)
     .eq('one_way', oneWay)
-  if (error || !data) return []
-  return data as Coverage[]
+  if (error || !data) {
+    if (error) console.error(`[prices] store read (coverage) failed: ${error.message}`)
+    return []
+  }
+  return (data as Coverage[]).filter((c) => pairs.some((p) => p.origin === c.origin && p.destination === c.destination))
 }
 
-/** Every stored ticket of a route-month from the given airports, cheapest first. */
-export async function readRouteMonth(origins: string[], destination: string, month: string, oneWay: boolean): Promise<StoreTicket[]> {
+/** Every stored ticket of the given routes for one month, cheapest first. */
+export async function readTickets(pairs: { origin: string; destination: string }[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
+  if (pairs.length === 0) return []
   const { data, error } = await supabaseAdmin
     .from('price_tickets')
     .select('*')
-    .in('origin', origins)
-    .eq('destination', destination)
+    .in('origin', uniq(pairs.map((p) => p.origin)))
+    .in('destination', uniq(pairs.map((p) => p.destination)))
     .eq('month', month)
     .eq('one_way', oneWay)
     .order('price', { ascending: true })
-    .limit(5000)
-  if (error || !data) return []
-  return data as StoreTicket[]
+    .limit(10000)
+  if (error || !data) {
+    if (error) console.error(`[prices] store read (tickets) failed: ${error.message}`)
+    return []
+  }
+  return (data as StoreTicket[]).filter((t) => pairs.some((p) => p.origin === t.origin && p.destination === t.destination))
 }
 
 /** For each airport and destination, the cheapest stored ticket of a month (the overview question, one query). */
 export async function readOverview(origins: string[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
   const { data, error } = await supabaseAdmin.rpc('price_overview', { p_origins: origins, p_month: month, p_one_way: oneWay })
-  if (error || !data) return []
+  if (error || !data) {
+    if (error) console.error(`[prices] store read (overview) failed: ${error.message}`)
+    return []
+  }
   return data as StoreTicket[]
 }
 
@@ -199,6 +213,12 @@ export async function cleanup(today: string, currentMonth: string, keepRunsDays 
   const runs = await supabaseAdmin.from('price_runs').delete({ count: 'exact' }).lt('started_at', cutoff)
   notes.push(runs.error ? `old runs: ${runs.error.message}` : `old runs removed: ${runs.count ?? 0}`)
   return notes
+}
+
+/** The last runs of the nightly job, newest first. */
+export async function listRuns(limit = 10): Promise<PriceRun[]> {
+  const { data, error } = await supabaseAdmin.from('price_runs').select('*').order('id', { ascending: false }).limit(limit)
+  return error || !data ? [] : (data as PriceRun[])
 }
 
 export async function storeStats(): Promise<{ table_name: string; row_count: number; bytes: number }[]> {

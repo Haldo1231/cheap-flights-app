@@ -3,6 +3,7 @@ import { getCountryImage } from '../../lib/countryImagesData'
 import {
   parseAnywhereParams,
   rankCountries,
+  anywhereMonths,
   checkCity,
   toAnywhereCity,
   nameAirlines,
@@ -20,8 +21,8 @@ export async function GET(request: Request) {
   const token = process.env.TRAVELPAYOUTS_TOKEN
   const { origins, params } = parseAnywhereParams(searchParams)
 
-  // Phase 1: one call per home airport ranks every reachable country roughly.
-  const { countries: ranked, totalCities } = await rankCountries(origins, token)
+  // Phase 1: the store's month summaries rank every country the chosen airports can reach.
+  const { countries: ranked, totalCities } = await rankCountries(origins, anywhereMonths(params), params.oneWay, token)
 
   if (ranked.length === 0) {
     return cachedJson({

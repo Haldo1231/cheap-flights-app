@@ -326,9 +326,26 @@ export async function getDayFlights(
   token: string | undefined,
   options: { oneWay?: boolean; returnDate?: string | null; enrich?: boolean } = {}
 ): Promise<Flight[]> {
-  const tickets = await routePairTickets([{ origin, destination }], date.slice(0, 7), !!options.oneWay, token)
-  const flights = tickets.filter((t) => t.departure_date === date).map(ticketToFlight)
-  return finish(flights, options.returnDate)
+  const byOrigin = await getDayFlightsFrom([origin], destination, date, token, options)
+  return byOrigin[origin] ?? []
+}
+
+/** The same for several home airports at once (one store read): the flights of each airport, by airport. `direction`
+ * "back" = flights from the city to each airport (the airport is still the key). */
+export async function getDayFlightsFrom(
+  origins: string[],
+  destination: string,
+  date: string,
+  token: string | undefined,
+  options: { oneWay?: boolean; returnDate?: string | null; enrich?: boolean; direction?: 'out' | 'back' } = {}
+): Promise<Record<string, Flight[]>> {
+  const back = options.direction === 'back'
+  const pairs = origins.map((o) => (back ? { origin: destination, destination: o } : { origin: o, destination }))
+  const tickets = await routePairTickets(pairs, date.slice(0, 7), !!options.oneWay, token)
+  const flights = await finish(tickets.filter((t) => t.departure_date === date).map(ticketToFlight), options.returnDate)
+  const result: Record<string, Flight[]> = Object.fromEntries(origins.map((o) => [o, []]))
+  for (const f of flights) result[back ? f.destination : f.origin]?.push(f)
+  return result
 }
 
 /** The cached flights of one route within a date range (date-range search): every ticket leaving in the range; round trips
@@ -343,23 +360,43 @@ export async function getRangeFlights(
   token: string | undefined,
   options: { enrich?: boolean; oneWay?: boolean } = {}
 ): Promise<Flight[]> {
+  const byOrigin = await getRangeFlightsFrom([origin], destination, rangeStart, rangeEnd, minDays, maxDays, token, options)
+  return byOrigin[origin] ?? []
+}
+
+/** The same for several home airports at once (one store read per month): the flights of each airport, by airport. */
+export async function getRangeFlightsFrom(
+  origins: string[],
+  destination: string,
+  rangeStart: string | undefined,
+  rangeEnd: string | undefined,
+  minDays: number,
+  maxDays: number,
+  token: string | undefined,
+  options: { enrich?: boolean; oneWay?: boolean } = {}
+): Promise<Record<string, Flight[]>> {
   const covered = coveredMonths()
   const months = monthsBetween(rangeStart ?? `${covered[0]}-01`, rangeEnd ?? `${covered[covered.length - 1]}-28`)
   const oneWay = !!options.oneWay
-  const perMonth = await Promise.all(months.map((m) => routePairTickets([{ origin, destination }], m, oneWay, token)))
-  const flights = perMonth
-    .flat()
-    .filter((t) => {
-      if (rangeStart && t.departure_date < rangeStart) return false
-      if (rangeEnd && t.departure_date > rangeEnd) return false
-      if (!oneWay && t.return_date) {
-        const nights = nightsBetweenDates(t.departure_date, t.return_date)
-        if (nights < minDays || nights > maxDays) return false
-      }
-      return true
-    })
-    .map(ticketToFlight)
-  return finish(flights)
+  const pairs = origins.map((o) => ({ origin: o, destination }))
+  const perMonth = await Promise.all(months.map((m) => routePairTickets(pairs, m, oneWay, token)))
+  const flights = await finish(
+    perMonth
+      .flat()
+      .filter((t) => {
+        if (rangeStart && t.departure_date < rangeStart) return false
+        if (rangeEnd && t.departure_date > rangeEnd) return false
+        if (!oneWay && t.return_date) {
+          const nights = nightsBetweenDates(t.departure_date, t.return_date)
+          if (nights < minDays || nights > maxDays) return false
+        }
+        return true
+      })
+      .map(ticketToFlight)
+  )
+  const result: Record<string, Flight[]> = Object.fromEntries(origins.map((o) => [o, []]))
+  for (const f of flights) result[f.origin]?.push(f)
+  return result
 }
 
 /** The cheapest cached ROUND-TRIP ticket of one route for a day, a month (YYYY-MM) or any covered month; null when none. */
@@ -453,13 +490,15 @@ export async function findOpenJawPairs(
 ): Promise<{ pairs: OpenJawPair[]; outCount: number; backCount: number }> {
   const outMonths = monthsBetween(filter.outFrom, filter.outTo)
   const backMonths = monthsBetween(filter.backFrom ?? addDaysTo(filter.outFrom, 1), filter.backTo ?? filter.backDate ?? addDaysTo(filter.outTo, filter.maxNights))
+  // One store read per month for all the airports out, and one for all the airports back.
   const [outLists, backLists] = await Promise.all([
-    Promise.all(origins.map((o) => getOneWayFares(o, destination, token, outMonths))),
-    Promise.all(returnTo.map((o) => getOneWayFares(destination, o, token, backMonths))),
+    Promise.all(outMonths.map((m) => routePairTickets(origins.map((o) => ({ origin: o, destination })), m, true, token))),
+    Promise.all(backMonths.map((m) => routePairTickets(returnTo.map((o) => ({ origin: destination, destination: o })), m, true, token))),
   ])
-  const outs = outLists.flat().filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
+  const outs = outLists.flat().map(ticketToFlight).filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
   const backs = backLists
     .flat()
+    .map(ticketToFlight)
     .filter(
       (f) =>
         filter.backDays.includes(dayOfWeek(f.departureDate)) &&
@@ -650,12 +689,14 @@ export async function getReturnFares(
   limit = 60
 ): Promise<{ fares: Flight[]; total: number }> {
   const months = monthsBetween(window.start, window.end)
-  const lists = await Promise.all(toAirports.filter((a) => a !== from).map((a) => getOneWayFares(from, a, token, months)))
-  // The same flight can be in the one-way list and in the calendar: keep each airport/day/price once, and keep the copy that
-  // says more (airline, time of day, how fresh) so the day list can show them. One list = one airport, as dedupe expects.
-  const unique = lists
-    .flatMap((list) =>
-      dedupe(list.filter((f) => f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after)))
+  const airports = toAirports.filter((a) => a !== from)
+  // One store read per month for all the airports.
+  const perMonth = await Promise.all(months.map((m) => routePairTickets(airports.map((a) => ({ origin: from, destination: a })), m, true, token)))
+  const flights = perMonth.flat().map(ticketToFlight)
+  // Keep each airport/day/price once (dedupe expects one airport per list).
+  const unique = airports
+    .flatMap((a) =>
+      dedupe(flights.filter((f) => f.destination === a && f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after)))
     )
     .sort((a, b) => a.price - b.price || a.departureDate.localeCompare(b.departureDate))
   const top = await resolveAirlineNames(unique.slice(0, limit))

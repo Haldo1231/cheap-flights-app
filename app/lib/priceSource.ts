@@ -41,19 +41,33 @@ function stateOf(c: Coverage | undefined): 'fresh' | 'stale' | 'missing' {
   return Date.now() - Date.parse(c.fetched_at) < FRESH_MS ? 'fresh' : 'stale'
 }
 
+// A route-month that was just read is remembered for a minute: one search asks for the same routes from several screens
+// (the overview, a country, a city) within seconds.
+const pairMemo = new Map<string, { at: number; tickets: StoreTicket[] }>()
+const PAIR_MEMO_MS = 60e3
+const pairKey = (p: RoutePair, month: string, oneWay: boolean) => `${p.origin}|${p.destination}|${month}|${oneWay ? 1 : 0}`
+
 /** The tickets of several routes for one month. Store first; live (then stored) for a route that is missing or stale. */
 export async function routePairTickets(pairs: RoutePair[], month: string, oneWay: boolean, token: string | undefined): Promise<StoreTicket[]> {
   if (pairs.length === 0) return []
-  const [coverage, stored] = await Promise.all([readCoverage(pairs, month, oneWay), readTickets(pairs, month, oneWay)])
   const out: StoreTicket[] = []
-  const toFetch: { pair: RoutePair; state: string }[] = []
+  const need: RoutePair[] = []
   for (const pair of pairs) {
+    const m = pairMemo.get(pairKey(pair, month, oneWay))
+    if (m && Date.now() - m.at < PAIR_MEMO_MS) out.push(...m.tickets)
+    else need.push(pair)
+  }
+  if (need.length === 0) return out
+  const [coverage, stored] = await Promise.all([readCoverage(need, month, oneWay), readTickets(need, month, oneWay)])
+  const found = new Map<string, StoreTicket[]>()
+  const toFetch: { pair: RoutePair; state: string }[] = []
+  for (const pair of need) {
     const c = coverage.find((x) => samePair(x, pair))
     const state = stateOf(c)
-    if (state === 'fresh') out.push(...stored.filter((t) => samePair(t, pair)))
+    if (state === 'fresh') found.set(pairKey(pair, month, oneWay), stored.filter((t) => samePair(t, pair)))
     else toFetch.push({ pair, state: state === 'stale' && c ? `stale, ${hoursOld(c.fetched_at)} h old` : 'missing' })
   }
-  const live = await mapWithLimit(toFetch, LIVE_AT_ONCE, async ({ pair, state }) => {
+  await mapWithLimit(toFetch, LIVE_AT_ONCE, async ({ pair, state }) => {
     const answer = await fetchRouteMonth(pair.origin, pair.destination, month, oneWay, token, 'live')
     const route = `${pair.origin}-${pair.destination} ${month} ${kindOf(oneWay)}`
     if (answer.ok) {
@@ -61,13 +75,19 @@ export async function routePairTickets(pairs: RoutePair[], month: string, oneWay
       if (written.error) console.error(`[prices] could not store ${route}: ${written.error}`)
       else await setCoverage(pair.origin, pair.destination, month, oneWay, answer.tickets.length, 'live')
       console.warn(`[prices] live fallback for ${route}: store ${state}; ${answer.tickets.length} tickets`)
-      return answer.tickets
+      found.set(pairKey(pair, month, oneWay), answer.tickets)
+      return
     }
     const stale = stored.filter((t) => samePair(t, pair))
     console.error(`[prices] live fallback FAILED for ${route} (${answer.error}); store ${state}; showing ${stale.length} stored tickets`)
-    return stale
+    found.set(pairKey(pair, month, oneWay), stale)
   })
-  return [...out, ...live.flat()]
+  if (pairMemo.size > 5000) pairMemo.clear()
+  for (const [key, tickets] of found) {
+    pairMemo.set(key, { at: Date.now(), tickets })
+    out.push(...tickets)
+  }
+  return out
 }
 
 /** The tickets between several home airports and one city for a month. `direction` "out" = airport to city, "back" = city to airport. */
@@ -114,7 +134,8 @@ export async function overviewTickets(origins: string[], month: string, oneWay: 
   return tickets
 }
 
-/** Forgets the remembered overviews (tests). */
-export function forgetOverviews(): void {
+/** Forgets everything remembered in this process (tests). */
+export function forgetMemos(): void {
   overviewMemo.clear()
+  pairMemo.clear()
 }

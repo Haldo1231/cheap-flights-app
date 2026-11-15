@@ -8,8 +8,8 @@
 //     The check reads the very same store rows as the city page, so a country screen and the city's calendar agree.
 
 import {
-  getDayFlights,
-  getRangeFlights,
+  getDayFlightsFrom,
+  getRangeFlightsFrom,
   getMonthDaysByOrigin,
   cheapestPerDay,
   findOpenJawPairs,
@@ -185,32 +185,31 @@ function withOrigin(days: Record<string, CalendarDayDetail> | undefined, origin:
   return result
 }
 
-/** Exact dates and date range: the cheapest fare of ONE home airport that fits the filters (null = none). Lists are cheapest
- * first, so the first usable one is the winner. Uses the same lists as the city page (`/api/compare`). */
-async function cheapestUsableFlight(origin: string, cityCode: string, params: AnywhereParams, token: string | undefined): Promise<Flight | null> {
+/** Exact dates and date range: the cheapest fare of EACH home airport that fits the filters (one store read for all of them).
+ * Lists are cheapest first, so the first usable one is the winner. Uses the same data as the city page (`/api/compare`). */
+async function cheapestUsableFlights(origins: string[], cityCode: string, params: AnywhereParams, token: string | undefined): Promise<(Flight | null)[]> {
   if (params.dateMode === 'range') {
-    const flights = await getRangeFlights(
-      origin, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
+    const byOrigin = await getRangeFlightsFrom(
+      origins, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
       params.minDays, params.maxDays, token, { enrich: false, oneWay: params.oneWay }
     )
     // Only fares on the chosen weekdays count. A one-way search never takes a fare with a return date: that is a
     // round-trip price.
-    return flights.find((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay) && (!params.oneWay || f.returnDate === null)) ?? null
+    return origins.map((o) => (byOrigin[o] ?? []).find((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay) && (!params.oneWay || f.returnDate === null)) ?? null)
   }
 
   // exact dates
-  if (!params.departDate) return null
-  const flights = await getDayFlights(origin, cityCode, params.departDate, token, {
+  if (!params.departDate) return origins.map(() => null)
+  const byOrigin = await getDayFlightsFrom(origins, cityCode, params.departDate, token, {
     enrich: false,
     oneWay: params.oneWay,
     returnDate: params.oneWay ? null : params.returnDate,
   })
   // A round trip asked for an exact return date: only a fare with that return counts. A one-way search never takes a
-  // fare with a return date (the "cheap" list holds round-trip fares even when one way is asked).
-  return (
-    flights.find((f) =>
-      params.oneWay ? f.returnDate === null : params.returnDate ? f.returnDate === params.returnDate : true
-    ) ?? null
+  // fare with a return date.
+  return origins.map(
+    (o) =>
+      (byOrigin[o] ?? []).find((f) => (params.oneWay ? f.returnDate === null : params.returnDate ? f.returnDate === params.returnDate : true)) ?? null
   )
 }
 
@@ -313,7 +312,7 @@ export async function checkCity(
 ): Promise<{ origin: string; trip: AnywhereTrip } | null> {
   if (params.dateMode === 'month') return checkCityMonth(city.cityCode, params, origins, token)
 
-  const flights = await Promise.all(origins.map((origin) => cheapestUsableFlight(origin, city.cityCode, params, token)))
+  const flights = await cheapestUsableFlights(origins, city.cityCode, params, token)
   // The cheapest of all airports (the first listed one on a tie).
   let winner: Flight | null = null
   for (const f of flights) if (f && (!winner || f.price < winner.price)) winner = f

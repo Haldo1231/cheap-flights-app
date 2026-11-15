@@ -62,6 +62,8 @@ export type PriceRun = {
 }
 
 const CHUNK = 500
+/** Supabase answers at most 1000 rows per request: bigger reads are fetched page by page. */
+const PAGE = 1000
 const TICKET_KEY = 'origin,destination,departure_date,return_date,one_way'
 
 export function ticketKey(t: Pick<StoreTicket, 'origin' | 'destination' | 'departure_date' | 'return_date' | 'one_way'>): string {
@@ -122,30 +124,41 @@ export async function readCoverage(pairs: { origin: string; destination: string 
 /** Every stored ticket of the given routes for one month, cheapest first. */
 export async function readTickets(pairs: { origin: string; destination: string }[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
   if (pairs.length === 0) return []
-  const { data, error } = await supabaseAdmin
-    .from('price_tickets')
-    .select('*')
-    .in('origin', uniq(pairs.map((p) => p.origin)))
-    .in('destination', uniq(pairs.map((p) => p.destination)))
-    .eq('month', month)
-    .eq('one_way', oneWay)
-    .order('price', { ascending: true })
-    .limit(10000)
-  if (error || !data) {
-    if (error) console.error(`[prices] store read (tickets) failed: ${error.message}`)
-    return []
+  const all: StoreTicket[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from('price_tickets')
+      .select('*')
+      .in('origin', uniq(pairs.map((p) => p.origin)))
+      .in('destination', uniq(pairs.map((p) => p.destination)))
+      .eq('month', month)
+      .eq('one_way', oneWay)
+      .order('price', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error || !data) {
+      if (error) console.error(`[prices] store read (tickets) failed: ${error.message}`)
+      break
+    }
+    all.push(...(data as StoreTicket[]))
+    if (data.length < PAGE) break
   }
-  return (data as StoreTicket[]).filter((t) => pairs.some((p) => p.origin === t.origin && p.destination === t.destination))
+  return all.filter((t) => pairs.some((p) => p.origin === t.origin && p.destination === t.destination))
 }
 
 /** For each airport and destination, the cheapest stored ticket of a month (the overview question, one query). */
 export async function readOverview(origins: string[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
-  const { data, error } = await supabaseAdmin.rpc('price_overview', { p_origins: origins, p_month: month, p_one_way: oneWay })
-  if (error || !data) {
-    if (error) console.error(`[prices] store read (overview) failed: ${error.message}`)
-    return []
+  const all: StoreTicket[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin.rpc('price_overview', { p_origins: origins, p_month: month, p_one_way: oneWay }).range(from, from + PAGE - 1)
+    if (error || !data) {
+      if (error) console.error(`[prices] store read (overview) failed: ${error.message}`)
+      break
+    }
+    all.push(...(data as StoreTicket[]))
+    if (data.length < PAGE) break
   }
-  return data as StoreTicket[]
+  return all
 }
 
 // ---- the nightly job's log and work list ----

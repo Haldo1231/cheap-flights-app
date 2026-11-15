@@ -1,4 +1,4 @@
-import { findOpenJawPairs, getDayFlights, getRangeFlights, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
+import { findOpenJawPairs, getDayFlightsFrom, getRangeFlightsFrom, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
 import { matchesWeekdays, parseDays } from '../../weekdays'
 import { openJawFilterFor } from '../../openJawFilter'
@@ -112,25 +112,17 @@ export async function GET(request: Request) {
     const minDays = cleanInt(searchParams.get('minDays'), 2, 1, 30)
     const maxDays = cleanInt(searchParams.get('maxDays'), 10, 1, 30)
 
-    const perOrigin = await Promise.all(
-      origins.map((origin) => getRangeFlights(origin, destination, rangeStart, rangeEnd, minDays, maxDays, token, { oneWay }))
-    )
+    const byOrigin = await getRangeFlightsFrom(origins, destination, rangeStart, rangeEnd, minDays, maxDays, token, { oneWay })
     // Weekday limits (off unless the address has them): the same rule Anywhere uses.
     const outDays = parseDays(searchParams.get('outDays'))
     const backDays = parseDays(searchParams.get('backDays'))
-    allFlights = perOrigin.flat().filter((f) => matchesWeekdays(f, outDays, backDays, oneWay))
+    allFlights = origins.flatMap((o) => byOrigin[o] ?? []).filter((f) => matchesWeekdays(f, outDays, backDays, oneWay))
   } else {
     // exact-date mode (and the fallback for any other non-openJaw mode)
     const departDate = cleanDate(searchParams.get('departDate'))
     if (departDate) {
-      const perOrigin = await Promise.all(
-        origins.map((origin) =>
-          inboundLeg
-            ? getDayFlights(destination, origin, departDate, token, { oneWay, returnDate: requestedReturn })
-            : getDayFlights(origin, destination, departDate, token, { oneWay, returnDate: requestedReturn })
-        )
-      )
-      allFlights = perOrigin.flat()
+      const byOrigin = await getDayFlightsFrom(origins, destination, departDate, token, { oneWay, returnDate: requestedReturn, direction: inboundLeg ? 'back' : 'out' })
+      allFlights = origins.flatMap((o) => byOrigin[o] ?? [])
     }
   }
 

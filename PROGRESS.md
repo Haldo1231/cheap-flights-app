@@ -436,3 +436,51 @@ Two requests from the owner, in two commits (layout first).
 - **Tests (fake price server, production build):** unit (crafted answers, 17/17): the Hamburg case (one-way 35, not round-trip 89), round-trip-only days empty, copy rows dropped, departure-day check, month guard, two airports. Browser `t31` (16/16 default; 18/18 with cheaper one-way prices): layout order, one-way calendars only, labels, sorting, nights, sum with two links per ticket, alternative with link, round-trip pick, from Anywhere. Regression: t21, t23, t24 (50/50), t25, t26 (38/38), t27, t28, t29, t30. Accessibility (axe, light/dark, phones and desktop) clean on the new page.
 - **Open decision:** Anywhere's round-trip Whole month check still counts round-trip fares only, so the country price can be higher than the city's cheapest for cities where two one-way tickets are cheaper. Making it match costs about 2 extra price requests per origin and city (cold cache).
 
+# Phase 0: state check (12 Nov 2026)
+- Open PRs then: #13 (one-way calendars + copy-row filter; merged on request on 13 Nov), #10 (axe fix), #2 and #3 (old duplicates of #4 and #5).
+- The cloud workspace could not reach Travelpayouts (network policy) and had no token; a personal environment for this repository was set up
+  (api.travelpayouts.com allowed) and the token and the Supabase service key were saved as network secrets (added by the gateway; never visible
+  in the session). From then on every test used REAL data. A `token=` in an address overrides the header, hence step A below.
+- PROGRESS.md was found out of date in places (older sections describe older states: "nothing merged", the extra-line design, "+85 requests",
+  "copy-row fix not applied"); this file is a chronological log, newer sections win.
+
+# Phase 1: the price store (branches `feature/token-header` → `feature/price-store` → `feature/store-reads`, PRs #14, #15, #16, stacked)
+Goal: stop asking the price service while a visitor waits; one source for every screen; real tickets instead of copies.
+
+**Step 1, what the v3 method answers (real data, 12 Nov).** `/aviasales/v3/prices_for_dates` per airport and month with `unique=true` lists
+every destination once with its cheapest ticket of the month: December 2026, one way / round trip: BTS 204/142, VIE 324/287, BUD 302/222,
+KSC 36/20, PRG 313/234 (the old source: 30 per airport, any date). Per route and month it lists one ticket per day (one way) or per
+departure+return day (round trip), with date and time, airline, flight number, booking site, a deep link; 0 days outside the month, 0 copy
+rows; round-trip prices per day identical to the old calendar; `one_way=true` really returns only one-way rows (also on the old v2 list, the
+long-standing doubt). No `found_at` in v3 rows. Data thins out after two months (BTS one way: Nov 175, Dec 204, Jan 120, Feb 48, Mar 33).
+`market` (sk/at/hu/cz) gave the same tickets and links on the route tested; default kept. Cost of fetching everything nightly would be 8,200
+route-month requests, so the nightly job fetches the summaries for all destinations and the day-level data for the popular routes.
+
+**Step A (#14):** the token travels in the `X-Access-Token` header. "Before" numbers measured on this branch with real data (cold cache,
+5 airports): Anywhere overview 155 requests / 2.1–3.3 s (+150 requests with the different-airport switch), a country page 18–35 requests,
+the Whole-month city page 30, an exact-date search 10. In two of four runs Travelpayouts answered **429 (too many requests)** for 60 and
+285 calls, which the site showed as "no data": the real cause of missing destinations.
+
+**Step B (#15): the store.** `supabase/price_store.sql` (4 tables + 2 functions, run once by the owner), `app/lib/priceStore.ts`,
+`app/lib/tpV3.ts`, `/api/cron/refresh-prices` (daily 02:00 UTC; summaries for 5 airports × this month + 3, then the 12 named and the 25
+cheapest destinations of each summary in all three kinds: round-trip out, one-way out, one-way back), time-boxed 50 s slices that call the
+next slice themselves, paced under 190 requests/min, a run log with errors, departed days removed. Designed for 2 crons per project (the old
+Hobby limit; the docs now say 100). **First real run from the cloud workspace (15 Nov):** 16 slices in 12 min 15 s, 1,690 requests, every one
+HTTP 200 (none refused), 0 failed jobs, 20,732 tickets written; store size after it: 19,539 tickets, 14.1 MB in total (free tier: 500 MB).
+The chaining worked locally; on Vercel the first production run must be checked in `price_runs`.
+
+**Step C (#16): store first, live fallback.** `app/lib/priceSource.ts`: a route-month or month summary in the store and younger than 48 h is
+served with no request; missing or stale → live, stored, logged; live fails → stored rows with their real age; store unusable → the live
+answer directly. The screens' functions in `flightSources.ts` keep their shapes. Anywhere ranks the summaries (200–330 destinations per
+airport) and checks round trips like the city page (fare or two one-way tickets). Booking links open the exact ticket (deep link). Found and
+fixed while testing with real data: Supabase answers at most 1,000 rows (reads now page), too many small store queries (reads batched per
+city and remembered for a minute), the nightly plan missed the one-way tickets a round-trip check needs (all three kinds planned now), a
+`no-store` fetch broke pages rendered ahead of time (live fallback uses a 10-minute fetch cache).
+
+**After numbers:** measured after the second real run; see the next commit of this section.
+
+**Not covered by the store:** exact-date round trips are sparse everywhere (the store holds the cheapest ticket per departure+return day pair the
+service knows); a route-month nobody asked for and the job did not plan costs one live request per airport and kind the first time.
+**Harness note:** the fake-price-server browser suites (t21–t31) predate the store and need a fake store + v3 to run again; Phase 2 QA runs
+against real data.
+

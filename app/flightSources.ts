@@ -90,13 +90,6 @@ export type CalendarDayDetail = {
 // away from the API limits when the same search is opened again or shared.
 const REVALIDATE = { next: { revalidate: 3600 } }
 
-let warnedAboutToken = false
-function warnIfNoToken(token: string | undefined) {
-  if (!token && !warnedAboutToken) {
-    warnedAboutToken = true
-    console.warn('TRAVELPAYOUTS_TOKEN is not set: every price lookup will come back empty.')
-  }
-}
 
 /** False for a price that has expired (`expires_at` in the past) or was seen too long ago (`found_at`). A
  * price with neither time is kept: it is shown as "age not in the data", never guessed to be fresh or old. */

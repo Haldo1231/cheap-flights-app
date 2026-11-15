@@ -31,6 +31,11 @@ type V3Row = {
 
 export type V3Answer = { ok: true; tickets: StoreTicket[]; rows: number } | { ok: false; status: number; error: string }
 
+/** `fresh`: ask the price service anew (the nightly job). Otherwise an answer is reused for LIVE_REVALIDATE_S seconds, which also
+ * lets pages that are rendered ahead of time (deals, guides) use the live fallback. */
+export type FetchOptions = { fresh?: boolean }
+const LIVE_REVALIDATE_S = 600
+
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)
 
@@ -72,13 +77,13 @@ export function normalizeV3(rows: unknown[], origin: string, month: string, oneW
   return dedupeTickets(out)
 }
 
-async function fetchV3(params: Record<string, string>, token: string | undefined): Promise<{ ok: true; rows: unknown[] } | { ok: false; status: number; error: string }> {
+async function fetchV3(params: Record<string, string>, token: string | undefined, fresh: boolean): Promise<{ ok: true; rows: unknown[] } | { ok: false; status: number; error: string }> {
   const u = new URL(ENDPOINT)
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
   u.searchParams.set('currency', 'eur')
   if (TP_MARKET) u.searchParams.set('market', TP_MARKET)
   try {
-    const res = await tpFetch(u.toString(), token, { cache: 'no-store' })
+    const res = await tpFetch(u.toString(), token, fresh ? { cache: 'no-store' } : { next: { revalidate: LIVE_REVALIDATE_S } })
     if (!res.ok) return { ok: false, status: res.status, error: `HTTP ${res.status}` }
     const json = (await res.json()) as { success?: boolean; data?: unknown; currency?: unknown; error?: unknown }
     if (json.success === false) return { ok: false, status: res.status, error: String(json.error ?? 'not successful') }
@@ -90,15 +95,15 @@ async function fetchV3(params: Record<string, string>, token: string | undefined
 }
 
 /** Every destination of an airport in a month, each with its cheapest ticket (2 requests per airport and month cover both kinds). */
-export async function fetchMonthSummary(origin: string, month: string, oneWay: boolean, token: string | undefined): Promise<V3Answer> {
-  const r = await fetchV3({ origin, departure_at: month, one_way: String(oneWay), unique: 'true', limit: '1000', sorting: 'price' }, token)
+export async function fetchMonthSummary(origin: string, month: string, oneWay: boolean, token: string | undefined, options: FetchOptions = {}): Promise<V3Answer> {
+  const r = await fetchV3({ origin, departure_at: month, one_way: String(oneWay), unique: 'true', limit: '1000', sorting: 'price' }, token, !!options.fresh)
   if (!r.ok) return r
   return { ok: true, rows: r.rows.length, tickets: normalizeV3(r.rows, origin, month, oneWay, 'month-cheapest', new Date().toISOString()) }
 }
 
 /** One route for a month: the cheapest ticket per day (one way) or per departure and return day (round trip). */
-export async function fetchRouteMonth(origin: string, destination: string, month: string, oneWay: boolean, token: string | undefined, source: TicketSource = 'route-month'): Promise<V3Answer> {
-  const r = await fetchV3({ origin, destination, departure_at: month, one_way: String(oneWay), limit: '1000', sorting: 'price' }, token)
+export async function fetchRouteMonth(origin: string, destination: string, month: string, oneWay: boolean, token: string | undefined, source: TicketSource = 'route-month', options: FetchOptions = {}): Promise<V3Answer> {
+  const r = await fetchV3({ origin, destination, departure_at: month, one_way: String(oneWay), limit: '1000', sorting: 'price' }, token, !!options.fresh)
   if (!r.ok) return r
   return { ok: true, rows: r.rows.length, tickets: normalizeV3(r.rows, origin, month, oneWay, source, new Date().toISOString()) }
 }

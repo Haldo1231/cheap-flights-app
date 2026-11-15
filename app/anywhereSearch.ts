@@ -237,22 +237,23 @@ async function checkCityMonth(
 
   if (!params.returnMonth) return null
   const returnMonth = params.returnMonth
-  const [outByOrigin, backByOrigin] = await Promise.all([
+  // The same three inputs as the city page's "Best combinations": round-trip fares out, one-way tickets out, one-way tickets back.
+  const [outRoundTrip, outOneWay, backOneWay] = await Promise.all([
     getMonthDaysByOrigin(origins, cityCode, params.month, 'outbound', false, token),
-    getMonthDaysByOrigin(origins, cityCode, returnMonth, 'inbound', false, token),
+    getMonthDaysByOrigin(origins, cityCode, params.month, 'outbound', true, token),
+    getMonthDaysByOrigin(origins, cityCode, returnMonth, 'inbound', true, token),
   ])
 
-  // A round trip comes back to the airport it left from: day pairs are made inside each airport's own calendars. The
-  // trip must leave in the departure month and come back in the return month. The cheapest airport wins (the first listed
-  // one on a tie).
+  // A round-trip fare (one price for both flights) or two one-way tickets, whichever is cheaper. A round trip comes back to
+  // the airport it left from, so pairs are made inside each airport's own calendars. The trip must leave in the departure
+  // month and come back in the return month. The cheapest airport wins (the first listed one on a tie).
+  const months = { out: params.month, back: returnMonth }
+  const none: Record<string, CalendarDay> = {}
   let best: { origin: string; combo: Combination<CalendarDay> } | null = null
   for (const origin of origins) {
-    const [combo] = findBestCombinations(
-      withOrigin(outByOrigin[origin], origin), withOrigin(backByOrigin[origin], origin),
-      params.outDays, params.backDays, params.minNights, params.maxNights, 1,
-      { out: params.month, back: returnMonth }
-    )
-    if (combo && (!best || combo.total < best.combo.total)) best = { origin, combo }
+    const [fare] = findBestCombinations(withOrigin(outRoundTrip[origin], origin), none, params.outDays, params.backDays, params.minNights, params.maxNights, 1, months)
+    const [legs] = findBestCombinations(withOrigin(outOneWay[origin], origin), withOrigin(backOneWay[origin], origin), params.outDays, params.backDays, params.minNights, params.maxNights, 1, months)
+    for (const combo of [fare, legs]) if (combo && (!best || combo.total < best.combo.total)) best = { origin, combo }
   }
   if (!best) return null
 

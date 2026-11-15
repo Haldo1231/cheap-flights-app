@@ -107,8 +107,8 @@ export async function GET(request: Request) {
     requests++
     const answer =
       job.kind === 'summary'
-        ? await fetchMonthSummary(job.origin, job.month, job.one_way, token)
-        : await fetchRouteMonth(job.origin, job.destination ?? '', job.month, job.one_way, token)
+        ? await fetchMonthSummary(job.origin, job.month, job.one_way, token, { fresh: true })
+        : await fetchRouteMonth(job.origin, job.destination ?? '', job.month, job.one_way, token, 'route-month', { fresh: true })
     if (!answer.ok) {
       const attempts = job.attempts + 1
       lastError = `${job.kind} ${job.origin}-${job.destination ?? '*'} ${job.month} ${job.one_way ? 'one way' : 'round trip'}: ${answer.error}`

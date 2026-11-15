@@ -90,6 +90,9 @@ export async function overviewTickets(origins: string[], month: string, oneWay: 
   const summaryPairs = origins.map((o) => ({ origin: o, destination: SUMMARY_DESTINATION }))
   const coverage = await readCoverage(summaryPairs, month, oneWay)
   const missing = origins.filter((o) => stateOf(coverage.find((c) => c.origin === o)) !== 'fresh')
+  // The live answers are kept in hand: when the store cannot be written or read (the tables are missing, the database is
+  // down), they are shown directly instead of nothing.
+  const live = new Map<string, StoreTicket[]>()
   await mapWithLimit(missing, LIVE_AT_ONCE, async (origin) => {
     const c = coverage.find((x) => x.origin === origin)
     const state = c ? `stale, ${hoursOld(c.fetched_at)} h old` : 'missing'
@@ -98,12 +101,15 @@ export async function overviewTickets(origins: string[], month: string, oneWay: 
       console.error(`[prices] live summary FAILED for ${origin} ${month} ${kindOf(oneWay)} (${answer.error}); store ${state}`)
       return
     }
+    live.set(origin, answer.tickets)
     const written = await upsertTickets(answer.tickets)
     if (written.error) console.error(`[prices] could not store the summary ${origin} ${month}: ${written.error}`)
     else await setCoverage(origin, SUMMARY_DESTINATION, month, oneWay, answer.tickets.length, 'live')
     console.warn(`[prices] live summary for ${origin} ${month} ${kindOf(oneWay)}: store ${state}; ${answer.tickets.length} destinations`)
   })
-  const tickets = await readOverview(origins, month, oneWay)
+  const stored = await readOverview(origins, month, oneWay)
+  const inStore = new Set(stored.map((t) => t.origin))
+  const tickets = [...stored, ...Array.from(live.entries()).filter(([origin]) => !inStore.has(origin)).flatMap(([, t]) => t)]
   overviewMemo.set(key, { at: Date.now(), tickets })
   return tickets
 }

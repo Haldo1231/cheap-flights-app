@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/app/supabaseAdmin'
 import { getCheapestDestinations } from '../../../cheapDestinations'
 
 // Daily (see vercel.json): stores the 6 cheapest destinations in weekly_deals.
+export const maxDuration = 60
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -19,6 +21,11 @@ export async function GET(request: Request) {
     departure_date: fare.outbound.date,
     return_date: fare.inbound?.date ?? null,
   }))
+
+  // Nothing found (store empty, price service down): keep yesterday's deals instead of an empty page.
+  if (topDeals.length === 0) {
+    return NextResponse.json({ success: false, count: 0, note: 'no cached fares, kept the previous deals' }, { status: 503 })
+  }
 
   await supabaseAdmin.from('weekly_deals').delete().neq('id', 0)
   const { error } = await supabaseAdmin.from('weekly_deals').insert(topDeals)

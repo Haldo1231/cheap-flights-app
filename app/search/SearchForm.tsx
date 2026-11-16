@@ -353,7 +353,6 @@ export default function SearchForm() {
                 setDestinationCode('')
                 setDestinationCity('')
               }}
-              aria-label={`Change destination, currently ${isAnywhere ? 'anywhere' : destinationCity}`}
               className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
             >
               {isAnywhere ? (
@@ -369,6 +368,7 @@ export default function SearchForm() {
                 </>
               )}
               <CloseIcon className="ml-2 h-3.5 w-3.5" />
+              <span className="sr-only">, change destination</span>
             </button>
           ) : (
             <AirportPicker

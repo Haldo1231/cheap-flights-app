@@ -50,27 +50,30 @@
    together (each a little lighter than the one before it, so page < card < inner box keeps its
    separation). --dark-deep is the header, footer and hero bands. --dark-slate is secondary
    text: keep it light enough to stay readable (4.5:1 against the card colour or better).
-   Earlier, darker values were: paper #0B1220, surface #131C30, sand #1A2540, line #27324D,
-   slate #A4ADBE, deep #08101F, navy #2C4170. */
+   Earlier, darker values were (16 Nov 2026): paper #141E36, surface #1D2944, sand #27355A, line #364565,
+   faint #7C8AA8, slate #B4BCCD, deep #0E172D, navy #36518A; and before that: paper #0B1220, surface #131C30,
+   sand #1A2540, line #27324D, slate #A4ADBE, deep #08101F, navy #2C4170. Every text colour below keeps at least
+   4.5:1 against the backgrounds it is used on (checked); --dark-faint is only for decoration (separators, days
+   that cannot be picked). */
 :root {
-  --dark-ink: #EDEAE2;
-  --dark-paper: #141E36;
-  --dark-surface: #1D2944;
-  --dark-sand: #27355A;
-  --dark-line: #364565;
-  --dark-faint: #7C8AA8;
-  --dark-slate: #B4BCCD;
-  --dark-amber-soft: #382E1C;
-  --dark-amber-soft-hover: #43361F;
-  --dark-danger: #FF9F92;
-  --dark-danger-bg: #42221F;
-  --dark-danger-line: #8A4339;
-  --dark-ok-bg: #173A2C;
-  --dark-ok-line: #357A50;
-  --dark-deep: #0E172D;
-  --dark-deep-2: #0A1224;
-  --dark-navy: #36518A;
-  --dark-navy-hover: #4563A0;
+  --dark-ink: #F1EEE6;
+  --dark-paper: #1E2A46;
+  --dark-surface: #28375A;
+  --dark-sand: #344675;
+  --dark-line: #475A86;
+  --dark-faint: #92A0BD;
+  --dark-slate: #C4CBDA;
+  --dark-amber-soft: #413622;
+  --dark-amber-soft-hover: #4D4027;
+  --dark-danger: #FFA89C;
+  --dark-danger-bg: #4C2A26;
+  --dark-danger-line: #96514A;
+  --dark-ok-bg: #1D4636;
+  --dark-ok-line: #3E8A5C;
+  --dark-deep: #141F38;
+  --dark-deep-2: #0F182D;
+  --dark-navy: #3F5C9C;
+  --dark-navy-hover: #4E6DB2;
 }
 
 /* The dark values are applied under two conditions: "follow the phone/computer setting", unless

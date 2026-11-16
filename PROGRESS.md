@@ -477,7 +477,29 @@ fixed while testing with real data: Supabase answers at most 1,000 rows (reads n
 city and remembered for a minute), the nightly plan missed the one-way tickets a round-trip check needs (all three kinds planned now), a
 `no-store` fetch broke pages rendered ahead of time (live fallback uses a 10-minute fetch cache).
 
-**After numbers:** measured after the second real run; see the next commit of this section.
+**Second real run (15 Nov, all three kinds planned):** 20 slices in 15 min 22 s, 2,226 requests, every one HTTP 200, 0 failed jobs,
+23,547 tickets written. Store after it: 24,495 tickets, **22.2 MB in total** (tickets 20.4, jobs 1.2, coverage 0.6; the free tier is 500 MB).
+Across both runs and all tests, 3,916 requests, none refused (429).
+
+**Before / after, real data, 5 airports, cold Next cache (requests = requests to Travelpayouts; times = the API route's answer time, measured
+from the cloud workspace, which reads the store over the internet; the page times below were measured in a real browser right after):**
+
+| search | before (step A build) | after (store filled) |
+|---|---|---|
+| Anywhere overview, whole month, round trip | 155 requests, 3.3 s (+150 with the different-airport switch) | 3 requests, 8.2 s cold (90 store reads), 1.7 s in the browser warm |
+| Anywhere overview, whole month, one way | 155 requests, 2.7 s | 0 requests, 3.2 s |
+| Anywhere overview, date range | 95 requests, 2.6 s (+150 / 2.0 s with the switch) | 0 requests, 0.01 s remembered (+0 / 2.2 s with the switch) |
+| Anywhere overview, exact dates | 155 requests, 2.1 s (285 of them refused with 429) | 0 requests, 0.01 s remembered |
+| Country page Italy, whole month, round trip | 30 requests, 0.7 s, 4 cities | 0 requests, 2.6 s, 19 cities (10 checked) |
+| Country page Italy, whole month, one way | 30 requests, 0.5 s | 0 requests, 0.6 s |
+| Whole-month city page BCN (browser) | 30 requests | 0 requests, 0.9 s until the content |
+| Exact-date search BCN 12–16 Dec | 10 requests, 0.4 s | 0 requests, 0.01 s |
+| Flights back from BCN (13–27 Dec) | 5 requests | 0 requests, 0.6 s, 46 fares |
+| Destinations per airport, December, one way / round trip | 30 / 30 (any date, the "popular" list) | BTS 229/148, VIE 360/321, BUD 340/233, KSC 45/22, PRG 340/235 |
+
+Agreement: for every Italian city the country screen's one-way month price equals the cheapest day of the city's own calendar (10 of 10).
+Browser, store filled: Anywhere overview 1.7 s until the cards, country page Italy 2.0 s (3 live requests for routes outside the nightly plan),
+Whole-month city page 0.9 s, exact-date search 0.3 s, no console problems.
 
 **Not covered by the store:** exact-date round trips are sparse everywhere (the store holds the cheapest ticket per departure+return day pair the
 service knows); a route-month nobody asked for and the job did not plan costs one live request per airport and kind the first time.

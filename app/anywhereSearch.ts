@@ -270,6 +270,7 @@ async function checkCityMonth(
       kind: 'legs',
       outbound: { ...outLeg, price: combo.outPrice },
       inbound: { ...backLeg, price: combo.backPrice },
+      seenAt: oldestSeen(combo.out.foundAt, combo.back.foundAt),
     },
   }
 }

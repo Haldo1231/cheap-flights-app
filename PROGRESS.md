@@ -506,3 +506,43 @@ service knows); a route-month nobody asked for and the job did not plan costs on
 **Harness note:** the fake-price-server browser suites (t21–t31) predate the store and need a fake store + v3 to run again; Phase 2 QA runs
 against real data.
 
+# Phase 2: full QA with real data (branch `fix/phase2-qa`, 16 Nov 2026)
+How it was tested: the production build ran in the cloud workspace against the real price service and the real store (filled by the two
+Phase 1 runs). A browser script (`qa-phase2.js`, Playwright + axe, in the session's harness, not in the repository) opened 31 flows:
+home, search form (destination and Anywhere), exact dates / date range / whole month / specific weekdays, one way / round trip /
+different return airport, Anywhere (overview, with budget, country Italy in every mode, city), trip detail, "find a flight back" (days and
+month), deals, destinations, trips, guides, about, disclosure, a missing page; each at 1280 px and 390 px (phone), light and dark:
+**124 page checks**, each with a screenshot, an accessibility scan, a look for horizontal overflow, broken pictures, placeholder text
+("undefined", "NaN", "€0"), booking links without the affiliate marker, console errors and failed requests. Result before the fixes:
+108 clean, 16 with a finding. Every booking link on every screen carried the marker (0 without).
+
+**Bugs found and fixed (one PR):**
+1. **Anywhere country page, whole month, round trip: "Price age not in the data" on trips made of two one-way tickets.** Screenshot
+   (Italy, phone): Milan €29 "round trip, both flights · Price seen 20 h ago", but Turin €37 "out + back · Price age not in the data",
+   same for Rome, Catania, Bari, Pisa, Naples, Florence. The two tickets had a real age; the code that builds the "out + back" trip
+   simply did not pass it on (`app/anywhereSearch.ts`). Now the older of the two tickets' ages is shown (as the city page does).
+2. **Search form, the chosen-destination chip ("BCN Barcelona ×" / "Anywhere ×") failed the accessibility rule "label in name":** a screen
+   reader announced "Change destination, currently Barcelona", which does not start with the visible text, so voice-control users saying
+   "click Barcelona" would not hit it. The hidden label now follows the visible text ("BCN Barcelona, change destination"). Nothing
+   changes on screen. (Open PR #10 fixed the same rule elsewhere.)
+3. **Deals job could wipe the deals.** The live `weekly_deals` table is EMPTY (0 rows on 16 Nov; the deals page says "No deals yet",
+   screenshot `deals`, dark). The job deletes all rows BEFORE it inserts the new ones, so a night with no cached fares (price service
+   down, store empty) leaves an empty page until the next night. Now it keeps yesterday's deals and answers 503 with a note when it finds
+   nothing (`/api/cron/generate-deals`, also given a 60 s limit like the other job). Why the table is empty today could not be checked
+   from here: the job itself works (the old `/anywhere` page uses the same function and shows 12 destinations from the store), the Vercel
+   cron log is not reachable from the workspace, and running the job from here would write into the live table (not done). **Owner:**
+   after this is deployed, open Vercel → Cron Jobs → `generate-deals` → Run, or wait for 06:00 UTC, then check `/deals`.
+4. **Phone (390 px): the test could not reach "Trip details" / "Fly back to a different airport" from the Whole-month page.** Not a site
+   bug: on phones those links live inside the bottom cost bar, which opens on tap (screenshot `month-rt`, phone: the bar "Flights + stay ·
+   6 days ▴" at the bottom). The test now taps the bar first; both flows then pass at phone width in light and dark.
+
+**Findings that are not bugs (left as they are):**
+- "Colour contrast" on the Anywhere budget page (4 variants): a false alarm from the cards' entrance animation (`rise-in`, cards fade in
+  from transparent; the scan ran while cards below the fold were still transparent). A second scan after the animation finds 0 problems.
+- The missing page (`/this-page-does-not-exist`) logs one console error: the browser reporting the 404 status itself. That is correct.
+- Pages take 4–8 s cold from the cloud workspace (the store is read over the internet from there; 50–90 store reads for an Anywhere
+  overview). On Vercel the store sits next to the functions; the browser numbers in Phase 1 (0.9–2 s) are the realistic ones. Not
+  measurable from here.
+- Whole month, one way: the calendar shows prices without an age; the age appears once a day is picked (the fare list). By design.
+
+**Checks:** type-check, lint and `npm run build` pass; the crawl was run again on the fixed build: 124 page checks, 118 clean; the 6 remaining are the four expected 404 console lines of the missing page, one contrast false alarm (one of four variants this time, 0 on a scan after the animation) and one timeout of the exact-date round trip at phone width in dark mode that passed on a rerun (the store read from the workspace took longer than the test allows). 0 booking links without the marker, no overflow, no broken pictures, no placeholder text, "price seen" shown on every screen that shows a fare.

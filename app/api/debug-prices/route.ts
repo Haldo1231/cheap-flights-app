@@ -4,11 +4,13 @@ import { monthDiagnosis } from '../../lib/debugMonth'
 import { currencyIsEuro, isFreshPrice } from '../../flightSources'
 import { priceAgeText } from '../../lib/priceAge'
 import { tpFetch } from '../../lib/travelpayouts'
+import { listRuns, storeStats } from '../../lib/priceStore'
 
 // A checking tool for the owner, to compare what Travelpayouts really answers with what the site shows.
 // It is OFF unless DEBUG_PRICES_KEY is set (in Vercel: Settings > Environment Variables). Open
 //   /api/debug-prices?key=<your key>&origin=BTS&destination=WAW&date=2026-11-09
 // It asks Travelpayouts live (no cache) and shows the raw numbers. The Travelpayouts token is never shown.
+// With store=1 it shows the price store instead (table sizes and the last nightly runs).
 //
 // A whole month instead of one day (why does a calendar show the same price on many days?):
 //   /api/debug-prices?key=<your key>&origins=BTS,VIE,BUD,KSC,PRG&destination=PMO&month=2026-12&oneWay=true
@@ -62,6 +64,12 @@ export async function GET(request: Request) {
   if (!key || searchParams.get('key') !== key) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const token = process.env.TRAVELPAYOUTS_TOKEN
+
+  // The price store: rows and bytes per table, and the last runs of the nightly job (/api/debug-prices?key=...&store=1).
+  if (searchParams.get('store') === '1') {
+    const [stats, runs] = await Promise.all([storeStats(), listRuns(10)])
+    return NextResponse.json({ stats, runs, note: 'stats = rows and bytes per table (empty when the price store SQL has not been run); runs = the nightly job, newest first.' })
+  }
 
   // One whole month of one route (all the given airports).
   const wholeMonth = cleanMonth(searchParams.get('month'))

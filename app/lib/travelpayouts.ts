@@ -4,7 +4,13 @@ export const TP_BASE = 'https://api.travelpayouts.com'
 
 export type TpFetchInit = RequestInit & { next?: { revalidate?: number | false } }
 
+let warnedAboutToken = false
+
 export function tpFetch(url: string, token: string | undefined, init: TpFetchInit = {}): Promise<Response> {
+  if (!token && !warnedAboutToken) {
+    warnedAboutToken = true
+    console.warn('TRAVELPAYOUTS_TOKEN is not set: every live price lookup will come back empty.')
+  }
   const headers = new Headers(init.headers)
   if (token) headers.set('X-Access-Token', token)
   return fetch(url, { ...init, headers })

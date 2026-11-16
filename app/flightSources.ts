@@ -1,25 +1,15 @@
-// Shared logic for fetching real cached flight data from Travelpayouts and
-// turning it into a clean, de-duplicated, honestly-labeled list.
+// The flight data the screens use, in one place. Prices come from the price store (Supabase, filled nightly from the
+// Travelpayouts price service, see lib/priceSource and lib/tpV3); the live price service is only the fallback when the
+// store has nothing fresh. The older endpoints (/v1/prices/cheap, /v2/prices/latest, /v1/prices/calendar) are kept at
+// the bottom for the read-only debug checks.
 //
-// Three source endpoints, each with real limits we're upfront about:
-// - /v1/prices/cheap: has a real airline code + exact departure AND return
-//   time, but is very sparse for an exact date (often empty) and gives at most
-//   ~1 cached fare per call.
-// - /v2/prices/latest: much richer (can return many distinct cached fares),
-//   but has NO airline info (only a "gate" = booking site that found the
-//   price) and only day-level dates, no times. It also contains a lot of
-//   near-duplicate filler entries (empty gate, 0 duration/distance, same price
-//   repeated across many nearby return dates) which we collapse.
-// - /v1/prices/calendar: one cached fare per departure day, WITH airline,
-//   departure time and return date/time. We use it to fill in the airline and
-//   times for a /v2 fare when it is clearly the very same fare (same day, same
-//   return day, same price).
-//
-// Important: a fare that has a return date is a ROUND-TRIP fare -- one price
-// for both flights. The data never splits it into a price per leg.
+// Important: a fare that has a return date is a ROUND-TRIP fare -- one price for both flights. The data never splits it
+// into a price per leg. A ticket's `found_at` is when this site got it from the price service ("price seen X h ago").
 
 import { getAirlineNames } from './airlines'
 import { tpFetch } from './lib/travelpayouts'
+import { coveredMonths, overviewTickets, routePairTickets, routeMonthTickets } from './lib/priceSource'
+import type { StoreTicket } from './lib/priceStore'
 import { buildBookingLink } from './aviasalesLink'
 import { MAX_PRICE_AGE_MS, parseTime } from './lib/priceAge'
 import { dayOfWeek } from './weekdays'
@@ -43,6 +33,8 @@ export type Flight = {
   foundAt: string | null
   /** When the cached price stops being valid (v1 `expires_at`), ISO text. null = not in the data. */
   expiresAt: string | null
+  /** The price service's deep link to this exact ticket (a path), when it gave one. */
+  link?: string | null
 }
 
 export type CheapEntry = {
@@ -98,13 +90,6 @@ export type CalendarDayDetail = {
 // away from the API limits when the same search is opened again or shared.
 const REVALIDATE = { next: { revalidate: 3600 } }
 
-let warnedAboutToken = false
-function warnIfNoToken(token: string | undefined) {
-  if (!token && !warnedAboutToken) {
-    warnedAboutToken = true
-    console.warn('TRAVELPAYOUTS_TOKEN is not set: every price lookup will come back empty.')
-  }
-}
 
 /** False for a price that has expired (`expires_at` in the past) or was seen too long ago (`found_at`). A
  * price with neither time is kept: it is shown as "age not in the data", never guessed to be fresh or old. */
@@ -133,27 +118,6 @@ function timeOnly(iso: string | null | undefined): string | null {
   return match ? match[1] : null
 }
 
-async function fetchCheapExact(
-  origin: string,
-  destination: string,
-  date: string | undefined,
-  token: string | undefined
-): Promise<CheapEntry[]> {
-  warnIfNoToken(token)
-  try {
-    let url = `https://api.travelpayouts.com/v1/prices/cheap?origin=${origin}&destination=${destination}&currency=eur`
-    if (date) url += `&depart_date=${date}`
-    const res = await tpFetch(url, token, REVALIDATE)
-    if (!res.ok) return []
-    const json = await res.json()
-    if (!currencyIsEuro(json)) return []
-    const destData = json.data?.[destination]
-    if (!destData) return []
-    return Object.values(destData) as CheapEntry[]
-  } catch {
-    return []
-  }
-}
 
 async function fetchLatest(
   origin: string,
@@ -262,8 +226,8 @@ async function resolveAirlineNames(flights: Flight[]): Promise<Flight[]> {
   )
 }
 
-/** The calendar endpoint's cheapest fare for every departure day of a month,
- * with airline / times / return day where the cache has them. */
+/** DEBUG ONLY (the read-only month check): the old calendar endpoint's cheapest fare for every departure day of a month,
+ * with airline / times / return day where the cache has them. The screens read the price store instead. */
 export async function fetchMonthCalendarDetailed(
   origin: string,
   destination: string,
@@ -304,70 +268,57 @@ export async function fetchMonthCalendarDetailed(
   }
 }
 
-// Fill in airline/times for a /v2 fare from the calendar, but ONLY when the
-// calendar entry is clearly the same fare. Bounded so a wide date range can't
-// trigger a flood of calendar requests.
-const ENRICH_FLIGHT_LIMIT = 60
-const ENRICH_CALENDAR_LIMIT = 8
 
-async function enrichFromCalendar(flights: Flight[], token: string | undefined): Promise<Flight[]> {
-  const needy = flights.filter((f) => !f.airlineCode || !f.departureTime).slice(0, ENRICH_FLIGHT_LIMIT)
-  if (needy.length === 0) return flights
-
-  const keys: string[] = []
-  for (const f of needy) {
-    const key = `${f.origin}|${f.destination}|${f.departureDate.slice(0, 7)}`
-    if (!keys.includes(key) && keys.length < ENRICH_CALENDAR_LIMIT) keys.push(key)
-  }
-
-  const calendars = new Map<string, Record<string, CalendarDayDetail>>()
-  await Promise.all(
-    keys.map(async (key) => {
-      const [origin, destination, month] = key.split('|')
-      calendars.set(key, await fetchMonthCalendarDetailed(origin, destination, month, token))
-    })
-  )
-
-  return flights.map((f) => {
-    if (f.airlineCode && f.departureTime) return f
-    const cal = calendars.get(`${f.origin}|${f.destination}|${f.departureDate.slice(0, 7)}`)?.[f.departureDate]
-    if (!cal) return f
-    // Same fare = same departure day, same return day, (nearly) the same price.
-    if (cal.returnDate !== f.returnDate || Math.abs(cal.price - f.price) > 1) return f
-    return {
-      ...f,
-      airlineCode: f.airlineCode ?? cal.airlineCode,
-      departureTime: f.departureTime ?? cal.time,
-      returnTime: f.returnTime ?? cal.returnTime,
-      stops: f.stops ?? cal.stops,
-    }
-  })
+/** Fills in the airline names of just these flights (a winning fare). Tickets already carry airline and time. */
+export async function completeFlights(flights: Flight[]): Promise<Flight[]> {
+  return resolveAirlineNames(flights)
 }
 
-/** Fills in airline/times (via the calendar) and airline names for just these
- * flights -- used for a single winning fare, so it costs at most one calendar call. */
-export async function completeFlights(flights: Flight[], token: string | undefined): Promise<Flight[]> {
-  const enriched = await enrichFromCalendar(flights, token)
-  return resolveAirlineNames(enriched)
-}
-
-async function finish(
-  flights: Flight[],
-  token: string | undefined,
-  preferredReturn?: string | null,
-  enrich = true
-): Promise<Flight[]> {
+async function finish(flights: Flight[], preferredReturn?: string | null): Promise<Flight[]> {
   const merged = dedupe(flights, preferredReturn).sort((a, b) => a.price - b.price)
-  const enriched = enrich ? await enrichFromCalendar(merged, token) : merged
-  const withAirlines = await resolveAirlineNames(enriched)
+  const withAirlines = await resolveAirlineNames(merged)
   return withAirlines.sort((a, b) => a.price - b.price)
 }
 
-/** All distinct cached flights for one origin, departing on a specific day.
- * Combines the source endpoints; honest about what's missing (no fabricated
- * times/airlines). `oneWay` asks the source for one-way fares; `returnDate`
- * (round trips) only decides which near-identical fare we keep; `enrich:
- * false` skips the extra calendar lookups when only the price matters. */
+/** A stored ticket as a Flight (the shape the lists and pages use). The booking link opens this exact ticket when the
+ * price service gave a deep link. */
+export function ticketToFlight(t: StoreTicket): Flight {
+  return {
+    origin: t.origin,
+    destination: t.destination,
+    price: t.price,
+    departureDate: t.departure_date,
+    departureTime: timeOnly(t.departure_at),
+    returnDate: t.return_date,
+    returnTime: timeOnly(t.return_at),
+    stops: t.transfers,
+    airlineCode: t.airline,
+    airlineName: null,
+    gate: t.gate,
+    bookingUrl: buildBookingLink(t.origin, t.destination, t.departure_date, t.return_date ?? undefined, t.link ?? undefined),
+    foundAt: t.found_at,
+    expiresAt: null,
+    link: t.link,
+  }
+}
+
+/** A stored ticket as one calendar day. */
+export function ticketToDayDetail(t: StoreTicket): CalendarDayDetail {
+  return {
+    price: t.price,
+    airlineCode: t.airline,
+    time: timeOnly(t.departure_at),
+    stops: t.transfers,
+    returnDate: t.return_date,
+    returnTime: timeOnly(t.return_at),
+    expiresAt: null,
+    foundAt: t.found_at,
+  }
+}
+
+/** The cached flights of one route on one day, cheapest first: the cheapest one-way ticket of the day (`oneWay`), or every
+ * round-trip ticket leaving that day (one per return day). `returnDate` (round trips) only decides which near-identical
+ * copy is kept. `enrich` is accepted for older callers and ignored: tickets already carry airline and time. */
 export async function getDayFlights(
   origin: string,
   destination: string,
@@ -375,25 +326,30 @@ export async function getDayFlights(
   token: string | undefined,
   options: { oneWay?: boolean; returnDate?: string | null; enrich?: boolean } = {}
 ): Promise<Flight[]> {
-  const [cheapEntries, latestEntries] = await Promise.all([
-    fetchCheapExact(origin, destination, date, token),
-    fetchLatest(origin, destination, token, { oneWay: options.oneWay }),
-  ])
-
-  const fromCheap = cheapEntries
-    .map((e) => normalizeFromCheap(e, origin, destination))
-    .filter((f): f is Flight => f !== null)
-
-  const fromLatest = latestEntries
-    .filter((e) => e.depart_date === date)
-    .map((e) => normalizeFromLatest(e, origin, destination))
-    .filter((f): f is Flight => f !== null)
-
-  return finish([...fromCheap, ...fromLatest], token, options.returnDate, options.enrich ?? true)
+  const byOrigin = await getDayFlightsFrom([origin], destination, date, token, options)
+  return byOrigin[origin] ?? []
 }
 
-/** All distinct cached flights for one origin within a date range + trip
- * duration filter (date-range search mode). */
+/** The same for several home airports at once (one store read): the flights of each airport, by airport. `direction`
+ * "back" = flights from the city to each airport (the airport is still the key). */
+export async function getDayFlightsFrom(
+  origins: string[],
+  destination: string,
+  date: string,
+  token: string | undefined,
+  options: { oneWay?: boolean; returnDate?: string | null; enrich?: boolean; direction?: 'out' | 'back' } = {}
+): Promise<Record<string, Flight[]>> {
+  const back = options.direction === 'back'
+  const pairs = origins.map((o) => (back ? { origin: destination, destination: o } : { origin: o, destination }))
+  const tickets = await routePairTickets(pairs, date.slice(0, 7), !!options.oneWay, token)
+  const flights = await finish(tickets.filter((t) => t.departure_date === date).map(ticketToFlight), options.returnDate)
+  const result: Record<string, Flight[]> = Object.fromEntries(origins.map((o) => [o, []]))
+  for (const f of flights) result[back ? f.destination : f.origin]?.push(f)
+  return result
+}
+
+/** The cached flights of one route within a date range (date-range search): every ticket leaving in the range; round trips
+ * only with `minDays` to `maxDays` nights. At most 4 months are looked at. */
 export async function getRangeFlights(
   origin: string,
   destination: string,
@@ -404,106 +360,87 @@ export async function getRangeFlights(
   token: string | undefined,
   options: { enrich?: boolean; oneWay?: boolean } = {}
 ): Promise<Flight[]> {
-  // A one-way search has no trip length, so the min/max days only apply to round trips.
-  const entries = await fetchLatest(origin, destination, token, {
-    minDuration: options.oneWay ? undefined : minDays,
-    maxDuration: options.oneWay ? undefined : maxDays,
-    oneWay: options.oneWay,
-  })
-
-  const filtered = rangeStart
-    ? entries.filter((e) => (e.depart_date || '') >= rangeStart && (!rangeEnd || (e.depart_date || '') <= rangeEnd))
-    : entries
-
-  const flights = filtered
-    .map((e) => normalizeFromLatest(e, origin, destination))
-    .filter((f): f is Flight => f !== null)
-
-  return finish(flights, token, null, options.enrich ?? true)
+  const byOrigin = await getRangeFlightsFrom([origin], destination, rangeStart, rangeEnd, minDays, maxDays, token, options)
+  return byOrigin[origin] ?? []
 }
 
-/** The single cheapest cached fare for one direction on a day (or month, as
- * YYYY-MM, or no date at all). The source lists one fare per number of stops, so the
- * cheapest is the MINIMUM price, not the first entry (which is usually the direct, dearer one).
- * The fare may be a round-trip fare (it then has a return date and its price covers both flights). */
+/** The same for several home airports at once (one store read per month): the flights of each airport, by airport. */
+export async function getRangeFlightsFrom(
+  origins: string[],
+  destination: string,
+  rangeStart: string | undefined,
+  rangeEnd: string | undefined,
+  minDays: number,
+  maxDays: number,
+  token: string | undefined,
+  options: { enrich?: boolean; oneWay?: boolean } = {}
+): Promise<Record<string, Flight[]>> {
+  const covered = coveredMonths()
+  const months = monthsBetween(rangeStart ?? `${covered[0]}-01`, rangeEnd ?? `${covered[covered.length - 1]}-28`)
+  const oneWay = !!options.oneWay
+  const pairs = origins.map((o) => ({ origin: o, destination }))
+  const perMonth = await Promise.all(months.map((m) => routePairTickets(pairs, m, oneWay, token)))
+  const flights = await finish(
+    perMonth
+      .flat()
+      .filter((t) => {
+        if (rangeStart && t.departure_date < rangeStart) return false
+        if (rangeEnd && t.departure_date > rangeEnd) return false
+        if (!oneWay && t.return_date) {
+          const nights = nightsBetweenDates(t.departure_date, t.return_date)
+          if (nights < minDays || nights > maxDays) return false
+        }
+        return true
+      })
+      .map(ticketToFlight)
+  )
+  const result: Record<string, Flight[]> = Object.fromEntries(origins.map((o) => [o, []]))
+  for (const f of flights) result[f.origin]?.push(f)
+  return result
+}
+
+/** The cheapest cached ROUND-TRIP ticket of one route for a day, a month (YYYY-MM) or any covered month; null when none. */
 export async function getCheapestLeg(
   origin: string,
   destination: string,
   date: string | undefined,
   token: string | undefined
 ): Promise<Flight | null> {
-  const entries = await fetchCheapExact(origin, destination, date, token)
-  const flights = entries.map((e) => normalizeFromCheap(e, origin, destination)).filter((f): f is Flight => f !== null)
-  if (flights.length === 0) return null
-  const cheapest = flights.reduce((min, f) => (f.price < min.price ? f : min))
-  const [named] = await resolveAirlineNames([cheapest])
+  const months = date ? [date.slice(0, 7)] : coveredMonths()
+  const perMonth = await Promise.all(months.map((m) => routePairTickets([{ origin, destination }], m, false, token)))
+  const tickets = perMonth.flat().filter((t) => !date || date.length !== 10 || t.departure_date === date)
+  if (tickets.length === 0) return null
+  const cheapest = tickets.reduce((min, t) => (t.price < min.price ? t : min))
+  const [named] = await resolveAirlineNames([ticketToFlight(cheapest)])
   return named
 }
 
-/** The cheapest cached ONE-WAY fare for one direction on a day (or in a month, as YYYY-MM): used where a
- * flight is priced on its own and added to another (open-jaw). A fare that has a return date is a round-trip
- * price for two flights, so it is never taken as the price of one flight. null = no cached one-way price. */
+/** The cheapest cached ONE-WAY ticket of one route for a day (YYYY-MM-DD), a month (YYYY-MM) or any covered month: used
+ * where a flight is priced on its own and added to another. null = no cached one-way price. */
 export async function getCheapestOneWayLeg(
   origin: string,
   destination: string,
   dateOrMonth: string | undefined,
   token: string | undefined
 ): Promise<Flight | null> {
-  const [cheapEntries, latestEntries] = await Promise.all([
-    fetchCheapExact(origin, destination, dateOrMonth, token),
-    fetchLatest(origin, destination, token, { oneWay: true }),
-  ])
-  const fromCheap = cheapEntries.map((e) => normalizeFromCheap(e, origin, destination))
-  const fromLatest = latestEntries
-    .filter((e) => !dateOrMonth || (e.depart_date || '').startsWith(dateOrMonth))
-    .map((e) => normalizeFromLatest(e, origin, destination))
-  // Only fares of the asked day or month (the answer for a month may also list days outside it).
-  const oneWay = [...fromCheap, ...fromLatest].filter(
-    (f): f is Flight => f !== null && f.returnDate === null && (!dateOrMonth || f.departureDate.startsWith(dateOrMonth))
-  )
-  if (oneWay.length === 0) return null
-  const cheapest = oneWay.reduce((min, f) => (f.price < min.price ? f : min))
-  const [named] = await resolveAirlineNames([cheapest])
+  const months = dateOrMonth ? [dateOrMonth.slice(0, 7)] : coveredMonths()
+  const perMonth = await Promise.all(months.map((m) => routePairTickets([{ origin, destination }], m, true, token)))
+  const tickets = perMonth.flat().filter((t) => !dateOrMonth || t.departure_date.startsWith(dateOrMonth))
+  if (tickets.length === 0) return null
+  const cheapest = tickets.reduce((min, t) => (t.price < min.price ? t : min))
+  const [named] = await resolveAirlineNames([ticketToFlight(cheapest)])
   return named
 }
 
-/** Every fresh ONE-WAY fare for one direction: the one-way list (v2 `one_way=true`), plus the calendar's entries that
- * have no return date for the given months (YYYY-MM). A calendar entry WITH a return date is a round-trip price and is
- * left out. Not expired, not stale. Cached for an hour like every other price request. */
+/** Every cached ONE-WAY ticket of one route for the given months (YYYY-MM; the covered months when none are given). */
 export async function getOneWayFares(origin: string, destination: string, token: string | undefined, months: string[] = []): Promise<Flight[]> {
-  const [entries, calendars] = await Promise.all([
-    fetchLatest(origin, destination, token, { oneWay: true }),
-    Promise.all(months.map((m) => fetchMonthCalendarDetailed(origin, destination, m, token))),
-  ])
-  const fares = entries
-    .map((e) => normalizeFromLatest(e, origin, destination))
-    .filter((f): f is Flight => f !== null && f.returnDate === null)
-  for (const days of calendars) {
-    for (const [date, day] of Object.entries(days)) {
-      if (day.returnDate !== null) continue
-      fares.push({
-        origin,
-        destination,
-        price: day.price,
-        departureDate: date,
-        departureTime: day.time,
-        returnDate: null,
-        returnTime: null,
-        stops: day.stops,
-        airlineCode: day.airlineCode,
-        airlineName: null,
-        gate: null,
-        bookingUrl: buildBookingLink(origin, destination, date),
-        foundAt: null,
-        expiresAt: day.expiresAt,
-      })
-    }
-  }
-  return fares
+  const list = months.length > 0 ? months : coveredMonths()
+  const perMonth = await Promise.all(list.map((m) => routePairTickets([{ origin, destination }], m, true, token)))
+  return perMonth.flat().map(ticketToFlight)
 }
 
 /** The months (YYYY-MM) from one day to another, inclusive (at most 4, so a wide range cannot cause a flood of requests). */
-function monthsBetween(from: string, to: string): string[] {
+export function monthsBetween(from: string, to: string): string[] {
   const out: string[] = []
   let [y, m] = from.slice(0, 7).split('-').map(Number)
   const [ty, tm] = to.slice(0, 7).split('-').map(Number)
@@ -549,23 +486,19 @@ export async function findOpenJawPairs(
   destination: string,
   token: string | undefined,
   filter: OpenJawFilter,
-  limit = 30,
-  options: { calendar?: boolean } = {}
+  limit = 30
 ): Promise<{ pairs: OpenJawPair[]; outCount: number; backCount: number }> {
-  // The calendar months are only asked for when `calendar` is on (the Anywhere overview leaves them out to keep the
-  // number of price requests down: it uses the one-way list only).
-  const outMonths = options.calendar === false ? [] : monthsBetween(filter.outFrom, filter.outTo)
-  const backMonths =
-    options.calendar === false
-      ? []
-      : monthsBetween(filter.backFrom ?? addDaysTo(filter.outFrom, 1), filter.backTo ?? filter.backDate ?? addDaysTo(filter.outTo, filter.maxNights))
+  const outMonths = monthsBetween(filter.outFrom, filter.outTo)
+  const backMonths = monthsBetween(filter.backFrom ?? addDaysTo(filter.outFrom, 1), filter.backTo ?? filter.backDate ?? addDaysTo(filter.outTo, filter.maxNights))
+  // One store read per month for all the airports out, and one for all the airports back.
   const [outLists, backLists] = await Promise.all([
-    Promise.all(origins.map((o) => getOneWayFares(o, destination, token, outMonths))),
-    Promise.all(returnTo.map((o) => getOneWayFares(destination, o, token, backMonths))),
+    Promise.all(outMonths.map((m) => routePairTickets(origins.map((o) => ({ origin: o, destination })), m, true, token))),
+    Promise.all(backMonths.map((m) => routePairTickets(returnTo.map((o) => ({ origin: destination, destination: o })), m, true, token))),
   ])
-  const outs = outLists.flat().filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
+  const outs = outLists.flat().map(ticketToFlight).filter((f) => f.departureDate >= filter.outFrom && f.departureDate <= filter.outTo && filter.outDays.includes(dayOfWeek(f.departureDate)))
   const backs = backLists
     .flat()
+    .map(ticketToFlight)
     .filter(
       (f) =>
         filter.backDays.includes(dayOfWeek(f.departureDate)) &&
@@ -599,9 +532,8 @@ export async function findOpenJawPairs(
   return { pairs: top, outCount: outs.length, backCount: backs.length }
 }
 
-/** One-way prices for the days of a month: the calendar's entries that have no return date, plus the
- * one-way list (v2 `one_way=true`), the cheapest per day. A calendar entry WITH a return date is a
- * round-trip price and is left out (it would be shown as the price of a single flight). */
+/** DEBUG ONLY (the read-only month check): one-way prices for the days of a month from the old endpoints, the calendar's
+ * entries that have no return date plus the one-way list (v2 `one_way=true`), the cheapest per day. */
 export async function fetchMonthOneWayDays(
   origin: string,
   destination: string,
@@ -634,11 +566,10 @@ export async function fetchMonthOneWayDays(
   return days
 }
 
-/** The month calendars of ONE direction for several home airports: one entry per airport, each holding that airport's days.
- * The city page (`/api/calendar`) and the Anywhere check both read their days through this, so they ask for exactly the same
- * addresses and share the one-hour data cache, and the same fare is on the same day on both screens.
- * `leg` "outbound" = from the airport to the city, "inbound" = from the city back to the airport. A one-way search only
- * keeps one-way prices (see fetchMonthOneWayDays). */
+/** The month calendars of ONE direction for several home airports: one entry per airport, each holding that airport's days
+ * (the cheapest ticket per day: one-way tickets when `oneWay`, else round-trip tickets with their return day). The city page
+ * (`/api/calendar`) and the Anywhere check both read their days through this, from the price store, so they agree.
+ * `leg` "outbound" = from the airport to the city, "inbound" = from the city back to the airport. */
 export async function getMonthDaysByOrigin(
   origins: string[],
   city: string,
@@ -647,9 +578,16 @@ export async function getMonthDaysByOrigin(
   oneWay: boolean,
   token: string | undefined
 ): Promise<Record<string, Record<string, CalendarDayDetail>>> {
-  const fetchDays = oneWay ? fetchMonthOneWayDays : fetchMonthCalendarDetailed
-  const lists = await Promise.all(origins.map((origin) => (leg === 'inbound' ? fetchDays(city, origin, month, token) : fetchDays(origin, city, month, token))))
-  return Object.fromEntries(origins.map((origin, i) => [origin, lists[i]]))
+  const tickets = await routeMonthTickets(origins, city, month, oneWay, token, leg === 'inbound' ? 'back' : 'out')
+  const result: Record<string, Record<string, CalendarDayDetail>> = Object.fromEntries(origins.map((o) => [o, {}]))
+  for (const t of tickets) {
+    const home = leg === 'inbound' ? t.destination : t.origin
+    const days = result[home]
+    if (!days) continue
+    const have = days[t.departure_date]
+    if (!have || t.price < have.price) days[t.departure_date] = ticketToDayDetail(t)
+  }
+  return result
 }
 
 /** For every day the cheapest fare among the airports, which is what the calendar of a city page shows. `origin` is the
@@ -664,16 +602,23 @@ export function cheapestPerDay(byOrigin: Record<string, Record<string, CalendarD
   return result
 }
 
-/** The single cheapest cached round-trip/one-way fare to a destination across
- * several home airports (no particular date), or null when none is cached. */
+/** The single cheapest cached fare to a destination from several home airports in the covered months (round trips first,
+ * one-way tickets only when no round trip is known), or null when none is cached. Read from the month summaries. */
 export async function getCheapestFare(
   origins: string[],
   destination: string,
   token: string | undefined
 ): Promise<Fare | null> {
-  const flights = await Promise.all(origins.map((o) => getCheapestLeg(o, destination, undefined, token)))
-  const valid = flights.filter((f): f is Flight => f !== null).sort((a, b) => a.price - b.price)
-  return valid.length > 0 ? flightToFare(valid[0]) : null
+  const months = coveredMonths()
+  for (const oneWay of [false, true]) {
+    const perMonth = await Promise.all(months.map((m) => overviewTickets(origins, m, oneWay, token)))
+    const candidates = perMonth.flat().filter((t) => t.destination === destination)
+    if (candidates.length === 0) continue
+    const cheapest = candidates.reduce((min, t) => (t.price < min.price ? t : min))
+    const [named] = await resolveAirlineNames([ticketToFlight(cheapest)])
+    return flightToFare(named)
+  }
+  return null
 }
 
 /** One cached flight as a leg (date, time, airline, stops, booking link). */
@@ -744,12 +689,14 @@ export async function getReturnFares(
   limit = 60
 ): Promise<{ fares: Flight[]; total: number }> {
   const months = monthsBetween(window.start, window.end)
-  const lists = await Promise.all(toAirports.filter((a) => a !== from).map((a) => getOneWayFares(from, a, token, months)))
-  // The same flight can be in the one-way list and in the calendar: keep each airport/day/price once, and keep the copy that
-  // says more (airline, time of day, how fresh) so the day list can show them. One list = one airport, as dedupe expects.
-  const unique = lists
-    .flatMap((list) =>
-      dedupe(list.filter((f) => f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after)))
+  const airports = toAirports.filter((a) => a !== from)
+  // One store read per month for all the airports.
+  const perMonth = await Promise.all(months.map((m) => routePairTickets(airports.map((a) => ({ origin: from, destination: a })), m, true, token)))
+  const flights = perMonth.flat().map(ticketToFlight)
+  // Keep each airport/day/price once (dedupe expects one airport per list).
+  const unique = airports
+    .flatMap((a) =>
+      dedupe(flights.filter((f) => f.destination === a && f.departureDate >= window.start && f.departureDate <= window.end && (!window.after || f.departureDate >= window.after)))
     )
     .sort((a, b) => a.price - b.price || a.departureDate.localeCompare(b.departureDate))
   const top = await resolveAirlineNames(unique.slice(0, limit))

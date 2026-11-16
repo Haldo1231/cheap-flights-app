@@ -3,6 +3,7 @@ import { getCountryImage } from '../../lib/countryImagesData'
 import {
   parseAnywhereParams,
   rankCountries,
+  anywhereMonths,
   checkCity,
   toAnywhereCity,
   nameAirlines,
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   if (!countryCode) return badRequest('Missing or invalid country')
 
   const { origins, params } = parseAnywhereParams(searchParams)
-  const { countries } = await rankCountries(origins, token)
+  const { countries } = await rankCountries(origins, anywhereMonths(params), params.oneWay, token)
   const country = countries.find((c) => c.code === countryCode)
 
   if (!country) {

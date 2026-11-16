@@ -2,6 +2,7 @@ import { cachedJson, cleanCode } from '../../lib/apiParams'
 import {
   parseAnywhereParams,
   rankCountries,
+  anywhereMonths,
   checkCityOpenJaw,
   nameAirlines,
   mapWithLimit,
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
   // price provider in these cases.
   if (params.oneWay || params.dateMode === 'month') return cachedJson<AnywhereJawResponse>({ trips: {}, checked: 0 })
 
-  const { countries } = await rankCountries(origins, token)
+  const { countries } = await rankCountries(origins, anywhereMonths(params), params.oneWay, token)
   const cities = countryCode
     ? (countries.find((c) => c.code === countryCode)?.cities.slice(0, MAX_CITIES_PER_COUNTRY) ?? [])
     : countries.slice(0, TOP_N_COUNTRIES).flatMap((c) => c.cities.slice(0, 1))

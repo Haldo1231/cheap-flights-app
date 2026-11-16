@@ -22,8 +22,42 @@ Then open http://localhost:3000. The keys the site needs live in a file called `
 | `CRON_SECRET` | protects the daily deals job |
 | `UNSPLASH_ACCESS_KEY` | only for `npm run images` (country photos) |
 | `PEXELS_API_KEY` | optional: only used by `npm run images` when Unsplash is unavailable |
+| `DEBUG_PRICES_KEY` | optional: turns on `/api/debug-prices` (price checks) |
+| `PRICE_REFRESH_BUDGET_MS` | optional: how long one slice of the nightly price job may run (default 50000 = 50 s; set 250000 when the project's functions may run 300 s) |
+| `PRICE_REFRESH_SELF_URL` | optional: the address the nightly job calls for its next slice (default: the production address Vercel gives) |
 
 Before you publish a change, run `npm run build` and `npm run lint`. Both should finish without errors.
+
+## The price store (where the prices come from)
+
+The site does not ask the price service while a visitor waits. A **nightly job** fills a **price store** in Supabase, and every
+screen reads from it:
+
+- **Tables** (`supabase/price_store.sql`, run once in Supabase → SQL Editor): `price_tickets` (one row = one ticket: airport, city,
+  departure and return time, price in euro, airline, flight number, stops, booking site, the deep link to that ticket, the month it was
+  asked for, where it came from, and `found_at` = when this site got it), `price_coverage` (which route-months are in the store and
+  when they were fetched), `price_runs` and `price_jobs` (the nightly job's log and work list). Only the server can read or write them.
+- **The nightly job** (`/api/cron/refresh-prices`, `vercel.json`, every day at 02:00 UTC): for BTS, VIE, BUD, KSC and PRG and for this
+  month plus the next 3, it asks the price service's "prices for dates" method (v3) for the **month summary** of each airport (every
+  destination with its cheapest ticket, one way and round trip: 2 requests per airport and month), then for every day of the
+  **12 named destinations and the 25 cheapest destinations of each summary** in all three kinds a screen can ask for (round-trip tickets
+  out, one-way tickets out, one-way tickets back from the city). Departed days and old log rows are removed. About 2,700 requests a
+  night, paced under 190 per minute (the service allows about 300 per minute per method).
+  Vercel's Hobby plan runs a cron once a day and limits how long a function may run, so the job works in **slices**: each function call
+  works for 50 s (`PRICE_REFRESH_BUDGET_MS`), writes what it has, and calls itself for the next slice. A run that breaks off is visible
+  in `price_runs` (status, slices, requests, tickets, pending and failed jobs, the last error) and continues on the next call.
+- **Store first, live only as a fallback.** A route-month (or a month summary) that is in the store and younger than **48 h** is shown
+  from the store with no request to the price service. One that is missing or older is fetched live, written to the store (the next
+  visitor reads it from there) and **logged** (`[prices] live fallback for BTS-MIL 2026-12 one way: store missing; 22 tickets`). If the
+  live call fails too, the stored rows are shown with their real age rather than nothing, and that is logged (`live fallback FAILED`).
+  If the store itself cannot be read or written, the live answer is shown directly.
+- **Everything agrees.** The Anywhere overview, a country, a city's calendars and a search all read the same rows through the same
+  functions (`app/lib/priceSource.ts`), so the price on a card is the price on the calendar.
+- **"Price seen X h ago"** on every price is `found_at`: when this site got the ticket (the price service itself lists tickets that
+  Aviasales users found in the last 48 hours, without a time per ticket).
+- **Size:** about 20,000–30,000 tickets alive at a time (replaced nightly, departed days deleted), about 15–25 MB in Supabase in total;
+  the free limit is 500 MB. `/api/debug-prices?key=…&store=1` shows the rows and bytes per table and the last runs.
+- **What a visitor costs the price service** (cold Next cache, store filled, real data): see PROGRESS.md for the before/after table.
 
 ## Country photos
 
@@ -76,9 +110,8 @@ sections:
 - *A city's page (destination search):* unchanged. The round-trip fares come first; under the switch there is one extra line with the cheapest
   trip back to another airport and the difference to the cheapest round trip, linking to the full list "Fly back to a different airport".
 
-Cost (fake price server, about 150 ms per request, cold cache, 5 home airports, 10 countries): the Anywhere overview asks the free price service for
-about 65 (date range) to 115 (exact dates) price requests; with the switch ON about 100 more (one-way lists, cached for an hour like everything
-else) are asked in the second request. A repeat visit within the hour needs none.
+The different-airport trips are two one-way tickets from the price store (out from an airport, back from the city); a route-month that is
+not in the store is fetched live and stored, see "The price store".
 
 **Whole month.**
 - *Anywhere + Whole month:* no switch. It only looks at same-airport round trips. The way to another airport is the button below.
@@ -98,41 +131,34 @@ just empty). Tapping a day lists all of that day's flights to every other airpor
 age. Choosing one shows the combined trip: outbound + return, the total, and one booking button per flight (both Travelpayouts links with
 the affiliate marker, from `buildBookingLink`), plus "Trip details". Everything is in the address: `bm=month`, `bmon` (the month), `bday`
 (the day you tapped), `pick` (the chosen flight), `bx=1` (not back to the airport you left from), plus the outbound flight, the search and
-your Whole month selection (the breadcrumb goes back to it). One month of flights back costs 2 price requests per airport (the one-way list,
-which is shared between months, and that month's calendar). Measured with a fake price server, production build, cold cache: **8 requests**
-for the 4 other airports (4 one-way lists + 4 month calendars), 10 for all 5; the next month you look at costs 4 (the calendars; the lists are
-already cached), and going back to a month you already saw, or repeating the search within an hour, costs 0. In the real click path (Whole month
-page already open, so this month's calendars are cached) the button costs **4 new requests**, and turning the Whole month switch ON costs 5.
+your Whole month selection (the breadcrumb goes back to it). The flights back come from the price store (the one-way tickets from the city to
+each airport, fetched nightly for the named and the cheapest destinations, live and then stored for the others).
 
 ## Whole month, round trip (a city's page)
 
 - **Two calendars at the top:** Departing and Returning. Each day shows the cheapest **one-way** ticket from (Departing) or to
   (Returning) any of your airports. Hover or tap a day to see its airport. Round-trip fares are never shown in a calendar, because the
-  plain calendar answer of Travelpayouts holds round-trip fares: in the one real answer we have (BTS to ROM, October 2026) all 39 days carry
-  a return date. One-way prices come from the one-way list (`/v2/prices/latest?one_way=true`); a row counts as one-way only when it has no
-  return date. A day without a cached one-way ticket stays empty.
+  price service only holds one-way tickets in one-way answers. Each day is the price store's one-way ticket of that day (the nightly job
+  asks for the one-way and the round-trip tickets separately). A day without a cached one-way ticket stays empty.
 - **Best combinations** (below the calendars): round-trip fares and "2 one-way tickets" mixed, cheapest total first, each labelled. The month
   guard, the nights filter and the copy-row filter apply to every pair.
 - **Picking a day in each calendar** gives the total = the sum of the two one-way tickets, with a booking link for each ticket (`buildBookingLink`).
   If a round-trip fare exists for the same two days and costs less, it is shown next to the total as an alternative, with its own link.
-- **Copy rows:** the one-way list sometimes repeats one price on neighbouring days, with no booking site, a flight duration of 0 and a distance
-  of 0. Those rows are dropped (`isCopyRow`), and a calendar entry whose own departure day is not the day it is listed under is dropped too.
-  A price only shows on the day it was really found.
-- **Requests (cold cache, fake price server, five airports, one page load):** 20 before, 30 now. The extra 10 are the one-way lists, five per
-  direction. The round-trip answer and the date-range list reuse the calendar's cache.
-- **Not verified yet:** whether Travelpayouts really returns only one-way rows for `one_way=true`. No real one-way answer is in our history.
-  `/api/debug-prices?key=...&origins=BTS,VIE,BUD,KSC,PRG&destination=PMO&month=2026-12&oneWay=true` shows this, and also how the calendar
-  answers when asked with `one_way=true`.
+- **Copy rows:** the price service's older "latest prices" list repeated one price on neighbouring days (no booking site, duration 0,
+  distance 0). The store is filled from the v3 method, whose real answers had no such rows (checked); the old list is only used by the
+  debug checks, where `isCopyRow` still marks them. A price only shows on the day it was really found.
+- **Checked with real data:** `one_way=true` really returns only one-way tickets (117 of 117 rows on a real route); the v3 round-trip prices
+  per day are identical to the old calendar's; no day outside the asked month.
 
 ## How prices are chosen, and how old they are
 
-All prices come from the free, cached Travelpayouts Data API (always asked for in euro). What the site does with them:
+All prices come from the free, cached Travelpayouts data (always asked for in euro), through the price store (see above). What the site
+does with them:
 
-- **Cheapest valid price.** When a source lists several fares for the same trip (for example one per number of stops), the site takes the
-  lowest price, not the first one listed. A price whose `expires_at` has passed, or that was seen (`found_at`) more than 72 hours ago,
-  is left out. If an answer says it is not in euro, the whole answer is thrown away (a dollar price is never shown with a euro sign).
-- **Age on every price.** Fares show "price seen 6 h ago" when the data says when a traveller saw the price (`found_at`, only the
-  "latest prices" source has it). Otherwise they say "price age not in the data". Nothing is guessed.
+- **Cheapest valid price.** The store keeps, per route, day and return day, the cheapest ticket the price service knows; a screen shows
+  the lowest of them, never the first one listed. A route-month older than 48 hours is refreshed before it is shown. If an answer says it
+  is not in euro, the whole answer is thrown away (a dollar price is never shown with a euro sign).
+- **Age on every price.** Every fare shows "price seen 6 h ago": when this site got the ticket from the price service (`found_at`).
 - **Month searches stay inside the month.** In every Whole month search (the Anywhere overview, a country, a destination) a day only counts when
   the flight out leaves in the searched month, and for a round trip the flight back (a round-trip fare's own return too) must be in the return
   month. The month calendars drop any day outside the asked month (`fetchMonthCalendarDetailed`), and the day pairs check the return month
@@ -143,20 +169,17 @@ All prices come from the free, cached Travelpayouts Data API (always asked for i
 - **A flight is never counted twice.** A fare with a return date is a round-trip fare: ONE price that already pays for both flights. In
   Whole Month (and in Anywhere's whole-month check) such a fare is one pair at its own price; two prices are only added when both are
   one-way prices. The open-jaw search (fly back to another airport) adds two prices, so it only uses one-way prices.
-- **The country screen agrees with the city's page.** Anywhere checks every city from EVERY airport you chose, reading the very same month
-  calendars and fare lists the city's own page uses (`getMonthDaysByOrigin` / `cheapestPerDay` in `app/flightSources.ts`: same requests, same
-  one-hour cache, so opening the city afterwards costs no new request). A city is only "no matching day" when none of your airports has a fare on
-  a matching day. Cost: a city checked on the overview or a country page = 5 airports × 2 requests (Whole month and exact dates: 10, date range:
-  5); a country page opened from the overview needs the same again for each further city, up to 10 cities. Measured on a cold cache in the fake
-  world, a country with 4 cities: 30 new requests in Whole month (one way and round trip), 17 for a date range, 31 for exact dates (the cheapest-looking
-  city was already cached by the overview); opened directly from a shared link: 45, 28 and 47. For a real country with 10 cities count about 90-100
-  (month and exact dates) or 50 (date range). One known difference: in a Whole month round trip the country screen pairs the days inside each
-  airport (a round trip comes back to the airport it left from), while the city page's "Best combinations" may also pair a flight out from one
-  airport with a flight back to another; the country screen can then say "no matching day" for a city whose page lists such a pair.
+- **The country screen agrees with the city's page.** Anywhere ranks every destination the store knows for the searched months (the month
+  summaries: 200–330 destinations per airport instead of the 30 "popular" ones) and checks every city from EVERY airport you chose, reading the
+  very same store rows the city's own page uses (`getMonthDaysByOrigin` in `app/flightSources.ts`). A city is only "no matching day" when none
+  of your airports has a ticket on a matching day. For a Whole month round trip the check uses the same three inputs as the city page (round-trip
+  tickets out, one-way tickets out and back) and takes the cheaper of a round-trip fare and two one-way tickets per airport. One known
+  difference: the country screen pairs the days inside each airport (a round trip comes back to the airport it left from), while the city page's
+  "Best combinations" may also pair a flight out from one airport with a flight back to another.
 - **Still "from €X".** The free data is a cache of what travellers recently searched, so the real price on the booking site can differ.
 
-Checking real prices on the preview (the cloud tool that builds this code cannot reach Travelpayouts): in Vercel, add the environment
-variable `DEBUG_PRICES_KEY` (any long random text) to the Preview environment and redeploy. Then open
+Checking real prices on the preview: in Vercel, add the environment variable `DEBUG_PRICES_KEY` (any long random text) to the Preview
+environment and redeploy. Then open
 `/api/debug-prices?key=YOUR_KEY&origin=BTS&destination=WAW&date=2026-11-09` on the preview address. It asks Travelpayouts live and lists,
 for each source, the fares it returned (price, return date, `found_at`, `expires_at`, whether the site would use it). Without the key the
 page does not exist (404), and the Travelpayouts token is never shown.
@@ -165,7 +188,8 @@ The same tool can look at a whole month, to answer "is this price really there o
 `/api/debug-prices?key=YOUR_KEY&origins=BTS,VIE,BUD,KSC,PRG&destination=PMO&month=2026-12&oneWay=true`. It lists, day by day, what the city
 calendar shows and from which list each price comes, and marks the entries of the "latest prices" list that LOOK LIKE COPIES (no booking site,
 flight duration 0 and distance 0: the pattern of the filler rows seen in real answers, the same price repeated on neighbouring dates). Start with
-`pattern` and `readThis` at the top. It only reads; it changes nothing on the site.
+`pattern` and `readThis` at the top. It only reads; it changes nothing on the site. With `store=1` instead it shows the price store: rows
+and bytes per table and the last runs of the nightly job.
 
 ## Budget ("I want to go, max 300 EUR")
 

@@ -2,7 +2,7 @@
 // the pages use. Everything here is best effort: when something is missing or slow the
 // caller falls back to the plain brand picture. Server code only.
 
-import { parseAnywhereParams, rankCountries, checkCity, checkCityOpenJaw } from '../anywhereSearch'
+import { parseAnywhereParams, rankCountries, anywhereMonths, checkCity, checkCityOpenJaw } from '../anywhereSearch'
 import { getCheapestFare } from '../flightSources'
 import { getCityInfo } from '../geoData'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
@@ -29,7 +29,7 @@ export async function countryShareCard(sp: URLSearchParams): Promise<OgCard | nu
   if (!code) return null
   const token = process.env.TRAVELPAYOUTS_TOKEN
   const { origins, params } = parseAnywhereParams(sp)
-  const { countries } = await rankCountries(origins, token)
+  const { countries } = await rankCountries(origins, anywhereMonths(params), params.oneWay, token)
   const country = countries.find((c) => c.code === code)
   if (!country) return null
   // The same trip the country's card shows: with the "fly back to a different airport" switch on (exact dates / date range

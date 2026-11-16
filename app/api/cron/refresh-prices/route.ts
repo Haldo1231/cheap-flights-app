@@ -3,6 +3,7 @@ import { HOME_AIRPORTS } from '../../../homeAirports'
 import { DESTINATIONS } from '../../../destinationsList'
 import { fetchMonthSummary, fetchRouteMonth } from '../../../lib/tpV3'
 import { mapWithLimit } from '../../../lib/pool'
+import { coveredMonths } from '../../../lib/priceSource'
 import {
   addJobs,
   claimJobs,
@@ -21,11 +22,11 @@ import {
 } from '../../../lib/priceStore'
 
 // The nightly price refresh (vercel.json): fills the price store for BTS, VIE, BUD, KSC and PRG.
-//  1. For every airport and month (this month and the next MONTHS_AHEAD): the month summary, every destination with its
+//  1. For every airport and month (this month and the next MONTHS_AHEAD of priceSource): the month summary, every destination with its
 //     cheapest ticket, one way and round trip (2 requests per airport and month).
-//  2. For the destinations the site names and the TOP_PER_SUMMARY cheapest of each summary: every day of the route-month.
-//     For the named ones and the RETURN_TOP cheapest: also the one-way flights BACK (city to home airport), which the
-//     return calendars, "find a flight back" and the different-airport trips need.
+//  2. For the destinations the site names and the TOP_PER_SUMMARY cheapest of each summary: every day of the route-month,
+//     in all three kinds a screen can ask for (round-trip tickets out, one-way tickets out, one-way tickets BACK from the
+//     city to the home airport), so a default search is answered from the store alone.
 //  3. Tickets of departed days and old log rows are removed.
 // A run is a list of jobs in the store (price_jobs), worked in time-boxed slices: when the budget of one function call is
 // used up and work remains, the function calls itself for the next slice (`?run=ID`). So it fits both the 60 s and the
@@ -36,9 +37,7 @@ import {
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-const MONTHS_AHEAD = 3
-const TOP_PER_SUMMARY = 30
-const RETURN_TOP = 10
+const TOP_PER_SUMMARY = 25
 const MIN_GAP_MS = 320 // ≤ ~190 requests per minute
 const WORKERS = 3
 const CLAIM = 12
@@ -48,17 +47,6 @@ const STALE_RUN_MS = 30 * 60e3
 const DEFAULT_BUDGET_MS = 50_000
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-function monthOf(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-}
-
-/** This month and the next MONTHS_AHEAD months (YYYY-MM). */
-export function monthsToCover(now = new Date()): string[] {
-  const out: string[] = []
-  for (let i = 0; i <= MONTHS_AHEAD; i++) out.push(monthOf(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 1))))
-  return out
-}
 
 function summaryJobs(months: string[]): NewJob[] {
   const jobs: NewJob[] = []
@@ -77,7 +65,7 @@ export async function GET(request: Request) {
   const timeLeft = () => budget - (Date.now() - started)
   const url = new URL(request.url)
   const now = new Date()
-  const months = monthsToCover(now)
+  const months = coveredMonths(now)
   const namedDestinations = DESTINATIONS.map((d) => d.code)
 
   // The run: continue the one named in the address, or start a new one (unless one is still running).
@@ -118,8 +106,8 @@ export async function GET(request: Request) {
     requests++
     const answer =
       job.kind === 'summary'
-        ? await fetchMonthSummary(job.origin, job.month, job.one_way, token)
-        : await fetchRouteMonth(job.origin, job.destination ?? '', job.month, job.one_way, token)
+        ? await fetchMonthSummary(job.origin, job.month, job.one_way, token, { fresh: true })
+        : await fetchRouteMonth(job.origin, job.destination ?? '', job.month, job.one_way, token, 'route-month', { fresh: true })
     if (!answer.ok) {
       const attempts = job.attempts + 1
       lastError = `${job.kind} ${job.origin}-${job.destination ?? '*'} ${job.month} ${job.one_way ? 'one way' : 'round trip'}: ${answer.error}`
@@ -144,12 +132,12 @@ export async function GET(request: Request) {
         .map((t) => t.destination)
       const wanted = new Set<string>([...namedDestinations, ...cheapest.slice(0, TOP_PER_SUMMARY)])
       wanted.delete(job.origin)
-      const routeJobs: NewJob[] = Array.from(wanted).map((destination) => ({ kind: 'route', origin: job.origin, destination, month: job.month, one_way: job.one_way }))
-      if (job.one_way) {
+      const routeJobs: NewJob[] = []
+      for (const destination of wanted) {
+        routeJobs.push({ kind: 'route', origin: job.origin, destination, month: job.month, one_way: true })
+        routeJobs.push({ kind: 'route', origin: job.origin, destination, month: job.month, one_way: false })
         // The way back is always a one-way ticket from the city to the home airport (a round-trip ticket already holds its return).
-        const back = new Set<string>([...namedDestinations, ...cheapest.slice(0, RETURN_TOP)])
-        back.delete(job.origin)
-        for (const city of back) routeJobs.push({ kind: 'route', origin: city, destination: job.origin, month: job.month, one_way: true })
+        routeJobs.push({ kind: 'route', origin: destination, destination: job.origin, month: job.month, one_way: true })
       }
       const err = await addJobs(runId as number, routeJobs)
       if (err) lastError = `planning routes: ${err}`

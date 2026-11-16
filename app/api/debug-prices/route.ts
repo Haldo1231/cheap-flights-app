@@ -3,6 +3,7 @@ import { cleanCode, cleanCodes, cleanDate, cleanMonth } from '../../lib/apiParam
 import { monthDiagnosis } from '../../lib/debugMonth'
 import { currencyIsEuro, isFreshPrice } from '../../flightSources'
 import { priceAgeText } from '../../lib/priceAge'
+import { tpFetch } from '../../lib/travelpayouts'
 
 // A checking tool for the owner, to compare what Travelpayouts really answers with what the site shows.
 // It is OFF unless DEBUG_PRICES_KEY is set (in Vercel: Settings > Environment Variables). Open
@@ -20,7 +21,7 @@ async function ask(label: string, path: string, params: Record<string, string>, 
   const query = new URLSearchParams({ ...params, currency: 'eur' })
   const shown = `https://api.travelpayouts.com${path}?${query.toString()}`
   try {
-    const res = await fetch(`${shown}&token=${token}`, { cache: 'no-store' })
+    const res = await tpFetch(shown, token, { cache: 'no-store' })
     if (!res.ok) return { label, url: shown, status: res.status, error: 'request failed' }
     const json = (await res.json()) as Raw
     const entries = pick(json)

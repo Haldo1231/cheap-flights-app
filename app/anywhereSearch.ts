@@ -26,6 +26,7 @@ import {
   type Flight,
 } from './flightSources'
 import { getCityInfoForCodes } from './geoData'
+import { tpFetch } from './lib/travelpayouts'
 import { getAirlineNames } from './airlines'
 import { parseDays, dayOfWeek, findBestCombinations, matchesWeekdays, type Combination } from './weekdays'
 import { calendarDayToFare } from './lib/trip'
@@ -109,8 +110,8 @@ type CountryGroup = {
 
 async function fetchCityDirections(origin: string, token: string | undefined) {
   try {
-    const url = `https://api.travelpayouts.com/v1/city-directions?origin=${origin}&currency=eur&token=${token}`
-    const res = await fetch(url, { next: { revalidate: 3600 } })
+    const url = `https://api.travelpayouts.com/v1/city-directions?origin=${origin}&currency=eur`
+    const res = await tpFetch(url, token, { next: { revalidate: 3600 } })
     if (!res.ok) return []
     const json = await res.json()
     if (!currencyIsEuro(json)) return []

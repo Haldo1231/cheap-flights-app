@@ -546,3 +546,27 @@ month), deals, destinations, trips, guides, about, disclosure, a missing page; e
 - Whole month, one way: the calendar shows prices without an age; the age appears once a day is picked (the fare list). By design.
 
 **Checks:** type-check, lint and `npm run build` pass; the crawl was run again on the fixed build: 124 page checks, 118 clean; the 6 remaining are the four expected 404 console lines of the missing page, one contrast false alarm (one of four variants this time, 0 on a scan after the animation) and one timeout of the exact-date round trip at phone width in dark mode that passed on a rerun (the store read from the workspace took longer than the test allows). 0 booking links without the marker, no overflow, no broken pictures, no placeholder text, "price seen" shown on every screen that shows a fare.
+
+# Phase 3 (branch `feature/phase3`, 16 Nov 2026)
+**1. Specific days within a date range: already covered, verified with real data, nothing added.** The search form shows the two
+"Only specific days" switches (departure days, return days) in Date range mode; the days travel in the address (`outDays`, `backDays`);
+`/api/compare` (date range), the different-airport pairing and Anywhere all apply the one shared rule (`matchesWeekdays`). Test through
+the form (1–31 Dec, round trip, Barcelona, depart only Fri, return only Sun, from all 5 airports): the address carried `outDays=5&backDays=0`,
+the results box said "Depart Fri · Return Sun", all 8 fares left on a Friday and came back on a Sunday (85 fares without the limit), all
+30 different-airport pairs kept the days, Anywhere's 10 checked cities kept the days, one way kept only Fridays (13 fares).
+Exact dates ignore weekdays on purpose (the person picked the day).
+
+**2. Dark mode one step lighter.** Only the `--dark-*` block in `app/globals.css` changed (plus the phone's address-bar colour in
+`app/layout.tsx`): page #141E36 → #1E2A46, card #1D2944 → #28375A, inner box #27355A → #344675, border #364565 → #475A86,
+secondary text #B4BCCD → #C4CBDA, header/footer/hero #0E172D → #141F38, buttons #36518A → #3F5C9C. Every text colour keeps at least
+4.5:1 on the backgrounds it is used on (computed: main text 7.9–14.1, secondary text 5.7–10.1, amber prices 4.6–8.1); the accessibility
+scan of 52 page checks (7 flows × desktop/phone × light/dark) found 0 problems. The old values are listed in the comment above the
+block, so going back (or one step further) is a 10-line edit. Before/after pictures were sent in the session (home, exact-date results).
+
+**3. Booking links: every flight button goes through `buildBookingLink` with marker 765816.** Code review: every `bookingUrl` on every
+screen (results list, open-jaw pairs, Whole month, trip page, flights back, deals, the old `/anywhere` page, share data) is built by
+`buildBookingLink` (`app/aviasalesLink.ts`), which always wraps the Aviasales address in `tp.media/r?...marker=765816...`; no other
+file writes an Aviasales address. In the browser: 267 flight links on 9 screens with real data (exact round trip, exact one way, date
+range with the different-airport pairs, Whole month with picked days, trip detail, flights back, the old Anywhere page) all point to
+tp.media with marker 765816 and an aviasales.com address inside; the Phase 2 crawl (124 page checks) found 0 links without it.
+Hostel links are the hostels' own booking links (not flights).

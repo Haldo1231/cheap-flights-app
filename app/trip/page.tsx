@@ -23,6 +23,7 @@ import ScrollTopOnArrive from '../components/ScrollTopOnArrive'
 import PriceAge from '../components/PriceAge'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../components/CostOfStay'
 import { parseBudget, parseLevel } from '../lib/budget'
+import { makeSubId, withSubId } from '../lib/subId'
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
@@ -127,9 +128,13 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
   const outLeg = legFrom(trip.outbound, names)
   const backLeg = trip.inbound ? legFrom(trip.inbound, names) : null
   const isFare = trip.kind === 'fare'
-  const roundTripLink = trip.inbound
-    ? buildBookingLink(homeOut, destination, trip.outbound.date, trip.inbound.date)
-    : outLeg.bookingUrl
+  // Travelpayouts SubID of this page's booking links: one fare (round trip or one way) or two one-way tickets.
+  const tripSubId = makeSubId('trip', isFare ? (trip.inbound ? 'rt' : 'ow') : trip.inbound ? 'two' : 'ow', homeOut)
+  const returnOnlySubId = makeSubId('trip', 'ow', trip.inbound?.destination ?? homeOut)
+  const roundTripLink = withSubId(
+    trip.inbound ? buildBookingLink(homeOut, destination, trip.outbound.date, trip.inbound.date) : outLeg.bookingUrl,
+    tripSubId
+  )
 
   // Other cached flights on the same two days (the picked one is left out).
   const sameFlight = (f: { price: number; departureTime: string | null }, price: number | null, time: string | null) =>
@@ -205,13 +210,14 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                 Your flights
               </h2>
               <div className="divide-y divide-line">
-                <FlightLeg label="Outbound" leg={outLeg} price={isFare ? null : trip.outbound.price} searchLinkLabel={!isFare ? 'Book outbound →' : undefined} />
+                <FlightLeg label="Outbound" leg={outLeg} price={isFare ? null : trip.outbound.price} searchLinkLabel={!isFare ? 'Book outbound →' : undefined} subId={tripSubId} />
                 {backLeg && (
                   <FlightLeg
                     label="Return"
                     leg={backLeg}
                     price={isFare ? null : trip.inbound?.price ?? null}
                     searchLinkLabel={!isFare ? 'Book return →' : 'Return flight only (one-way search)'}
+                    subId={isFare ? returnOnlySubId : tripSubId}
                   />
                 )}
               </div>
@@ -256,11 +262,11 @@ export default async function TripPage({ searchParams }: { searchParams: SearchP
                   </a>
                 ) : (
                   <>
-                    <a href={outLeg.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
+                    <a href={withSubId(outLeg.bookingUrl, tripSubId)} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                       Book outbound →
                     </a>
                     {backLeg && (
-                      <a href={backLeg.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
+                      <a href={withSubId(backLeg.bookingUrl, tripSubId)} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                         Book return →
                       </a>
                     )}

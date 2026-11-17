@@ -15,6 +15,7 @@ import { HOME_AIRPORTS } from '../homeAirports'
 import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
 import { formatMonth } from '../lib/format'
 import { validateSearch, todayString, MAX_NIGHTS, MAX_RANGE_DAYS, type SearchErrors } from '../lib/searchValidation'
+import { trackEvent } from '../lib/siteEvents'
 
 const CARD = 'surface mb-5 p-4 sm:p-5'
 const INPUT = 'field'
@@ -284,6 +285,7 @@ export default function SearchForm() {
     // Budget (optional): only written when set, and the spending style only when it is not the usual one.
     if (!oneWay) for (const [key, value] of Object.entries(budgetParams(budget, level))) if (value !== null) params.set(key, value)
 
+    trackEvent({ name: 'search', mode: dateMode, trip: oneWay ? 'ow' : 'rt', anywhere: isAnywhere })
     router.push(`/results?${params.toString()}`)
   }
 

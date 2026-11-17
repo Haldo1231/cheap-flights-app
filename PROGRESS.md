@@ -623,3 +623,23 @@ after the answer); that is expected. Nothing to set on Vercel (`PRICE_RUN_STUCK_
 **Note:** while testing, Next.js 16.4.2 printed a security notice for agent-run builds (advisory GHSA-mfr8-8qww-v76h, moderate,
 `use cache` + `unstable_cache`, fixed in 16.4.5). This site uses neither, so it is not affected; updating Next.js is a separate,
 optional change.
+# Know what earns money, phase 1: SubIDs and counts (branch `feature/subid-analytics`, 17 Nov 2026)
+**Checked first (no guessing):** Travelpayouts' help centre (article 203955653): a SubID may use only Latin letters, digits and `_`,
+up to 4096 characters; statistics per SubID are in Reports → Performance (filter or "Group by SubID": clicks, bookings, conversion,
+earnings). Travelpayouts' own link API (POST /links/v1/create with our project 588622 and marker 765816) returned exactly our link
+with `sub_id=` added, and tp.media redirects such a link to Aviasales with the marker. Vercel's docs (limits and pricing): Hobby =
+page views only, 50,000 events a month across all projects, 1 month of data, no custom events (Pro: custom events with 2 properties).
+
+**Built:** SubID `page_trip_airport` on every booking link (`app/lib/subId.ts`), Vercel Web Analytics for page views (new package
+`@vercel/analytics` 2.0.1, approved in the plan), and the site's own "search" and "book_click" events in a new `site_events` table
+(`supabase/site_events.sql`, **for the owner to run once**) with counts at `/api/debug-prices?key=…&events=1`.
+
+**Tested with real data in a browser (13 of 13):** every booking link on every screen carries the expected SubID: exact round trip
+(results_rt_*, results_ow_* for the "return flight only" link), exact one way, date range with 260 links incl. the different-airport
+pairs, the city page's calendars (citycal_two_bts) and a "Best combinations" pick (combos_two_bts, address gets `via=combo`), trip
+detail (trip_rt_bud, trip_ow_bud), flights back (back_two_bts), the old Anywhere page, deals, a destination page; a click sends
+`{"name":"book_click","subId":"results_rt_bud"}`; the search form sends `{"name":"search","mode":"month","trip":"rt","anywhere":false}`
+(and nothing when the form refuses to search). A real tp.media link with deep link + SubID answered 302 to the exact Aviasales ticket
+with marker 765816. Without the table, /api/event answers 204 and logs one warning.
+**Owner:** run `supabase/site_events.sql`; switch on Vercel → Analytics → Enable. Three test clicks from 17 Nov show in Travelpayouts
+(SubIDs `citycal_rt_bts`, `deals_rt_bud` and one without a SubID).

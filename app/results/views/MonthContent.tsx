@@ -59,7 +59,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   const jawFailed = jawOn && m.returnError
 
   function pickDay(leg: 'out' | 'back', date: string) {
-    p.setParams(leg === 'out' ? { out: date, of: null } : { back: date, bf: null })
+    p.setParams(leg === 'out' ? { out: date, of: null, via: null } : { back: date, bf: null, via: null })
     setDrawer(leg)
   }
 
@@ -69,16 +69,16 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
     const out = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
     if (combo.kind === 'fare' || !combo.back) {
       // One round-trip fare covers both flights: only the outbound fare is picked, the return comes with it.
-      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: null })
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: null, via: 'combo' })
     } else {
       const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
-      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id })
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id, via: 'combo' })
     }
     setDrawer(null)
   }
 
   function pickFlight(leg: 'out' | 'back', fare: Fare) {
-    p.setParams(leg === 'out' ? { of: fare.id } : { bf: fare.id })
+    p.setParams(leg === 'out' ? { of: fare.id, via: null } : { bf: fare.id, via: null })
     setDrawer(null)
   }
 

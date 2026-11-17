@@ -4,8 +4,9 @@
 
 import { BUDGET_KEYS } from '../budgetConfig'
 
-/** Query keys that hold a chosen day/flight in Whole Month mode. */
-export const SELECTION_KEYS = ['out', 'of', 'back', 'bf'] as const
+/** Query keys that hold a chosen day/flight in Whole Month mode. `via=combo`: the pick came from "Best combinations" (only used
+ * for the SubID of the booking links, lib/subId.ts). */
+export const SELECTION_KEYS = ['out', 'of', 'back', 'bf', 'via'] as const
 
 /** Query keys that describe the drill-down level. */
 export const LEVEL_KEYS = ['anywhere', 'country', 'destination', 'fromCountry'] as const

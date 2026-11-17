@@ -70,6 +70,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
     return (
       <FareCard
         key={fare.id}
+        linkPage="results"
         fare={fare}
         isCheapest={fare.id === cheapestId}
         isPreviewed={fare.id === shownId}

@@ -12,6 +12,7 @@ import { tripHref } from '../../lib/tripUrl'
 import type { CompareResponse, OpenJawCombo } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import BudgetEmpty from '../BudgetEmpty'
+import { makeSubId, withSubId } from '../../lib/subId'
 
 export type OpenJawResponse = Extract<CompareResponse, { openJaw: true }>
 
@@ -60,7 +61,7 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
           {data.outboundOnly.map((leg) => (
             <li key={`${leg.origin}-${leg.date}-${leg.price}`} className="surface px-4 py-2">
               <FlightLeg label="Outbound" leg={leg} price={leg.price} />
-              <a href={leg.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={`${BOOK_BUTTON} mb-2`}>
+              <a href={withSubId(leg.bookingUrl, makeSubId('results', 'ow', leg.origin))} target="_blank" rel="noopener noreferrer sponsored" className={`${BOOK_BUTTON} mb-2`}>
                 Book outbound →
               </a>
             </li>
@@ -126,10 +127,10 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
                 </p>
               </DrillLink>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pb-4 pt-2 sm:px-5">
-                <a href={combo.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
+                <a href={withSubId(combo.outbound.bookingUrl, makeSubId('results', 'two', combo.outbound.origin))} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                   Book outbound →
                 </a>
-                <a href={combo.inbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
+                <a href={withSubId(combo.inbound.bookingUrl, makeSubId('results', 'two', combo.outbound.origin))} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                   Book return →
                 </a>
                 <DrillLink

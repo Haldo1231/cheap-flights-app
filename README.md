@@ -64,6 +64,26 @@ screen reads from it:
   the free limit is 500 MB. `/api/debug-prices?key=…&store=1` shows the rows and bytes per table and the last runs.
 - **What a visitor costs the price service** (cold Next cache, store filled, real data): see PROGRESS.md for the before/after table.
 
+## What earns money: SubIDs and site counts
+- **SubID on every booking link.** Every flight button carries a Travelpayouts SubID that says where the click came from:
+  `page_trip_airport`, for example `citycal_two_bts` (the city page's calendars, two one-way tickets, from Bratislava) or
+  `trip_rt_vie`. Pages: `anywhere` (the "Where can I fly cheaply?" page), `country`, `citycal`, `combos` (picked from "Best
+  combinations"), `trip`, `deals`, `dest` (a destination page), `guide`, `results` (exact dates and date range, including the
+  different-airport pairs), `back` ("Find a flight back"). Trips: `ow` one way, `rt` round trip, `two` two one-way tickets. Airport:
+  the home airport the trip starts from. `country` and `guide` have no booking buttons yet; the names are ready for them.
+  Travelpayouts allows only letters, digits and `_`; the SubID is the `sub_id=` parameter of the tp.media link (`app/lib/subId.ts`).
+- **Where to see what earns money:** Travelpayouts → Reports → Performance. Type a SubID in the SubID field, or use **Group by
+  SubID** for one line per SubID with clicks, bookings, conversion rate and earnings.
+- **Page views:** Vercel Web Analytics (`<Analytics />` in `app/layout.tsx`). Switch it on once in Vercel → the project →
+  Analytics → Enable. No cookies, so no consent banner. The Hobby plan includes 50,000 events a month for all your projects
+  together and keeps one month of data; when the limit is reached, counting pauses (no bill). Custom events are a Pro feature, so
+  the site counts its two events itself:
+- **Our own counts** (`supabase/site_events.sql`, run it ONCE in the Supabase SQL editor): "search" (date mode, one way or round
+  trip, Anywhere or a city) when the search form is sent, and "book_click" (the SubID) when a booking link is clicked. No cookies, no
+  IP address, no browser details. See them at `/api/debug-prices?key=YOUR_KEY&events=1` (optional `&days=7`): totals, per day,
+  clicks per page / trip type / airport / SubID, and clicks per search. Until the SQL is run the site works normally and logs one
+  warning.
+
 ## Country photos
 
 The Anywhere results show one photo per country. The photos are chosen **ahead of time** by a script and saved in

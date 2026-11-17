@@ -571,6 +571,58 @@ range with the different-airport pairs, Whole month with picked days, trip detai
 tp.media with marker 765816 and an aviasales.com address inside; the Phase 2 crawl (124 page checks) found 0 links without it.
 Hostel links are the hostels' own booking links (not flights).
 
+# Nightly price run stuck + empty deals page (branch `fix/price-run-watchdog`, 17 Nov 2026)
+**What happened to run 3 (the first chained run on Vercel; runs 1 and 2 on 15 Nov ran from the cloud workspace, not on Vercel).**
+Evidence: `price_runs` / `price_jobs` and Supabase's own request log (Logs → API Gateway, kept 1 day). Vercel's runtime logs could
+not be read: the Hobby plan keeps them for 1 hour, so the logs of 02:26 and 06:00 were already deleted.
+- 02:26:39 the cron started run 3. Slices 1–5 worked (every ~47 s; each new slice read the run row 0.2–0.4 s after the previous
+  slice saved it), 624 jobs done, every database request answered 200/201/204, no job with an error.
+- 02:30:32.913 slice 5 saved its counts and asked for slice 6. **After that, not a single request reached the database** (checked
+  02:30–02:45 and the rest of the night). A new slice's first action is reading the run row, so slice 6 never ran its code.
+- Why the call got lost cannot be proven without Vercel's log. What is certain: the address, the secret and the deployment
+  protection were fine (the same call worked four times that night); Supabase was not the cause (all answers normal; today's
+  incidents were in ap-northeast-2 and sa-east-1, this project is in eu-west-1); no deployment happened then (last merge 16 Nov).
+  The weakness in the design was: the call for the next slice was let go after 3 s without knowing whether it arrived, and nothing
+  looked at a stopped run until the next night.
+- Finished from the workspace (same chain, 15 more slices): run 3 **done at 12:09 UTC, 20 slices, 2,253 requests, 23,927 tickets,
+  0 failed jobs**, 508 departed tickets removed.
+
+**The deals page.** The 06:00 deals job DID work: at 06:03:43 it deleted the old rows and stored 6 new ones (Supabase log: DELETE 204,
+POST 201, from Vercel, Ashburn). The page `/deals` is rebuilt at most once an hour and only when someone visits it. Its saved version
+came from the 16 Nov 18:14 deployment, when the table was empty, so it kept saying "No deals yet". Nobody visited it between 06:03
+and 11:45; the 11:45 visit got the old page and triggered the rebuild (that rebuild read 6 rows). Found on the way: the
+`airports` table had only BTS, VIE, BUD and KSC, and `weekly_deals.origin` must name one of them, so a day with a Prague deal in the
+top 6 would have made the whole insert fail, and because the job deleted first, the page would have been empty. Prague was added to
+the table (one row). Also seen, harmless: Supabase's gateway refuses 1 of a burst of 16 parallel coverage reads now and then
+(PGRST303); the site fetches that month summary live instead.
+
+**Changes (this branch):**
+- `app/lib/priceRun.ts` + `/api/cron/refresh-prices`: a slice answers **202 "accepted" first and works afterwards** (`after()`, same
+  300 s limit), so the slice before it KNOWS the hand-over arrived; no 202 → tried again (3 tries, pauses 3 s and 10 s). A slice that
+  cannot read its run or job counts hands over instead of finishing the run on wrong numbers. Failed jobs get 2 more tries at the end
+  of the run (5 in total). Notes in `price_runs` say what happened ("hand-over failed …", "resumed by the watchdog …").
+- **Watchdog**: a running run with no finished job for 30 min is resumed by the deals cron at 06:00 (`resumeStuckRun`) or by the next
+  nightly call; older than 20 h it is given up and the nightly call starts a fresh one. No third cron needed.
+- `/api/cron/generate-deals`: adds missing home airports to `airports`, stores the new deals BEFORE deleting the old ones (a failed
+  insert keeps yesterday's deals), then `revalidatePath('/deals')` so the page shows them on the next visit.
+
+**Tested against the real store (run 4, from the workspace, with a 1-minute stuck limit for the test):**
+| test | result |
+|---|---|
+| hand-over to a dead address | 3 tries, note "hand-over failed: try 1 … try 3 … (the watchdog resumes the run)" |
+| nightly call while the run is fresh | 409 "a run is in progress" |
+| nightly call after 1 min without progress | 202 "resumed", slice 2 ran |
+| deals job with a stuck run | 200 in 5.4 s: 6 deals stored, 6 old removed, /deals refreshed, "run 4 … next slice started" |
+| /deals right after the job | first visit rebuilt (1.9 s) with the 6 deals, second from cache (5 ms); no "No deals yet" |
+| a job failed 3 times (simulated) | put back at the end ("1 failed jobs put back for another try"), done on try 4 |
+| the whole test run after the watchdog | **done** by itself: 23 slices, 2,262 requests, 24,064 tickets, 0 failed jobs, every hand-over confirmed |
+
+**What to check after merging:** tomorrow's `price_runs` row: status `done`; a note "resumed by the watchdog" means a hand-over was
+lost and recovered at 06:00. `/deals` should show 6 deals. The Vercel cron log for refresh-prices now shows `202` (the slice works
+after the answer); that is expected. Nothing to set on Vercel (`PRICE_RUN_STUCK_MINUTES` is only for tests).
+**Note:** while testing, Next.js 16.4.2 printed a security notice for agent-run builds (advisory GHSA-mfr8-8qww-v76h, moderate,
+`use cache` + `unstable_cache`, fixed in 16.4.5). This site uses neither, so it is not affected; updating Next.js is a separate,
+optional change.
 # Know what earns money, phase 1: SubIDs and counts (branch `feature/subid-analytics`, 17 Nov 2026)
 **Checked first (no guessing):** Travelpayouts' help centre (article 203955653): a SubID may use only Latin letters, digits and `_`,
 up to 4096 characters; statistics per SubID are in Reports → Performance (filter or "Group by SubID": clicks, bookings, conversion,

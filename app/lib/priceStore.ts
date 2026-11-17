@@ -203,16 +203,48 @@ export async function claimJobs(runId: number, limit: number): Promise<PriceJob[
   return data as PriceJob[]
 }
 
+/** When the run last finished a job (or null when none is finished yet): how a stuck run is told from a working one. */
+export async function lastJobDoneAt(runId: number): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('price_jobs')
+    .select('done_at')
+    .eq('run_id', runId)
+    .not('done_at', 'is', null)
+    .order('done_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return error || !data ? null : ((data as { done_at: string | null }).done_at ?? null)
+}
+
+/** Puts the failed jobs of a run back in the queue for one more try each, as long as they have had fewer than `maxAttempts`
+ * tries. Returns how many were put back (0 on a store error). */
+export async function requeueFailedJobs(runId: number, maxAttempts: number): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from('price_jobs')
+    .update({ status: 'pending', done_at: null })
+    .eq('run_id', runId)
+    .eq('status', 'failed')
+    .lt('attempts', maxAttempts)
+    .select('id')
+  return error || !data ? 0 : data.length
+}
+
 export async function finishJob(id: number, status: PriceJob['status'], attempts: number, error: string | null): Promise<void> {
   await supabaseAdmin.from('price_jobs').update({ status, attempts, error, done_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id)
 }
 
-export async function countJobs(runId: number): Promise<{ pending: number; failed: number }> {
+/** How many jobs of a run are pending and failed. `ok` is false when the store did not answer (the counts are then 0 and
+ * must not be taken as "nothing left"). */
+export async function countJobs(runId: number): Promise<{ pending: number; failed: number; ok: boolean }> {
+  let ok = true
   const count = async (status: string) => {
-    const { count } = await supabaseAdmin.from('price_jobs').select('*', { count: 'exact', head: true }).eq('run_id', runId).eq('status', status)
+    const { count, error } = await supabaseAdmin.from('price_jobs').select('*', { count: 'exact', head: true }).eq('run_id', runId).eq('status', status)
+    if (error || count === null) ok = false
     return count ?? 0
   }
-  return { pending: await count('pending'), failed: await count('failed') }
+  const pending = await count('pending')
+  const failed = await count('failed')
+  return { pending, failed, ok }
 }
 
 /** Removes what can no longer be shown or is no longer needed. Returns one line per step for the log. */

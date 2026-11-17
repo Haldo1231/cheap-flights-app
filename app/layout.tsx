@@ -3,6 +3,8 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import SiteHeader from './components/SiteHeader'
 import SiteFooter from './components/SiteFooter'
+import { Analytics } from '@vercel/analytics/next'
+import SiteEvents from './components/SiteEvents'
 
 const plexSans = IBM_Plex_Sans({
   variable: '--font-sans',
@@ -67,6 +69,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        <SiteEvents />
+        <Analytics />
       </body>
     </html>
   )

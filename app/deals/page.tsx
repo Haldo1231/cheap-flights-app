@@ -101,6 +101,7 @@ export default async function DealsPage() {
             {deals.map((deal, i) => (
               <FareCard
                 key={deal.id}
+                linkPage="deals"
                 fare={fares[i]}
                 isCheapest={i === 0}
                 shareHref={`/destinations/${deal.destination_slug}`}

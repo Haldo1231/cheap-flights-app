@@ -49,6 +49,7 @@ export default async function AnywherePage() {
             {results.map(({ destination, fare }, i) => (
               <FareCard
                 key={destination.code}
+                linkPage="anywhere"
                 fare={fare}
                 isCheapest={i === 0}
                 shareHref={`/destinations/${destination.slug}`}

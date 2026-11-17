@@ -24,6 +24,7 @@ import { withParams } from '../lib/resultsUrl'
 import { useJson } from '../lib/useJson'
 import type { Fare, Leg } from '../tripTypes'
 import type { ReturnFlightsResponse } from '../api/return-flights/route'
+import { makeSubId, withSubId } from '../lib/subId'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const MAX_SPAN_DAYS = 90
@@ -159,10 +160,10 @@ function CombinedTrip({
         </details>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        <a href={out.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-amber">
+        <a href={withSubId(out.bookingUrl, makeSubId('back', 'two', out.origin))} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-amber">
           Book outbound →
         </a>
-        <a href={back.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-amber">
+        <a href={withSubId(back.outbound.bookingUrl, makeSubId('back', 'two', out.origin))} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-amber">
           Book return →
         </a>
         <Link href={detailsHref} className="btn btn-outline">

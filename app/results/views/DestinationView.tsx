@@ -193,6 +193,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     dates: departDate ? `${formatShortDate(departDate)}${returnDate ? ` → ${formatShortDate(returnDate)}` : ''}` : null,
     summary: isMonth ? (
       <TripSummary
+        linkPage={new URLSearchParams(p.searchString).get('via') === 'combo' ? 'combos' : 'citycal'}
         oneWay={oneWay}
         outbound={month.selectedOutFare}
         inbound={month.selectedBackFare}

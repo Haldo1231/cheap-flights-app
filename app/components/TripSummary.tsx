@@ -6,6 +6,7 @@ import type { MonthSelection } from '../lib/trip'
 import { formatDay } from '../lib/format'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
+import { makeSubId, withSubId, type LinkPage } from '../lib/subId'
 
 type Props = {
   oneWay: boolean
@@ -28,22 +29,27 @@ type Props = {
   jawBack?: { href: string | null; note: string } | null
   /** Round trip: a round-trip fare for the same two days that costs less than the two one-way tickets picked. Shown next to the total. */
   roundTripAlt?: { fare: Fare; price: number; difference: number } | null
+  /** Where the picked days came from: the calendars or the "Best combinations" list (the SubID of the booking links). */
+  linkPage?: LinkPage
 }
 
 /** The flights picked so far in Whole Month mode, with what is still missing. */
-export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, findBackHref, selection, jawBack, roundTripAlt }: Props) {
+export default function TripSummary({ oneWay, outbound, inbound, outDate, backDate, outLoading, backLoading, detailsHref, findBackHref, selection, jawBack, roundTripAlt, linkPage = 'citycal' }: Props) {
   const noteId = useId()
   const total = selection.total
   // The outbound flight shown: the picked fare, or (a flight back that is a ticket of its own) the one-way fare standing in for a round-trip one.
   const shownOut = selection.outFare ?? outbound
   const roundTripFare = !oneWay && !!shownOut?.inbound
+  // The trip starts from the outbound's home airport; separate tickets on a round trip are "two one-way tickets".
+  const homeAirport = shownOut?.outbound.origin ?? null
+  const ticketSubId = makeSubId(linkPage, oneWay ? 'ow' : 'two', homeAirport)
 
   return (
     <section aria-label="Your trip" className="mb-4 border-b border-line pb-4">
       <p className="mb-1 font-semibold text-ink">Your trip</p>
       <div className="divide-y divide-line">
         {shownOut ? (
-          <FlightLeg compact label="Out" leg={shownOut.outbound} price={roundTripFare ? null : shownOut.price} searchLinkLabel={roundTripFare ? undefined : 'Book this one-way ticket'} />
+          <FlightLeg compact label="Out" leg={shownOut.outbound} price={roundTripFare ? null : shownOut.price} searchLinkLabel={roundTripFare ? undefined : 'Book this one-way ticket'} subId={ticketSubId} />
         ) : (
           <p className="py-2 text-xs text-slate">
             {outLoading ? `Loading flights on ${formatDay(outDate)}…` : 'Outbound: pick a departure day in the calendar.'}
@@ -51,7 +57,7 @@ export default function TripSummary({ oneWay, outbound, inbound, outDate, backDa
         )}
         {!oneWay &&
           (selection.backLeg ? (
-            <FlightLeg compact label="Back" leg={selection.backLeg} price={selection.backIncluded ? null : inbound?.price ?? null} searchLinkLabel={selection.backIncluded ? undefined : 'Book this one-way ticket'} />
+            <FlightLeg compact label="Back" leg={selection.backLeg} price={selection.backIncluded ? null : inbound?.price ?? null} searchLinkLabel={selection.backIncluded ? undefined : 'Book this one-way ticket'} subId={ticketSubId} />
           ) : selection.problem ? (
             <p className="py-2 text-xs text-danger">{selection.problem}</p>
           ) : (
@@ -80,7 +86,7 @@ export default function TripSummary({ oneWay, outbound, inbound, outDate, backDa
           <span className="font-semibold">Alternative: round-trip fare from {roundTripAlt.fare.outbound.origin}</span>{' '}
           <span className="font-mono tabular-nums">€{roundTripAlt.price}</span>, €{roundTripAlt.difference} less than the two one-way tickets.{' '}
           <a
-            href={roundTripAlt.fare.bookingUrl}
+            href={withSubId(roundTripAlt.fare.bookingUrl, makeSubId(linkPage, 'rt', roundTripAlt.fare.outbound.origin))}
             target="_blank"
             rel="noopener noreferrer sponsored"
             className="inline-flex min-h-9 items-center font-medium underline decoration-amber decoration-2 underline-offset-2 hover:text-amber-ink"

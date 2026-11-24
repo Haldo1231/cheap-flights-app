@@ -745,3 +745,45 @@ after a few weeks of Search Console, together with the decision whether to go pa
 routes pass the same threshold).
 **Note:** the Next.js 16.4.2 security notice for agent-run builds appeared again; the build finishes on a retry, as the
 notice says. The advisory is about `use cache` / `unstable_cache`, which this site does not use.
+
+# Which prices the 508 bug actually cost us, and the job order (24 Nov 2026)
+**The 508 fix from PR 21 has not been tested yet.** Run 11 started at 02:26 UTC on 24 Nov; PR 21 reached production at
+11:11 UTC. So run 11 is an old-code run: 9 slices, `HTTP 508` three times, 1,084 of 2,217 route jobs never run. The first
+night on the new 180 s slice is 25 Nov. Nothing to do by hand — tonight's job sees run 11 `running`, older than 20 h with
+no progress, gives it up and starts a fresh run.
+
+**What the failed nights cost, measured in the store.** The damage was not spread evenly, and that was a second bug.
+`summaryJobs` planned the 40 summary jobs airport by airport (all four of Bratislava's months, then Vienna's, then
+Budapest's, then Košice's, then Prague's), route jobs are appended as each summary finishes, and `claimJobs` takes pending
+jobs oldest id first. So the jobs dropped at the end of a short night were **the same ones every night**:
+
+| | jobs done in run 11 (per month, of ~70) | average age of a stored route-month |
+|---|---|---|
+| Vienna | ~72 | 36 h |
+| Bratislava | ~76 | 45 h |
+| Budapest | ~60 | 91 h |
+| **Košice** | **1** | **154 h** |
+| **Prague** | **1** | **154 h** |
+
+1,433 of 2,938 `price_coverage` rows were 5+ days old, and the cut fell exactly at job id 1133: everything before it was
+7.7 h old on average, everything after it 159 h.
+
+**The fix:** `summaryJobs` is now month-major and rotates the airport order one step per month (Nov: BTS VIE BUD KSC PRG;
+Dec: VIE BUD KSC PRG BTS; Jan: BUD KSC PRG BTS VIE; Feb: KSC PRG BTS VIE BUD). Every airport now has its first summary
+inside the first 10 jobs, and no airport is last in more than one month. A night that stops half way now costs every
+airport its far months instead of costing two airports everything. It is an ordering change only: the same 40 summary
+jobs, each combination exactly once, no schema change, no extra requests.
+
+**This also puts the Košice conclusion from the route-pages work in doubt.** "Košice is not a bug: the free price data
+barely covers it" was measured against a Košice that had not been refreshed properly for a week (KSC–Krakow "2 tickets,
+newest 129 h old" is exactly the starvation signature). Košice really does hold less (550 tickets over 137 destinations
+against Vienna's 9,329 over 692), so it will stay the thinnest airport — but **re-run `npm run routes` after the first
+night that finishes**: more Košice and Prague routes may now pass the threshold.
+
+**Verified:** the new order printed and checked (40 jobs, all 40 airport × month × kind combinations exactly once, first
+job index per airport 0/2/4/6/8, a different airport last in each month). `npx tsc --noEmit`, `npm run lint` and
+`npm run build` clean (47 route pages still prerendered). Live site checked after the PR 22 deployment: `/`, `/flights`,
+`/flights/bratislava-milan`, `/deals`, `/guides`, `/trips` and the sitemap all answer 200, the sitemap holds 67 addresses
+with all 47 route pages, and Bratislava→Milan shows "from €32 round trip" with "price seen 9 h ago".
+**Note:** the Next.js 16.4.2 security notice for agent-run builds appeared again; the build finished on the retry, as the
+notice says.

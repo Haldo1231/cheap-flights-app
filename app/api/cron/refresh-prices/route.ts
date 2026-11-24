@@ -70,9 +70,23 @@ function sliceBudget(wanted: number, maxMs = maxDuration * 1000): number {
   return Math.max(10_000, Math.min(wanted, maxMs - HANDOVER_TAIL_MS))
 }
 
-function summaryJobs(months: string[]): NewJob[] {
+/** The 40 summary jobs, in the order a slice will work them. That order decides the order the route jobs are planned in, and
+ * `claimJobs` takes pending jobs oldest id first -- so when a chain of slices stops early, the order is exactly what the night
+ * sacrifices. MONTH FIRST, with the airport list rotated by one month after month: every airport gets its nearest months
+ * planned early, and no airport is last in every month.
+ * WHY: until 24 Nov 2026 this loop was airport-major (all of Bratislava's months, then Vienna's, ...), so while the HTTP 508
+ * bug stopped every run after 9 of ~20 slices, the jobs that never ran were always the same ones -- Košice and Prague.
+ * Measured on 24 Nov 2026: average age of a stored route-month was 36 h for Vienna and 45 h for Bratislava against 154 h for
+ * Košice and Prague, and run 11 had 1 of ~70 Košice jobs done per month. A partial night now leaves far months stale instead
+ * of starving two airports for a week. */
+export function summaryJobs(months: string[]): NewJob[] {
   const jobs: NewJob[] = []
-  for (const origin of HOME_AIRPORTS) for (const month of months) for (const one_way of [true, false]) jobs.push({ kind: 'summary', origin, destination: null, month, one_way })
+  months.forEach((month, monthIndex) => {
+    for (let i = 0; i < HOME_AIRPORTS.length; i++) {
+      const origin = HOME_AIRPORTS[(i + monthIndex) % HOME_AIRPORTS.length]
+      for (const one_way of [true, false]) jobs.push({ kind: 'summary', origin, destination: null, month, one_way })
+    }
+  })
   return jobs
 }
 

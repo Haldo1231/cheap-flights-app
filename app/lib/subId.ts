@@ -16,11 +16,12 @@ export type LinkPage =
   | 'guide' // a guide or trip report
   | 'results' // the exact-date and date-range result lists (and their different-airport pairs)
   | 'back' // "Find a flight back"
+  | 'route' // a route page (/flights/bratislava-milan)
 
 /** One-way ticket, round-trip ticket, or two one-way tickets that make one trip. */
 export type LinkTrip = 'ow' | 'rt' | 'two'
 
-export const LINK_PAGES = ['anywhere', 'country', 'citycal', 'combos', 'trip', 'deals', 'dest', 'guide', 'results', 'back'] as const satisfies readonly LinkPage[]
+export const LINK_PAGES = ['anywhere', 'country', 'citycal', 'combos', 'trip', 'deals', 'dest', 'guide', 'results', 'back', 'route'] as const satisfies readonly LinkPage[]
 export const LINK_TRIPS = ['ow', 'rt', 'two'] as const satisfies readonly LinkTrip[]
 
 const SAFE = /[^a-z0-9]/g

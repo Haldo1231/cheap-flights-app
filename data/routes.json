@@ -1,0 +1,483 @@
+{
+  "generated": "2026-11-24",
+  "threshold": {
+    "tickets": 30,
+    "departureDays": 20,
+    "months": 3,
+    "oneWayDays": 8,
+    "roundTripDays": 8,
+    "freshHours": 72
+  },
+  "routes": [
+    {
+      "slug": "bratislava-rome",
+      "origin": "BTS",
+      "destination": "ROM",
+      "originCity": "Bratislava",
+      "destinationCity": "Rome",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "rome"
+    },
+    {
+      "slug": "bratislava-milan",
+      "origin": "BTS",
+      "destination": "MIL",
+      "originCity": "Bratislava",
+      "destinationCity": "Milan",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "milan"
+    },
+    {
+      "slug": "bratislava-barcelona",
+      "origin": "BTS",
+      "destination": "BCN",
+      "originCity": "Bratislava",
+      "destinationCity": "Barcelona",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "barcelona"
+    },
+    {
+      "slug": "bratislava-athens",
+      "origin": "BTS",
+      "destination": "ATH",
+      "originCity": "Bratislava",
+      "destinationCity": "Athens",
+      "destinationCountry": "Greece",
+      "countryCode": "GR",
+      "destinationSlug": "athens"
+    },
+    {
+      "slug": "bratislava-paris",
+      "origin": "BTS",
+      "destination": "PAR",
+      "originCity": "Bratislava",
+      "destinationCity": "Paris",
+      "destinationCountry": "France",
+      "countryCode": "FR",
+      "destinationSlug": "paris"
+    },
+    {
+      "slug": "bratislava-london",
+      "origin": "BTS",
+      "destination": "LON",
+      "originCity": "Bratislava",
+      "destinationCity": "London",
+      "destinationCountry": "United Kingdom",
+      "countryCode": "GB",
+      "destinationSlug": "london"
+    },
+    {
+      "slug": "bratislava-berlin",
+      "origin": "BTS",
+      "destination": "BER",
+      "originCity": "Bratislava",
+      "destinationCity": "Berlin",
+      "destinationCountry": "Germany",
+      "countryCode": "DE",
+      "destinationSlug": "berlin"
+    },
+    {
+      "slug": "bratislava-amsterdam",
+      "origin": "BTS",
+      "destination": "AMS",
+      "originCity": "Bratislava",
+      "destinationCity": "Amsterdam",
+      "destinationCountry": "Netherlands",
+      "countryCode": "NL",
+      "destinationSlug": "amsterdam"
+    },
+    {
+      "slug": "bratislava-lisbon",
+      "origin": "BTS",
+      "destination": "LIS",
+      "originCity": "Bratislava",
+      "destinationCity": "Lisbon",
+      "destinationCountry": "Portugal",
+      "countryCode": "PT",
+      "destinationSlug": "lisbon"
+    },
+    {
+      "slug": "bratislava-warsaw",
+      "origin": "BTS",
+      "destination": "WAW",
+      "originCity": "Bratislava",
+      "destinationCity": "Warsaw",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "warsaw"
+    },
+    {
+      "slug": "bratislava-madrid",
+      "origin": "BTS",
+      "destination": "MAD",
+      "originCity": "Bratislava",
+      "destinationCity": "Madrid",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "madrid"
+    },
+    {
+      "slug": "vienna-rome",
+      "origin": "VIE",
+      "destination": "ROM",
+      "originCity": "Vienna",
+      "destinationCity": "Rome",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "rome"
+    },
+    {
+      "slug": "vienna-milan",
+      "origin": "VIE",
+      "destination": "MIL",
+      "originCity": "Vienna",
+      "destinationCity": "Milan",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "milan"
+    },
+    {
+      "slug": "vienna-barcelona",
+      "origin": "VIE",
+      "destination": "BCN",
+      "originCity": "Vienna",
+      "destinationCity": "Barcelona",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "barcelona"
+    },
+    {
+      "slug": "vienna-athens",
+      "origin": "VIE",
+      "destination": "ATH",
+      "originCity": "Vienna",
+      "destinationCity": "Athens",
+      "destinationCountry": "Greece",
+      "countryCode": "GR",
+      "destinationSlug": "athens"
+    },
+    {
+      "slug": "vienna-paris",
+      "origin": "VIE",
+      "destination": "PAR",
+      "originCity": "Vienna",
+      "destinationCity": "Paris",
+      "destinationCountry": "France",
+      "countryCode": "FR",
+      "destinationSlug": "paris"
+    },
+    {
+      "slug": "vienna-london",
+      "origin": "VIE",
+      "destination": "LON",
+      "originCity": "Vienna",
+      "destinationCity": "London",
+      "destinationCountry": "United Kingdom",
+      "countryCode": "GB",
+      "destinationSlug": "london"
+    },
+    {
+      "slug": "vienna-berlin",
+      "origin": "VIE",
+      "destination": "BER",
+      "originCity": "Vienna",
+      "destinationCity": "Berlin",
+      "destinationCountry": "Germany",
+      "countryCode": "DE",
+      "destinationSlug": "berlin"
+    },
+    {
+      "slug": "vienna-amsterdam",
+      "origin": "VIE",
+      "destination": "AMS",
+      "originCity": "Vienna",
+      "destinationCity": "Amsterdam",
+      "destinationCountry": "Netherlands",
+      "countryCode": "NL",
+      "destinationSlug": "amsterdam"
+    },
+    {
+      "slug": "vienna-lisbon",
+      "origin": "VIE",
+      "destination": "LIS",
+      "originCity": "Vienna",
+      "destinationCity": "Lisbon",
+      "destinationCountry": "Portugal",
+      "countryCode": "PT",
+      "destinationSlug": "lisbon"
+    },
+    {
+      "slug": "vienna-warsaw",
+      "origin": "VIE",
+      "destination": "WAW",
+      "originCity": "Vienna",
+      "destinationCity": "Warsaw",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "warsaw"
+    },
+    {
+      "slug": "vienna-krakow",
+      "origin": "VIE",
+      "destination": "KRK",
+      "originCity": "Vienna",
+      "destinationCity": "Krakow",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "krakow"
+    },
+    {
+      "slug": "vienna-madrid",
+      "origin": "VIE",
+      "destination": "MAD",
+      "originCity": "Vienna",
+      "destinationCity": "Madrid",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "madrid"
+    },
+    {
+      "slug": "budapest-rome",
+      "origin": "BUD",
+      "destination": "ROM",
+      "originCity": "Budapest",
+      "destinationCity": "Rome",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "rome"
+    },
+    {
+      "slug": "budapest-milan",
+      "origin": "BUD",
+      "destination": "MIL",
+      "originCity": "Budapest",
+      "destinationCity": "Milan",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "milan"
+    },
+    {
+      "slug": "budapest-barcelona",
+      "origin": "BUD",
+      "destination": "BCN",
+      "originCity": "Budapest",
+      "destinationCity": "Barcelona",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "barcelona"
+    },
+    {
+      "slug": "budapest-athens",
+      "origin": "BUD",
+      "destination": "ATH",
+      "originCity": "Budapest",
+      "destinationCity": "Athens",
+      "destinationCountry": "Greece",
+      "countryCode": "GR",
+      "destinationSlug": "athens"
+    },
+    {
+      "slug": "budapest-paris",
+      "origin": "BUD",
+      "destination": "PAR",
+      "originCity": "Budapest",
+      "destinationCity": "Paris",
+      "destinationCountry": "France",
+      "countryCode": "FR",
+      "destinationSlug": "paris"
+    },
+    {
+      "slug": "budapest-london",
+      "origin": "BUD",
+      "destination": "LON",
+      "originCity": "Budapest",
+      "destinationCity": "London",
+      "destinationCountry": "United Kingdom",
+      "countryCode": "GB",
+      "destinationSlug": "london"
+    },
+    {
+      "slug": "budapest-berlin",
+      "origin": "BUD",
+      "destination": "BER",
+      "originCity": "Budapest",
+      "destinationCity": "Berlin",
+      "destinationCountry": "Germany",
+      "countryCode": "DE",
+      "destinationSlug": "berlin"
+    },
+    {
+      "slug": "budapest-amsterdam",
+      "origin": "BUD",
+      "destination": "AMS",
+      "originCity": "Budapest",
+      "destinationCity": "Amsterdam",
+      "destinationCountry": "Netherlands",
+      "countryCode": "NL",
+      "destinationSlug": "amsterdam"
+    },
+    {
+      "slug": "budapest-lisbon",
+      "origin": "BUD",
+      "destination": "LIS",
+      "originCity": "Budapest",
+      "destinationCity": "Lisbon",
+      "destinationCountry": "Portugal",
+      "countryCode": "PT",
+      "destinationSlug": "lisbon"
+    },
+    {
+      "slug": "budapest-warsaw",
+      "origin": "BUD",
+      "destination": "WAW",
+      "originCity": "Budapest",
+      "destinationCity": "Warsaw",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "warsaw"
+    },
+    {
+      "slug": "budapest-krakow",
+      "origin": "BUD",
+      "destination": "KRK",
+      "originCity": "Budapest",
+      "destinationCity": "Krakow",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "krakow"
+    },
+    {
+      "slug": "budapest-madrid",
+      "origin": "BUD",
+      "destination": "MAD",
+      "originCity": "Budapest",
+      "destinationCity": "Madrid",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "madrid"
+    },
+    {
+      "slug": "kosice-rome",
+      "origin": "KSC",
+      "destination": "ROM",
+      "originCity": "Košice",
+      "destinationCity": "Rome",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "rome"
+    },
+    {
+      "slug": "prague-rome",
+      "origin": "PRG",
+      "destination": "ROM",
+      "originCity": "Prague",
+      "destinationCity": "Rome",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "rome"
+    },
+    {
+      "slug": "prague-milan",
+      "origin": "PRG",
+      "destination": "MIL",
+      "originCity": "Prague",
+      "destinationCity": "Milan",
+      "destinationCountry": "Italy",
+      "countryCode": "IT",
+      "destinationSlug": "milan"
+    },
+    {
+      "slug": "prague-barcelona",
+      "origin": "PRG",
+      "destination": "BCN",
+      "originCity": "Prague",
+      "destinationCity": "Barcelona",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "barcelona"
+    },
+    {
+      "slug": "prague-athens",
+      "origin": "PRG",
+      "destination": "ATH",
+      "originCity": "Prague",
+      "destinationCity": "Athens",
+      "destinationCountry": "Greece",
+      "countryCode": "GR",
+      "destinationSlug": "athens"
+    },
+    {
+      "slug": "prague-paris",
+      "origin": "PRG",
+      "destination": "PAR",
+      "originCity": "Prague",
+      "destinationCity": "Paris",
+      "destinationCountry": "France",
+      "countryCode": "FR",
+      "destinationSlug": "paris"
+    },
+    {
+      "slug": "prague-london",
+      "origin": "PRG",
+      "destination": "LON",
+      "originCity": "Prague",
+      "destinationCity": "London",
+      "destinationCountry": "United Kingdom",
+      "countryCode": "GB",
+      "destinationSlug": "london"
+    },
+    {
+      "slug": "prague-berlin",
+      "origin": "PRG",
+      "destination": "BER",
+      "originCity": "Prague",
+      "destinationCity": "Berlin",
+      "destinationCountry": "Germany",
+      "countryCode": "DE",
+      "destinationSlug": "berlin"
+    },
+    {
+      "slug": "prague-amsterdam",
+      "origin": "PRG",
+      "destination": "AMS",
+      "originCity": "Prague",
+      "destinationCity": "Amsterdam",
+      "destinationCountry": "Netherlands",
+      "countryCode": "NL",
+      "destinationSlug": "amsterdam"
+    },
+    {
+      "slug": "prague-lisbon",
+      "origin": "PRG",
+      "destination": "LIS",
+      "originCity": "Prague",
+      "destinationCity": "Lisbon",
+      "destinationCountry": "Portugal",
+      "countryCode": "PT",
+      "destinationSlug": "lisbon"
+    },
+    {
+      "slug": "prague-warsaw",
+      "origin": "PRG",
+      "destination": "WAW",
+      "originCity": "Prague",
+      "destinationCity": "Warsaw",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "warsaw"
+    },
+    {
+      "slug": "prague-madrid",
+      "origin": "PRG",
+      "destination": "MAD",
+      "originCity": "Prague",
+      "destinationCity": "Madrid",
+      "destinationCountry": "Spain",
+      "countryCode": "ES",
+      "destinationSlug": "madrid"
+    }
+  ]
+}

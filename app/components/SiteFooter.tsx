@@ -31,6 +31,11 @@ export default function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/flights" className="inline-flex min-h-9 items-center hover:text-amber">
+                Flight routes
+              </Link>
+            </li>
+            <li>
               <Link href="/trips" className="inline-flex min-h-9 items-center hover:text-amber">
                 Trip reports
               </Link>

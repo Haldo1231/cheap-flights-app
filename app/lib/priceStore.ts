@@ -146,6 +146,31 @@ export async function readTickets(pairs: { origin: string; destination: string }
   return all.filter((t) => pairs.some((p) => p.origin === t.origin && p.destination === t.destination))
 }
 
+/** Every stored ticket of ONE route (both one way and round trip) for the given months, cheapest first. The route pages
+ * ask this: they want all the kinds at once, and one query is cheaper than one per month and kind. */
+export async function readRouteTickets(origin: string, destination: string, months: string[]): Promise<StoreTicket[]> {
+  if (months.length === 0) return []
+  const all: StoreTicket[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from('price_tickets')
+      .select('*')
+      .eq('origin', origin)
+      .eq('destination', destination)
+      .in('month', months)
+      .order('price', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error || !data) {
+      if (error) console.error(`[prices] store read (route ${origin}-${destination}) failed: ${error.message}`)
+      break
+    }
+    all.push(...(data as StoreTicket[]))
+    if (data.length < PAGE) break
+  }
+  return all
+}
+
 /** For each airport and destination, the cheapest stored ticket of a month (the overview question, one query). */
 export async function readOverview(origins: string[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
   const all: StoreTicket[] = []

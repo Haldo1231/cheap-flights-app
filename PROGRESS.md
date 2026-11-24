@@ -692,3 +692,56 @@ Supabase access token that was shared for reading logs.
 **Note:** Next.js 16.4.2 again printed the security notice for agent-run builds (advisory for `use cache` / `unstable_cache`,
 fixed in 16.4.5). This site uses neither; the build finishes on a retry, as the notice itself says. Updating Next.js stays a
 separate, optional change.
+
+# Phase 2: route pages for search engines (branch `claude/epic-cerf-7a1z6z`, 24 Nov 2026)
+**47 new pages**, one per route: `/flights/bratislava-milan` and the rest, plus the list page `/flights`.
+
+**The data threshold, decided from the real store rather than a guess.** A route gets a page only when `price_tickets`
+holds at least: 30 tickets, 20 different departure days, 3 of the 4 covered months, 8 one-way AND 8 round-trip departure
+days, and a newest price no older than 72 h. Measured against all 60 routes to the 12 named destinations, 47 pass:
+
+| airport | pages | of 12 |
+|---|---|---|
+| Vienna | 12 | all |
+| Budapest | 12 | all |
+| Bratislava | 11 | Krakow left out (4 round-trip days) |
+| Prague | 11 | Krakow left out (5 round-trip days) |
+| **Košice** | **1** | only Rome; the other 11 have 2–12 tickets |
+
+Košice is not a bug: the free price data barely covers it (KSC–Krakow has 2 tickets, newest 129 h old). The script prints
+every left-out route with the reason.
+
+**The list of addresses is committed** (`data/routes.json`, written by `npm run routes`, read by `app/lib/routePages.ts`).
+An address a search engine has indexed must not appear and vanish because the store looked different at build time, so the
+list is never worked out while a page is drawn, and an address not on it answers 404 (`dynamicParams = false`).
+
+**On each page:** cheapest round trip and cheapest one way (with airline, stops, dates and a booking button), a month-by-
+month table, a read-only price calendar per month with the cheapest day marked, the cheapest day of the week to fly out,
+the airlines on the route with their cheapest fares and whether they fly it non-stop, links to the same city from the other
+home airports and to other routes from the same airport, and a link to the city's own page. Unique title and description
+per route (both carry that route's own price), canonical address, BreadcrumbList structured data, and all 47 in the sitemap
+(67 addresses now). Booking links carry marker 765816 and the new SubID page `route` (`route_rt_bts`, `route_ow_bts`).
+
+**Decisions made along the way** (also listed in AGENTS.md → Decisions):
+- Pages read the price store ONLY, no live fallback: 47 pages × 4 months × 2 kinds would be hundreds of requests to the
+  price service on every rebuild. Every price shows its real age instead ("price seen 9 h ago").
+- Flight time comes only from one-way non-stop tickets — for a round-trip ticket the data does not say whether `duration`
+  covers one leg or both, and a wrong flight time is worse than none.
+- "Cheapest day of the week" uses one-way fares only: a round-trip price belongs to a pair of days.
+- Structured data is BreadcrumbList only. There is no search-engine result type for a flight price, and marking cached
+  fares up as firm offers would claim more than the data says.
+
+**Checked in a browser against the real store (not fake data):** `/flights` and the route pages at desktop width in light
+and dark mode and at iPhone width — no sideways scrolling on any of them, the only console errors are Vercel's analytics
+script, which does not exist outside Vercel. Bratislava→Milan reads "from €32 round trip", "a non-stop flight takes about
+1 h 35 min", Friday cheapest at €16; Prague→Berlin correctly says every cached fare has a stop, and says plainly that this
+does not prove no airline flies it non-stop; Košice→Rome works on 3 months of thinner data and drops the month it has
+nothing for. An invented address (`/flights/nowhere-nowhere`) answers 404. The sitemap holds all 47. `npx tsc --noEmit`,
+`npm run lint` and `npm run build` are clean, and a build with no database reachable still succeeds (the pages then say
+there is no cached price rather than failing the build).
+
+**Nothing for the owner to do.** `npm run routes` only needs re-running when the route list should be widened — worth doing
+after a few weeks of Search Console, together with the decision whether to go past the 12 named destinations (132 more
+routes pass the same threshold).
+**Note:** the Next.js 16.4.2 security notice for agent-run builds appeared again; the build finishes on a retry, as the
+notice says. The advisory is about `use cache` / `unstable_cache`, which this site does not use.

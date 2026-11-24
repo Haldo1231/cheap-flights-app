@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { DESTINATIONS } from './destinationsList'
+import { ROUTE_PAGES } from './lib/routePages'
 import { getGuides, getTrips } from './lib/content/load'
 import { absoluteUrl } from './lib/site'
 import { ABOUT_HAS_TODO } from './lib/aboutStatus'
@@ -8,7 +9,7 @@ import { ABOUT_HAS_TODO } from './lib/aboutStatus'
 // published (getTrips/getGuides leave drafts out in production builds). The About page is left
 // out while it still has TODO text (see lib/aboutStatus.ts). Search results and trip detail pages are not listed on purpose.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const fixed = ['/', '/search', '/anywhere', '/deals', '/trips', '/guides', '/disclosure', ...(ABOUT_HAS_TODO ? [] : ['/about'])].map((path) => ({
+  const fixed = ['/', '/search', '/anywhere', '/deals', '/flights', '/trips', '/guides', '/disclosure', ...(ABOUT_HAS_TODO ? [] : ['/about'])].map((path) => ({
     url: absoluteUrl(path),
     changeFrequency: 'weekly' as const,
     priority: path === '/' ? 1 : 0.7,
@@ -16,6 +17,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const destinations = DESTINATIONS.map((d) => ({
     url: absoluteUrl(`/destinations/${d.slug}`),
+    changeFrequency: 'daily' as const,
+    priority: 0.6,
+  }))
+
+  // One entry per route page. The list is the committed one (lib/routePages.ts), so the sitemap can never offer an address
+  // that has no page, nor leave one out.
+  const routes = ROUTE_PAGES.map((r) => ({
+    url: absoluteUrl(`/flights/${r.slug}`),
     changeFrequency: 'daily' as const,
     priority: 0.6,
   }))
@@ -34,5 +43,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }))
 
-  return [...fixed, ...destinations, ...trips, ...guides]
+  return [...fixed, ...destinations, ...routes, ...trips, ...guides]
 }

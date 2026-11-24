@@ -830,5 +830,6 @@ headings come out as h2, and the "Related destinations" box degrades to "No cach
 these changes). The sample trip page is unaffected. `npx tsc --noEmit`, `npm run lint` and `npm run build` clean, and
 the production build leaves all three drafts out of the sitemap and renders no page for them.
 
-**For the owner:** read the three files in `content/guides/`, change anything that does not sound like you, and set
-`draft: false` on the ones you want live. They are deliberately plain and do not pretend to be anyone's travel story.
+**Published.** The owner read all three and asked for all three to go live on 24 Nov 2026, so `draft` is `false` on
+each. They are the first articles on the site: `/guides` now lists three, and the sitemap carries their addresses.
+The next content has to be his own, because trip reports are his alone.

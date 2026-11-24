@@ -6,7 +6,7 @@ date: 2026-11-24
 tags:
   - airports
   - planning
-draft: true
+draft: false
 language: en
 ---
 

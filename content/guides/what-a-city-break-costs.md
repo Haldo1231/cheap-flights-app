@@ -11,7 +11,7 @@ relatedDestinations:
   - warsaw
   - athens
   - lisbon
-draft: true
+draft: false
 language: en
 ---
 

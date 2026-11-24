@@ -11,7 +11,7 @@ relatedDestinations:
   - barcelona
   - london
   - krakow
-draft: true
+draft: false
 language: en
 ---
 

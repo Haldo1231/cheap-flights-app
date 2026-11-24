@@ -68,6 +68,13 @@ function readEntries<T extends { slug: string; draft: boolean; cover?: { src: st
     if (/!\[[^\]]*\]\(/.test(entry.body)) {
       problems.push(`${where}: pictures inside the text are not supported. Put them in the "photos" list in the top part so they get a description (alt) and a caption.`)
     }
+    // A wrapped year at the start of a line ("... in November\n2026. It is not ...") is read by Markdown as a numbered
+    // list that starts at 2026, which silently turns the rest of the sentence into a list item. A real list never starts
+    // at a number this big, so this only ever catches the mistake. Found on a published guide on 24 Nov 2026.
+    const wrappedNumber = entry.body.split('\n').find((line) => /^\s*\d{3,}\.\s/.test(line))
+    if (wrappedNumber) {
+      problems.push(`${where}: the line "${wrappedNumber.trim().slice(0, 60)}" starts with a number and a full stop, so Markdown turns it into a numbered list. This is almost always a year that moved to a new line: join it to the line above.`)
+    }
     if (canCheckFiles()) {
       const pictures = [...(entry.cover ? [entry.cover.src] : []), ...(entry.photos ?? []).map((p) => p.src)]
       for (const src of pictures) {

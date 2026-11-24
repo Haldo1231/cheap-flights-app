@@ -57,8 +57,8 @@ route to the next.
 
 Four honest limits on the numbers above:
 
-- **Fifty routes is a small sample, and it is one snapshot.** It describes what our store held on one day in November
-  2026. It is not a law of the market, and we would expect it to look different in summer.
+- **Fifty routes is a small sample, and it is one snapshot.** It describes what our store held on one day in
+  November 2026, not a law of the market, and we would expect it to look different in summer.
 - **These are one-way fares only.** A return fare is a single price belonging to a pair of days, so it cannot tell you
   anything about a single weekday, and we left all return fares out.
 - **Part of the gap is the date, not the day.** A route's cheapest Saturday and its dearest Tuesday may sit in

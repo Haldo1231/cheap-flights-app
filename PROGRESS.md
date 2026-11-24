@@ -833,3 +833,11 @@ the production build leaves all three drafts out of the sitemap and renders no p
 **Published.** The owner read all three and asked for all three to go live on 24 Nov 2026, so `draft` is `false` on
 each. They are the first articles on the site: `/guides` now lists three, and the sitemap carries their addresses.
 The next content has to be his own, because trip reports are his alone.
+
+**Bug found on the live page, right after publishing (24 Nov 2026).** In `cheapest-day-to-fly` a line wrapped so that
+"2026." began a line, and Markdown reads that as a numbered list starting at 2026: the rest of the sentence was
+rendered as `<ol start="2026">` with a stray list item. Caught by reading the HTML the live page served, not by the
+build, which had no opinion about it. The sentence is reflowed, and `load.ts` now stops the build when a line in a
+content file starts with a number of three or more digits and a full stop. A real numbered list never starts that
+high, so the check only catches the mistake, and it names the file and the line. Verified both ways: the build is
+clean now, and putting the mistake back makes it fail with that message.

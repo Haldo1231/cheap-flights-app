@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import SearchSummary from '../../components/SearchSummary'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
+import JawStatus from '../../components/JawStatus'
+import { mixJawIntoCountries, useAnywhereJaw } from '../../lib/anywhereJaw'
 import BudgetEmpty from '../BudgetEmpty'
 import CountryCard from '../../components/CountryCard'
 import DrillLink from '../../components/DrillLink'
@@ -38,8 +41,20 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
   const loading = pricesLoading || (p.budget !== null && costsLoading)
   const { budget, level, withinOnly } = p
 
-  const countries = data?.countries ?? []
-  const unmatched = data?.unmatchedCountries ?? []
+  // "Fly back to a different airport": asked for in a second request, so the round trips never wait for it. When it
+  // arrives, the trips back to another airport are MIXED INTO the same list: each card shows the cheaper of its round
+  // trip and its different-airport trip, "from €X" and the order use that price, and the card says which kind of trip it
+  // is. Off = no second request and nothing changes. `p.openJaw` is already false for one way and for Anywhere over a
+  // whole month, which never asks for it.
+  const jawOn = p.openJaw
+  const jaw = useAnywhereJaw(p.dataString, jawOn)
+  const jawReady = jawOn && !jaw.loading && !jaw.error
+  const mixed = useMemo(
+    () => (jawReady ? mixJawIntoCountries(data?.countries ?? [], data?.unmatchedCountries ?? [], jaw.trips) : null),
+    [jawReady, data, jaw.trips]
+  )
+  const countries = mixed ? mixed.countries : data?.countries ?? []
+  const unmatched = mixed ? mixed.unmatched : data?.unmatchedCountries ?? []
   const first = p.originList[0]
 
   // With a budget: each country's trip (its cheapest-looking city, checked against your filters) gets a
@@ -72,6 +87,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       eager={i < 3}
       index={i}
       estimate={budget !== null ? estimateOf(country) : null}
+      routeLabel={jawOn}
     />
   )
 
@@ -85,6 +101,15 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />
 
+      {p.openJawAllowed && (
+        <ReturnAirportSwitch
+          className="mb-4"
+          on={p.openJaw}
+          onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })}
+          description="Also look at trips that leave from one of your airports and come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Each country shows its cheaper trip, round trip or not, and says which it is."
+        />
+      )}
+      {jawOn && <JawStatus loading={jaw.loading} error={jaw.error} found={jaw.found} used={mixed?.used ?? 0} noun="countries" />}
       <WeekdayFilterBox p={p} />
       <BudgetBox p={p} />
 
@@ -219,14 +244,16 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
                   <li key={c.code}>
                     <DrillLink
                       href={withParams(p.searchString, { country: c.code })}
-                      className="flex items-center justify-between rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
+                      className="block rounded-sm border border-line bg-paper px-4 py-3 text-sm text-slate transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink"
                     >
-                      <span className="font-medium text-ink">
-                        <Flag code={c.code} className="mr-2" />
-                        {c.name}
-                      </span>
-                      <span>
-                        {c.candidateCityCount} destination{c.candidateCityCount === 1 ? '' : 's'} · check all →
+                      <span className="flex items-center justify-between">
+                        <span className="font-medium text-ink">
+                          <Flag code={c.code} className="mr-2" />
+                          {c.name}
+                        </span>
+                        <span>
+                          {c.candidateCityCount} destination{c.candidateCityCount === 1 ? '' : 's'} · check all →
+                        </span>
                       </span>
                     </DrillLink>
                   </li>

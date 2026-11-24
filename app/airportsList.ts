@@ -37,3 +37,8 @@ export function airportCountryCode(code: string | null | undefined): string | nu
   if (!code) return null
   return AIRPORTS.find((a) => a.code === code.toUpperCase())?.countryCode ?? null
 }
+
+/** The city name of one of our airports/cities ("PRG" -> "Prague"); the code itself when it is not in the list. */
+export function airportCity(code: string): string {
+  return AIRPORTS.find((a) => a.code === code.toUpperCase())?.city ?? code
+}

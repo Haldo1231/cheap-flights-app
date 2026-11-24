@@ -1,0 +1,272 @@
+// The price store: cached Travelpayouts tickets in Supabase (tables in supabase/price_store.sql). Server code only.
+// One row = one ticket: the cheapest the price service knows for a route, a departure day and (round trips) a return
+// day. `found_at` is when THIS site got the ticket from the price service; the screens show it as "price seen X h ago".
+
+import { supabaseAdmin } from '../supabaseAdmin'
+
+export type TicketSource = 'month-cheapest' | 'route-month' | 'live'
+
+export type StoreTicket = {
+  origin: string
+  destination: string
+  destination_airport: string | null
+  /** Local departure time exactly as the price service gives it, e.g. 2026-12-12T06:50:00+01:00. */
+  departure_at: string
+  departure_date: string
+  return_at: string | null
+  return_date: string | null
+  one_way: boolean
+  price: number
+  airline: string | null
+  flight_number: string | null
+  transfers: number | null
+  return_transfers: number | null
+  duration: number | null
+  gate: string | null
+  /** Aviasales deep link to this exact ticket (a path), when the service gives one. */
+  link: string | null
+  month: string
+  source: TicketSource
+  found_at: string
+}
+
+/** The coverage row of an airport's month summary (all destinations at once) uses this as its destination. */
+export const SUMMARY_DESTINATION = '*'
+
+export type Coverage = { origin: string; destination: string; month: string; one_way: boolean; fetched_at: string; tickets: number; source: string }
+
+export type PriceJob = {
+  id: number
+  run_id: number
+  kind: 'summary' | 'route'
+  origin: string
+  destination: string | null
+  month: string
+  one_way: boolean
+  status: 'pending' | 'done' | 'failed'
+  attempts: number
+  error: string | null
+}
+
+export type PriceRun = {
+  id: number
+  started_at: string
+  finished_at: string | null
+  status: 'running' | 'done' | 'failed'
+  slices: number
+  requests: number
+  tickets: number
+  jobs_pending: number
+  jobs_failed: number
+  note: string | null
+}
+
+const CHUNK = 500
+/** Supabase answers at most 1000 rows per request: bigger reads are fetched page by page. */
+const PAGE = 1000
+const TICKET_KEY = 'origin,destination,departure_date,return_date,one_way'
+
+export function ticketKey(t: Pick<StoreTicket, 'origin' | 'destination' | 'departure_date' | 'return_date' | 'one_way'>): string {
+  return `${t.origin}|${t.destination}|${t.departure_date}|${t.return_date ?? ''}|${t.one_way ? 1 : 0}`
+}
+
+/** One row per ticket key, the cheapest kept (a batch must not hold the same key twice). */
+export function dedupeTickets(tickets: StoreTicket[]): StoreTicket[] {
+  const best = new Map<string, StoreTicket>()
+  for (const t of tickets) {
+    const k = ticketKey(t)
+    const have = best.get(k)
+    if (!have || t.price < have.price) best.set(k, t)
+  }
+  return Array.from(best.values())
+}
+
+/** Writes tickets, replacing the ticket of the same route, day and return day. */
+export async function upsertTickets(tickets: StoreTicket[]): Promise<{ written: number; error: string | null }> {
+  const rows = dedupeTickets(tickets)
+  let written = 0
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK)
+    const { error } = await supabaseAdmin.from('price_tickets').upsert(chunk, { onConflict: TICKET_KEY })
+    if (error) return { written, error: error.message }
+    written += chunk.length
+  }
+  return { written, error: null }
+}
+
+export async function setCoverage(origin: string, destination: string, month: string, oneWay: boolean, tickets: number, source: 'nightly' | 'live'): Promise<string | null> {
+  const { error } = await supabaseAdmin
+    .from('price_coverage')
+    .upsert({ origin, destination, month, one_way: oneWay, fetched_at: new Date().toISOString(), tickets, source }, { onConflict: 'origin,destination,month,one_way' })
+  return error ? error.message : null
+}
+
+const uniq = (xs: string[]) => Array.from(new Set(xs))
+
+/** The coverage rows of the given routes (origin to destination pairs) for one month. The month summary of an airport is the
+ * pair (airport, SUMMARY_DESTINATION). */
+export async function readCoverage(pairs: { origin: string; destination: string }[], month: string, oneWay: boolean): Promise<Coverage[]> {
+  if (pairs.length === 0) return []
+  const { data, error } = await supabaseAdmin
+    .from('price_coverage')
+    .select('origin, destination, month, one_way, fetched_at, tickets, source')
+    .in('origin', uniq(pairs.map((p) => p.origin)))
+    .in('destination', uniq(pairs.map((p) => p.destination)))
+    .eq('month', month)
+    .eq('one_way', oneWay)
+  if (error || !data) {
+    if (error) console.error(`[prices] store read (coverage) failed: ${error.message}`)
+    return []
+  }
+  return (data as Coverage[]).filter((c) => pairs.some((p) => p.origin === c.origin && p.destination === c.destination))
+}
+
+/** Every stored ticket of the given routes for one month, cheapest first. */
+export async function readTickets(pairs: { origin: string; destination: string }[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
+  if (pairs.length === 0) return []
+  const all: StoreTicket[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from('price_tickets')
+      .select('*')
+      .in('origin', uniq(pairs.map((p) => p.origin)))
+      .in('destination', uniq(pairs.map((p) => p.destination)))
+      .eq('month', month)
+      .eq('one_way', oneWay)
+      .order('price', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error || !data) {
+      if (error) console.error(`[prices] store read (tickets) failed: ${error.message}`)
+      break
+    }
+    all.push(...(data as StoreTicket[]))
+    if (data.length < PAGE) break
+  }
+  return all.filter((t) => pairs.some((p) => p.origin === t.origin && p.destination === t.destination))
+}
+
+/** For each airport and destination, the cheapest stored ticket of a month (the overview question, one query). */
+export async function readOverview(origins: string[], month: string, oneWay: boolean): Promise<StoreTicket[]> {
+  const all: StoreTicket[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin.rpc('price_overview', { p_origins: origins, p_month: month, p_one_way: oneWay }).range(from, from + PAGE - 1)
+    if (error || !data) {
+      if (error) console.error(`[prices] store read (overview) failed: ${error.message}`)
+      break
+    }
+    all.push(...(data as StoreTicket[]))
+    if (data.length < PAGE) break
+  }
+  return all
+}
+
+// ---- the nightly job's log and work list ----
+
+export async function createRun(): Promise<number | null> {
+  const { data, error } = await supabaseAdmin.from('price_runs').insert({}).select('id').single()
+  return error || !data ? null : (data.id as number)
+}
+
+export async function getRun(id: number): Promise<PriceRun | null> {
+  const { data, error } = await supabaseAdmin.from('price_runs').select('*').eq('id', id).maybeSingle()
+  return error || !data ? null : (data as PriceRun)
+}
+
+export async function latestRun(): Promise<PriceRun | null> {
+  const { data, error } = await supabaseAdmin.from('price_runs').select('*').order('id', { ascending: false }).limit(1).maybeSingle()
+  return error || !data ? null : (data as PriceRun)
+}
+
+export async function updateRun(id: number, patch: Partial<Omit<PriceRun, 'id'>>): Promise<string | null> {
+  const { error } = await supabaseAdmin.from('price_runs').update(patch).eq('id', id)
+  return error ? error.message : null
+}
+
+export type NewJob = { kind: 'summary' | 'route'; origin: string; destination: string | null; month: string; one_way: boolean }
+
+/** Adds work to a run; a piece of work that is already there is left alone. */
+export async function addJobs(runId: number, jobs: NewJob[]): Promise<string | null> {
+  if (jobs.length === 0) return null
+  const rows = jobs.map((j) => ({ ...j, run_id: runId }))
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await supabaseAdmin.from('price_jobs').upsert(rows.slice(i, i + CHUNK), { onConflict: 'run_id,kind,origin,destination,month,one_way', ignoreDuplicates: true })
+    if (error) return error.message
+  }
+  return null
+}
+
+/** The next pending pieces of work, oldest first (summaries are planned first, so they come first). */
+export async function claimJobs(runId: number, limit: number): Promise<PriceJob[]> {
+  const { data, error } = await supabaseAdmin.from('price_jobs').select('*').eq('run_id', runId).eq('status', 'pending').order('id', { ascending: true }).limit(limit)
+  if (error || !data) return []
+  return data as PriceJob[]
+}
+
+/** When the run last finished a job (or null when none is finished yet): how a stuck run is told from a working one. */
+export async function lastJobDoneAt(runId: number): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('price_jobs')
+    .select('done_at')
+    .eq('run_id', runId)
+    .not('done_at', 'is', null)
+    .order('done_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return error || !data ? null : ((data as { done_at: string | null }).done_at ?? null)
+}
+
+/** Puts the failed jobs of a run back in the queue for one more try each, as long as they have had fewer than `maxAttempts`
+ * tries. Returns how many were put back (0 on a store error). */
+export async function requeueFailedJobs(runId: number, maxAttempts: number): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from('price_jobs')
+    .update({ status: 'pending', done_at: null })
+    .eq('run_id', runId)
+    .eq('status', 'failed')
+    .lt('attempts', maxAttempts)
+    .select('id')
+  return error || !data ? 0 : data.length
+}
+
+export async function finishJob(id: number, status: PriceJob['status'], attempts: number, error: string | null): Promise<void> {
+  await supabaseAdmin.from('price_jobs').update({ status, attempts, error, done_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id)
+}
+
+/** How many jobs of a run are pending and failed. `ok` is false when the store did not answer (the counts are then 0 and
+ * must not be taken as "nothing left"). */
+export async function countJobs(runId: number): Promise<{ pending: number; failed: number; ok: boolean }> {
+  let ok = true
+  const count = async (status: string) => {
+    const { count, error } = await supabaseAdmin.from('price_jobs').select('*', { count: 'exact', head: true }).eq('run_id', runId).eq('status', status)
+    if (error || count === null) ok = false
+    return count ?? 0
+  }
+  const pending = await count('pending')
+  const failed = await count('failed')
+  return { pending, failed, ok }
+}
+
+/** Removes what can no longer be shown or is no longer needed. Returns one line per step for the log. */
+export async function cleanup(today: string, currentMonth: string, keepRunsDays = 14): Promise<string[]> {
+  const notes: string[] = []
+  const departed = await supabaseAdmin.from('price_tickets').delete({ count: 'exact' }).lt('departure_date', today)
+  notes.push(departed.error ? `departed tickets: ${departed.error.message}` : `departed tickets removed: ${departed.count ?? 0}`)
+  const oldMonths = await supabaseAdmin.from('price_coverage').delete({ count: 'exact' }).lt('month', currentMonth)
+  notes.push(oldMonths.error ? `old coverage: ${oldMonths.error.message}` : `old coverage rows removed: ${oldMonths.count ?? 0}`)
+  const cutoff = new Date(Date.now() - keepRunsDays * 86400e3).toISOString()
+  const runs = await supabaseAdmin.from('price_runs').delete({ count: 'exact' }).lt('started_at', cutoff)
+  notes.push(runs.error ? `old runs: ${runs.error.message}` : `old runs removed: ${runs.count ?? 0}`)
+  return notes
+}
+
+/** The last runs of the nightly job, newest first. */
+export async function listRuns(limit = 10): Promise<PriceRun[]> {
+  const { data, error } = await supabaseAdmin.from('price_runs').select('*').order('id', { ascending: false }).limit(limit)
+  return error || !data ? [] : (data as PriceRun[])
+}
+
+export async function storeStats(): Promise<{ table_name: string; row_count: number; bytes: number }[]> {
+  const { data, error } = await supabaseAdmin.rpc('price_store_stats')
+  return error || !data ? [] : (data as { table_name: string; row_count: number; bytes: number }[])
+}

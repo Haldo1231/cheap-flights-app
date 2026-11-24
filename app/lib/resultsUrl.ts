@@ -4,8 +4,9 @@
 
 import { BUDGET_KEYS } from '../budgetConfig'
 
-/** Query keys that hold a chosen day/flight in Whole Month mode. */
-export const SELECTION_KEYS = ['out', 'of', 'back', 'bf'] as const
+/** Query keys that hold a chosen day/flight in Whole Month mode. `via=combo`: the pick came from "Best combinations" (only used
+ * for the SubID of the booking links, lib/subId.ts). */
+export const SELECTION_KEYS = ['out', 'of', 'back', 'bf', 'via'] as const
 
 /** Query keys that describe the drill-down level. */
 export const LEVEL_KEYS = ['anywhere', 'country', 'destination', 'fromCountry'] as const
@@ -35,11 +36,13 @@ export function filtersOnly(current: URLSearchParams | string): URLSearchParams 
   return params
 }
 
-/** The filters as the PRICE requests need them: without the budget settings. A budget does not
+/** The filters as the PRICE requests need them: without the budget settings (and the "different airport" switch). A budget does not
  * change a cached flight price, so leaving it out means changing the budget never asks the price
  * provider for anything new (the address of every price request stays the same). */
 export function dataFilters(current: URLSearchParams | string): URLSearchParams {
   const params = filtersOnly(current)
   for (const key of BUDGET_KEYS) params.delete(key)
+  // The "different airport" switch is asked for in its own request, so the main price requests stay the same with it on or off.
+  params.delete('openJaw')
   return params
 }

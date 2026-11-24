@@ -7,6 +7,7 @@ import Flag from '../components/Flag'
 import { CloseIcon, PlaneIcon } from '../components/Icons'
 import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
 import BudgetPanel from '../components/BudgetPanel'
+import ReturnAirportSwitch from '../components/ReturnAirportSwitch'
 import { DEFAULT_LEVEL, type LevelKey } from '../budgetConfig'
 import { budgetParams } from '../lib/budget'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
@@ -14,6 +15,7 @@ import { HOME_AIRPORTS } from '../homeAirports'
 import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
 import { formatMonth } from '../lib/format'
 import { validateSearch, todayString, MAX_NIGHTS, MAX_RANGE_DAYS, type SearchErrors } from '../lib/searchValidation'
+import { trackEvent } from '../lib/siteEvents'
 
 const CARD = 'surface mb-5 p-4 sm:p-5'
 const INPUT = 'field'
@@ -167,6 +169,8 @@ export default function SearchForm() {
   const [destinationCity, setDestinationCity] = useState(toParam === 'ANYWHERE' ? 'Anywhere' : prefill?.city ?? '')
 
   const [oneWay, setOneWay] = useState(false)
+  // Off by default (the normal round trips are what most people want first); the switch turns on trips that come back
+  // to a different one of the home airports.
   const [openJaw, setOpenJaw] = useState(false)
   const [dateMode, setDateMode] = useState<'exact' | 'month' | 'range'>('exact')
 
@@ -242,8 +246,9 @@ export default function SearchForm() {
       return
     }
 
-    // Open-jaw only works for exact dates and a whole month.
-    const useOpenJaw = !isAnywhere && !oneWay && dateMode !== 'range' && openJaw
+    // Back to a different airport: every round trip search except Anywhere over a whole month (that one only looks at
+    // same-airport round trips; the way to another airport there is the button on a picked trip).
+    const useOpenJaw = !oneWay && !(isAnywhere && dateMode === 'month') && openJaw
 
     const params = new URLSearchParams({
       origins: allOrigins.join(','),
@@ -278,8 +283,9 @@ export default function SearchForm() {
     }
 
     // Budget (optional): only written when set, and the spending style only when it is not the usual one.
-    for (const [key, value] of Object.entries(budgetParams(budget, level))) if (value !== null) params.set(key, value)
+    if (!oneWay) for (const [key, value] of Object.entries(budgetParams(budget, level))) if (value !== null) params.set(key, value)
 
+    trackEvent({ name: 'search', mode: dateMode, trip: oneWay ? 'ow' : 'rt', anywhere: isAnywhere })
     router.push(`/results?${params.toString()}`)
   }
 
@@ -349,7 +355,6 @@ export default function SearchForm() {
                 setDestinationCode('')
                 setDestinationCity('')
               }}
-              aria-label={`Change destination, currently ${isAnywhere ? 'anywhere' : destinationCity}`}
               className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
             >
               {isAnywhere ? (
@@ -365,6 +370,7 @@ export default function SearchForm() {
                 </>
               )}
               <CloseIcon className="ml-2 h-3.5 w-3.5" />
+              <span className="sr-only">, change destination</span>
             </button>
           ) : (
             <AirportPicker
@@ -403,19 +409,32 @@ export default function SearchForm() {
               onChange={() => {
                 setOneWay(true)
                 setOpenJaw(false)
+                // A budget only applies to a trip with a return: clear it so it cannot silently filter a one-way search.
+                setBudget(null)
+                setLevel(DEFAULT_LEVEL)
               }}
             >
               One way
             </Chip>
           </div>
-          {!oneWay && !isAnywhere && dateMode !== 'range' && (
-            <label className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
-              <input type="checkbox" checked={openJaw} onChange={(e) => setOpenJaw(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
-              <span>
-                Fly back to a different airport
-                <span className="block text-slate">Works with exact dates or a whole month.</span>
-              </span>
-            </label>
+          {!oneWay && !(isAnywhere && dateMode === 'month') && (
+            <ReturnAirportSwitch
+              className="mt-4"
+              on={openJaw}
+              onChange={setOpenJaw}
+              description={
+                dateMode === 'month'
+                  ? 'In the return calendar, show the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day (two one-way tickets), with the price difference.'
+                  : isAnywhere
+                  ? 'Also look at trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Each country and city shows its cheaper trip, round trip or not, and says which it is. These trips load after the round trips.'
+                  : 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets).'
+              }
+            />
+          )}
+          {!oneWay && isAnywhere && dateMode === 'month' && (
+            <p className="mt-4 text-sm text-slate">
+              Anywhere with a whole month looks at round trips from the same airport. Once you pick a trip, a button lets you fly back to a different airport.
+            </p>
           )}
         </section>
 
@@ -539,25 +558,27 @@ export default function SearchForm() {
           )}
         </section>
 
-        <section className={CARD} aria-labelledby="h-budget">
-          <Heading n={5} id="h-budget">
-            Budget <span className="text-sm font-normal text-slate">(optional)</span>
-          </Heading>
-          <BudgetPanel
-            bare
-            delay={0}
-            budget={budget}
-            level={level}
-            onChange={(nextBudget, nextLevel) => {
-              setBudget(nextBudget)
-              setLevel(nextLevel)
-            }}
-          />
-          <p className="mt-3 text-xs text-slate">
-            With a budget, results show an estimated total (flight plus what you spend there) and which trips fit. Flight prices are
-            cached; the rest are estimates.
-          </p>
-        </section>
+        {!oneWay && (
+          <section className={CARD} aria-labelledby="h-budget">
+            <Heading n={5} id="h-budget">
+              Budget <span className="text-sm font-normal text-slate">(optional)</span>
+            </Heading>
+            <BudgetPanel
+              bare
+              delay={0}
+              budget={budget}
+              level={level}
+              onChange={(nextBudget, nextLevel) => {
+                setBudget(nextBudget)
+                setLevel(nextLevel)
+              }}
+            />
+            <p className="mt-3 text-xs text-slate">
+              With a budget, results show an estimated total (flight plus what you spend there) and which trips fit. Flight prices are
+              cached; the rest are estimates.
+            </p>
+          </section>
+        )}
 
         {/* On phones the main button stays at the bottom of the screen while you scroll the form. */}
         <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-paper/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">

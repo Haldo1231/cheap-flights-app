@@ -62,3 +62,9 @@ export function shiftMonth(month: string, delta: number): string {
   const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+
+/** The last day of a month: "2026-11" -> "2026-11-30". */
+export function lastDayOfMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+}

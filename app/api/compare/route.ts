@@ -1,6 +1,7 @@
-import { getDayFlights, getRangeFlights, getCheapestLeg, flightToFare, type Flight } from '../../flightSources'
+import { findOpenJawPairs, getDayFlightsFrom, getRangeFlightsFrom, getCheapestOneWayLeg, flightToFare, type Flight } from '../../flightSources'
 import { buildBookingLink } from '../../aviasalesLink'
 import { matchesWeekdays, parseDays } from '../../weekdays'
+import { openJawFilterFor } from '../../openJawFilter'
 import { HOME_AIRPORTS } from '../../homeAirports'
 import { badRequest, cachedJson, cleanCode, cleanCodes, cleanDate, cleanInt, cleanMonth } from '../../lib/apiParams'
 import type { CompareResponse, Fare, OpenJawCombo, PricedLeg } from '../../tripTypes'
@@ -19,6 +20,7 @@ function toPricedLeg(f: Flight): PricedLeg {
     stops: f.stops,
     bookingUrl: buildBookingLink(f.origin, f.destination, f.departureDate),
     price: f.price,
+    seenAt: f.foundAt,
   }
 }
 
@@ -37,15 +39,44 @@ export async function GET(request: Request) {
   // home airports you fly BACK TO (used for the return day of a Whole Month trip).
   const inboundLeg = searchParams.get('leg') === 'inbound'
 
-  if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'month')) {
-    const outDate =
-      dateMode === 'exact' ? cleanDate(searchParams.get('departDate')) : cleanMonth(searchParams.get('month'))
-    const backDate =
-      dateMode === 'exact' ? cleanDate(searchParams.get('returnDate')) : cleanMonth(searchParams.get('month'))
+  // Fly out from one home airport and come back to ANOTHER: two one-way tickets, each at its own cached price.
+  if (openJaw && !oneWay && (dateMode === 'exact' || dateMode === 'range')) {
+    const filter = openJawFilterFor({
+      dateMode,
+      departDate: cleanDate(searchParams.get('departDate')),
+      returnDate: cleanDate(searchParams.get('returnDate')),
+      rangeStart: cleanDate(searchParams.get('rangeStart')),
+      rangeEnd: cleanDate(searchParams.get('rangeEnd')),
+      minDays: cleanInt(searchParams.get('minDays'), 2, 1, 30),
+      maxDays: cleanInt(searchParams.get('maxDays'), 10, 1, 30),
+      minNights: 1,
+      maxNights: 14,
+      outDays: parseDays(searchParams.get('outDays')),
+      backDays: parseDays(searchParams.get('backDays')),
+    })
+    // Out from the chosen airports; back to ANY of the home airports (BTS, VIE, BUD, KSC, PRG) or the chosen ones.
+    const returnTo = Array.from(new Set([...origins, ...HOME_AIRPORTS]))
+    const { pairs, outCount, backCount } = await findOpenJawPairs(origins, returnTo, destination, token, filter)
+    const body: CompareResponse = {
+      openJaw: true,
+      destination,
+      results: pairs.map((p) => ({ outbound: toPricedLeg(p.out), inbound: toPricedLeg(p.back), total: p.total })),
+      missingOutbound: outCount === 0,
+      missingReturn: backCount === 0,
+      outboundOnly: [],
+    }
+    return cachedJson(body)
+  }
+
+  if (openJaw && !oneWay && dateMode === 'month') {
+    const outDate = cleanMonth(searchParams.get('month'))
+    const backDate = cleanMonth(searchParams.get('month'))
 
     const [outLegs, backLegs] = await Promise.all([
-      Promise.all(origins.map((o) => getCheapestLeg(o, destination, outDate ?? undefined, token))),
-      Promise.all(origins.map((o) => getCheapestLeg(destination, o, backDate ?? undefined, token))),
+      // Each flight is priced on its own and the two are added, so only ONE-WAY fares count: a round-trip fare
+      // already pays for two flights and would be counted twice.
+      Promise.all(origins.map((o) => getCheapestOneWayLeg(o, destination, outDate ?? undefined, token))),
+      Promise.all(origins.map((o) => getCheapestOneWayLeg(destination, o, backDate ?? undefined, token))),
     ])
 
     const validOut = outLegs.filter((l): l is Flight => l !== null).map(toPricedLeg)
@@ -81,25 +112,17 @@ export async function GET(request: Request) {
     const minDays = cleanInt(searchParams.get('minDays'), 2, 1, 30)
     const maxDays = cleanInt(searchParams.get('maxDays'), 10, 1, 30)
 
-    const perOrigin = await Promise.all(
-      origins.map((origin) => getRangeFlights(origin, destination, rangeStart, rangeEnd, minDays, maxDays, token, { oneWay }))
-    )
+    const byOrigin = await getRangeFlightsFrom(origins, destination, rangeStart, rangeEnd, minDays, maxDays, token, { oneWay })
     // Weekday limits (off unless the address has them): the same rule Anywhere uses.
     const outDays = parseDays(searchParams.get('outDays'))
     const backDays = parseDays(searchParams.get('backDays'))
-    allFlights = perOrigin.flat().filter((f) => matchesWeekdays(f, outDays, backDays, oneWay))
+    allFlights = origins.flatMap((o) => byOrigin[o] ?? []).filter((f) => matchesWeekdays(f, outDays, backDays, oneWay))
   } else {
     // exact-date mode (and the fallback for any other non-openJaw mode)
     const departDate = cleanDate(searchParams.get('departDate'))
     if (departDate) {
-      const perOrigin = await Promise.all(
-        origins.map((origin) =>
-          inboundLeg
-            ? getDayFlights(destination, origin, departDate, token, { oneWay, returnDate: requestedReturn })
-            : getDayFlights(origin, destination, departDate, token, { oneWay, returnDate: requestedReturn })
-        )
-      )
-      allFlights = perOrigin.flat()
+      const byOrigin = await getDayFlightsFrom(origins, destination, departDate, token, { oneWay, returnDate: requestedReturn, direction: inboundLeg ? 'back' : 'out' })
+      allFlights = origins.flatMap((o) => byOrigin[o] ?? [])
     }
   }
 

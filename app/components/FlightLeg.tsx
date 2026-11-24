@@ -1,6 +1,7 @@
 import type { Leg } from '../tripTypes'
 import { formatDay, formatStops } from '../lib/format'
 import { isLowCostCarrier } from '../lib/lowCost'
+import { withSubId } from '../lib/subId'
 
 function LowCostBadge() {
   return (
@@ -21,11 +22,14 @@ type Props = {
   compact?: boolean
   /** Do not repeat "not in cached data" on this leg (the card says it once for all legs). */
   hideMissing?: boolean
+  /** Travelpayouts SubID for the booking link (lib/subId.ts makeSubId). */
+  subId?: string | null
 }
 
 /** One flight (one direction): date, departure time, route, airline, stops.
  * Anything the cache does not have is said out loud instead of left blank. */
-export default function FlightLeg({ label, leg, price = null, searchLinkLabel, compact = false, hideMissing = false }: Props) {
+export default function FlightLeg({ label, leg, price = null, searchLinkLabel, compact = false, hideMissing = false, subId = null }: Props) {
+  const bookHref = withSubId(leg.bookingUrl, subId)
   const airline = leg.airlineName || leg.airlineCode
   const stops = formatStops(leg.stops)
   const lowCost = isLowCostCarrier(leg.airlineCode)
@@ -53,6 +57,16 @@ export default function FlightLeg({ label, leg, price = null, searchLinkLabel, c
             {lowCost && <LowCostBadge />}
             {stops && <span>{stops}</span>}
           </p>
+          {searchLinkLabel && (
+            <a
+              href={bookHref}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className="mt-1 inline-flex min-h-9 items-center text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-2 hover:text-amber-ink"
+            >
+              {searchLinkLabel}
+            </a>
+          )}
         </div>
         {price !== null && (
           <p className="shrink-0 font-mono text-sm font-semibold tabular-nums text-ink">€{price}</p>
@@ -88,7 +102,7 @@ export default function FlightLeg({ label, leg, price = null, searchLinkLabel, c
         )}
         {searchLinkLabel && (
           <a
-            href={leg.bookingUrl}
+            href={bookHref}
             target="_blank"
             rel="noopener noreferrer sponsored"
             className="inline-flex min-h-9 items-center text-xs font-medium text-ink underline decoration-amber decoration-2 underline-offset-2 hover:text-amber-ink"

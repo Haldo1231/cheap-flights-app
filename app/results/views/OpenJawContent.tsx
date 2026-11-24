@@ -3,6 +3,7 @@
 import FlightLeg from '../../components/FlightLeg'
 import DrillLink from '../../components/DrillLink'
 import BudgetBadge from '../../components/BudgetBadge'
+import PriceAge from '../../components/PriceAge'
 import type { DestInfo } from '../../components/CostOfStay'
 import { affordableText, compareEstimates, estimateTrip, levelLabel, type TripEstimate } from '../../lib/budget'
 import { nightsBetweenDates } from '../../lib/format'
@@ -11,6 +12,7 @@ import { tripHref } from '../../lib/tripUrl'
 import type { CompareResponse, OpenJawCombo } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import BudgetEmpty from '../BudgetEmpty'
+import { makeSubId, withSubId } from '../../lib/subId'
 
 export type OpenJawResponse = Extract<CompareResponse, { openJaw: true }>
 
@@ -37,24 +39,20 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
   const cheapestTotal = totals.length > 0 ? Math.min(...totals) : null
   const noData = budget !== null && rows.length > 0 && totals.length === 0
   const ultraHelps = budget !== null && data.results.some((c) => estimateTrip({ flight: c.total, nights: nightsBetweenDates(c.outbound.date, c.inbound.date), info, level: 'ultra', budget }).status === 'within')
-  const nothing = data.results.length === 0 && !data.missingOutbound && !data.missingReturn
 
   return (
     <div>
-      {nothing && (
-        <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached prices found for this search.
-        </p>
-      )}
-      {data.missingOutbound && (
-        <p className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
-          No cached outbound price found from your airports to {destination}, so no complete trip can be built.
-        </p>
-      )}
-      {data.missingReturn && !data.missingOutbound && (
-        <div role="status" className="mb-3 rounded-sm border border-danger-line bg-danger-bg px-4 py-3 text-sm text-ink">
-          No cached return price found from {destination} to your airports — these are NOT complete round trips. Outbound
-          flights we did find:
+      {data.results.length === 0 && (
+        <div role="status" className="mb-3 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
+          <p className="font-semibold text-ink">No cached fares for returning to a different airport on these dates.</p>
+          <p className="mt-1">
+            {data.missingOutbound
+              ? `We found no cached one-way fare from your airports to ${destination} on these days.`
+              : data.missingReturn
+              ? `We found no cached one-way fare from ${destination} back to BTS, VIE, BUD, KSC or PRG on these days.`
+              : 'The one-way fares we have cached do not pair up into a trip that fits your days.'}{' '}
+            Try a wider date range, more weekdays or another day. Ordinary round-trip fares are not affected.
+          </p>
         </div>
       )}
 
@@ -63,7 +61,7 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
           {data.outboundOnly.map((leg) => (
             <li key={`${leg.origin}-${leg.date}-${leg.price}`} className="surface px-4 py-2">
               <FlightLeg label="Outbound" leg={leg} price={leg.price} />
-              <a href={leg.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={`${BOOK_BUTTON} mb-2`}>
+              <a href={withSubId(leg.bookingUrl, makeSubId('results', 'ow', leg.origin))} target="_blank" rel="noopener noreferrer sponsored" className={`${BOOK_BUTTON} mb-2`}>
                 Book outbound →
               </a>
             </li>
@@ -124,12 +122,15 @@ export default function OpenJawContent({ data, p, info }: { data: OpenJawRespons
                   <FlightLeg label="Outbound" leg={combo.outbound} price={combo.outbound.price} />
                   <FlightLeg label="Return" leg={combo.inbound} price={combo.inbound.price} />
                 </div>
+                <p className="mt-1 text-xs text-slate">
+                  Two one-way prices added together. Outbound: <PriceAge seenAt={combo.outbound.seenAt} />. Return: <PriceAge seenAt={combo.inbound.seenAt} />.
+                </p>
               </DrillLink>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pb-4 pt-2 sm:px-5">
-                <a href={combo.outbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
+                <a href={withSubId(combo.outbound.bookingUrl, makeSubId('results', 'two', combo.outbound.origin))} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                   Book outbound →
                 </a>
-                <a href={combo.inbound.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
+                <a href={withSubId(combo.inbound.bookingUrl, makeSubId('results', 'two', combo.outbound.origin))} target="_blank" rel="noopener noreferrer sponsored" className={BOOK_BUTTON}>
                   Book return →
                 </a>
                 <DrillLink

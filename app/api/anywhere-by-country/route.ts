@@ -3,6 +3,7 @@ import { getCountryImage } from '../../lib/countryImagesData'
 import {
   parseAnywhereParams,
   rankCountries,
+  anywhereMonths,
   checkCity,
   toAnywhereCity,
   nameAirlines,
@@ -12,13 +13,16 @@ import {
 } from '../../anywhereSearch'
 import type { AnywhereCity, AnywhereCountry } from '../../tripTypes'
 
+// Each city is looked at from every chosen airport (a few requests each): give a cold, uncached search room.
+export const maxDuration = 60
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const token = process.env.TRAVELPAYOUTS_TOKEN
   const { origins, params } = parseAnywhereParams(searchParams)
 
-  // Phase 1: one call per home airport ranks every reachable country roughly.
-  const { countries: ranked, totalCities } = await rankCountries(origins, token)
+  // Phase 1: the store's month summaries rank every country the chosen airports can reach.
+  const { countries: ranked, totalCities } = await rankCountries(origins, anywhereMonths(params), params.oneWay, token)
 
   if (ranked.length === 0) {
     return cachedJson({
@@ -36,7 +40,7 @@ export async function GET(request: Request) {
   const top = ranked.slice(0, TOP_N_COUNTRIES)
   const checked = await mapWithLimit(top, 5, async (country) => {
     const first = country.cities[0]
-    return { country, first, result: await checkCity(first, params, token) }
+    return { country, first, result: await checkCity(first, params, origins, token) }
   })
 
   const matched: AnywhereCountry[] = []

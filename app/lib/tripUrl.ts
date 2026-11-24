@@ -24,13 +24,15 @@ export type TripSnapshot = {
   /** Total price of the flights. */
   price: number
   gate: string | null
+  /** When a traveller saw the price (ISO text), if the data said. null = age not in the data. */
+  seenAt: string | null
 }
 
-const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg']
+const TRIP_KEYS = ['tk', 'o1', 'd1', 't1', 'a1', 's1', 'p1', 'h2', 'd2', 't2', 'a2', 'p2', 'tp', 'tg', 'ts', 'bm', 'bs', 'be', 'pick', 'bmon', 'bday', 'bx']
 
-/** URL of the trip page for a trip, keeping all the current search params. */
-export function tripHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot): string {
-  const changes: Record<string, string | null> = {
+/** The address pieces that describe a trip (used by the trip page and by "Find a flight back"). */
+export function tripParamChanges(destination: string, trip: TripSnapshot): Record<string, string | null> {
+  return {
     destination,
     tk: trip.kind,
     o1: trip.outbound.origin,
@@ -46,8 +48,26 @@ export function tripHref(current: URLSearchParams | string, destination: string,
     p2: trip.inbound && trip.inbound.price !== null ? String(trip.inbound.price) : null,
     tp: String(trip.price),
     tg: trip.gate,
+    ts: trip.seenAt,
   }
-  return withParams(current, changes, '/trip')
+}
+
+/** URL of the trip page for a trip, keeping all the current search params. */
+export function tripHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot): string {
+  return withParams(current, tripParamChanges(destination, trip), '/trip')
+}
+
+/** The address pieces of the "Find a flight back" page: how to look (bm = exact | range | month), the days or the month
+ * (bs, be | bmon), the day tapped in the month calendar (bday), "not back to the airport the flight left from" (bx),
+ * and which return was picked (pick). */
+export const BACK_KEYS = ['bm', 'bs', 'be', 'pick', 'bmon', 'bday', 'bx'] as const
+
+/** URL of "Find a flight back" for a one-way flight: the flight itself travels in the address (like a trip), and the
+ * days to look at start empty (the page then proposes the days after the flight). `extra` sets some of the BACK_KEYS
+ * from the start, for example `{ bm: 'month', bmon: '2026-12', bx: '1' }` for the month calendar of the other airports. */
+export function backHref(current: URLSearchParams | string, destination: string, trip: TripSnapshot, extra: Record<string, string | null> = {}): string {
+  const cleared: Record<string, string | null> = Object.fromEntries(BACK_KEYS.map((k) => [k, null]))
+  return withParams(current, { ...tripParamChanges(destination, trip), ...cleared, ...extra }, '/back')
 }
 
 /** The results-screen URL a trip page came from (trip data removed). */
@@ -119,7 +139,10 @@ export function parseTrip(get: (key: string) => string | null | undefined): Trip
   }
 
   const gate = (get('tg') || '').slice(0, 40)
-  return { kind: kindParam, outbound, inbound, price, gate: gate || null }
+  // The time a traveller saw the price: only a plain date-time is kept (the address can be edited by anyone).
+  const seen = get('ts')
+  const seenAt = seen && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?$/.test(seen) ? seen : null
+  return { kind: kindParam, outbound, inbound, price, gate: gate || null, seenAt }
 }
 
 export { SELECTION_KEYS }

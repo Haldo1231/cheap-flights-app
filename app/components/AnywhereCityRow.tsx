@@ -2,7 +2,10 @@ import type { AnywhereCity, Leg } from '../tripTypes'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
 import BudgetBadge from './BudgetBadge'
+import PriceAge from './PriceAge'
+import { vsRoundTrip } from './DifferentAirportLine'
 import type { TripEstimate } from '../lib/budget'
+import { tripRouteLabel } from '../lib/tripRoute'
 
 type Props = {
   city: AnywhereCity
@@ -12,17 +15,31 @@ type Props = {
   highlight?: boolean
   /** Budget estimate for this city's trip (flight + stay). Only set when a budget is. */
   estimate?: TripEstimate | null
+  /** The "fly back to a different airport" switch is on: the trip says what it is ("round trip, back to BTS" / "two
+   * one-way tickets, back to PRG"), and a trip back to another airport says what the same-airport round trip costs.
+   * Off = the wording stays exactly as it was. */
+  routeLabel?: boolean
+  /** A one-way search: the rough price of a city with no matching day comes from a cached ticket that may be a round
+   * trip, so it is not shown. */
+  oneWay?: boolean
 }
 
 function legPrice(leg: Leg & { price?: number | null }) {
   return leg.price ?? null
 }
 
-/** One city inside an Anywhere country: its trip (when it was checked against
- * the filters) or, otherwise, one real cached example fare marked as unfiltered. */
-export default function AnywhereCityRow({ city, href, highlight = false, estimate = null }: Props) {
+/** Under a trip that comes back to another airport: how it compares with the round trip from the same airport. */
+function compareNote(price: number, roundTripPrice: number | null): string {
+  return roundTripPrice === null
+    ? 'No round trip from the same airport on your days to compare with.'
+    : `${vsRoundTrip(price - roundTripPrice)} (round trip from the same airport: €${roundTripPrice})`
+}
+
+/** One city inside an Anywhere country: its trip when it was checked against the filters. A city with no matching
+ * day only shows the rough price (round-trip searches); it never shows a fare that was not checked against the filters. */
+export default function AnywhereCityRow({ city, href, highlight = false, estimate = null, routeLabel = false, oneWay = false }: Props) {
   const trip = city.trip
-  const example = city.example
+  const note = trip && routeLabel && city.roundTripPrice !== undefined ? compareNote(trip.price, city.roundTripPrice) : null
 
   return (
     <DrillLink
@@ -50,11 +67,14 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
             <>
               <p className={`font-mono text-lg font-semibold tabular-nums text-ink ${highlight ? 'underline decoration-amber decoration-[3px] underline-offset-[6px]' : ''}`}>€{trip.price}</p>
               <p className="text-xs text-slate">
-                {trip.inbound ? (trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
+                {routeLabel ? tripRouteLabel(trip) : trip.inbound ? (trip.kind === 'fare' ? 'round trip, both flights' : 'out + back') : 'one way'}
               </p>
               {estimate?.total != null && <p className="mt-0.5 font-mono text-xs font-semibold text-ink">~€{estimate.total} total</p>}
+              <p className="text-xs text-slate first-letter:uppercase">
+                <PriceAge seenAt={trip.seenAt} />
+              </p>
             </>
-          ) : (
+          ) : oneWay ? null : (
             <p className="font-mono text-base tabular-nums text-slate">~€{city.roughPrice}</p>
           )}
         </div>
@@ -74,13 +94,7 @@ export default function AnywhereCityRow({ city, href, highlight = false, estimat
         </div>
       )}
 
-      {!trip && example && (
-        <div className="mt-2 border-t border-line pt-1">
-          <p className="mt-1 text-xs text-slate">Example of a cached fare (dates not filtered): €{example.price}</p>
-          <FlightLeg compact label="Out" leg={example.outbound} />
-          {example.inbound && <FlightLeg compact label="Back" leg={example.inbound} />}
-        </div>
-      )}
+      {trip && note && <p className="mt-1 border-t border-line pt-2 text-xs font-medium text-ink">{note}</p>}
     </DrillLink>
   )
 }

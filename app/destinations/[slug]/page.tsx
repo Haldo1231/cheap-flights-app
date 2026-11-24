@@ -109,7 +109,7 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
             </p>
             {fare ? (
               <ul>
-                <FareCard fare={fare} isCheapest shareHref={`/destinations/${slug}`} shareTitle={destination.name} />
+                <FareCard fare={fare} isCheapest linkPage="dest" shareHref={`/destinations/${slug}`} shareTitle={destination.name} />
               </ul>
             ) : (
               <div className="surface p-4 text-sm text-slate">

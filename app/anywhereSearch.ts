@@ -1,30 +1,37 @@
 // Anywhere search, shared by the country list and the country detail routes.
 //
 // Two phases keep API usage small while staying honest about the filters:
-//  1. Rough ranking: ONE call per home airport lists ~30 real destinations with
-//     a rough cached price each (no weekday awareness).
-//  2. Honest check: only for the cities we actually show, we look at the real
-//     day-by-day data and apply the date/weekday/nights filters. A city only
-//     gets a price when a day that really matches the filters has a cached fare.
+//  1. Rough ranking: the price store's month summaries list every destination of each home airport with its cheapest
+//     ticket of the month (real tickets with dates, no live requests when the store is fresh).
+//  2. Honest check: only for the cities we actually show, we look at the real day-by-day data and apply the
+//     date/weekday/nights filters. A city only gets a price when a day that really matches the filters has a cached fare.
+//     The check reads the very same store rows as the city page, so a country screen and the city's calendar agree.
 
 import {
-  getDayFlights,
-  getRangeFlights,
-  fetchMonthCalendarDetailed,
+  getDayFlightsFrom,
+  getRangeFlightsFrom,
+  getMonthDaysByOrigin,
+  cheapestPerDay,
+  findOpenJawPairs,
+  flightToLeg,
   completeFlights,
   flightToFare,
-  normalizeFromCheap,
-  type CheapEntry,
+  monthsBetween,
+  ticketToFlight,
+  type CalendarDayDetail,
   type Flight,
 } from './flightSources'
+import { coveredMonths, overviewTickets } from './lib/priceSource'
 import { getCityInfoForCodes } from './geoData'
 import { getAirlineNames } from './airlines'
-import { parseDays, findBestCombinations, matchesWeekdays } from './weekdays'
+import { parseDays, dayOfWeek, findBestCombinations, matchesWeekdays, type Combination } from './weekdays'
 import { calendarDayToFare } from './lib/trip'
 import { mapWithLimit } from './lib/pool'
 import type { AnywhereCity, AnywhereTrip, CalendarDay, Fare, Leg } from './tripTypes'
 import { cleanCodes, cleanDate, cleanInt, cleanMonth, MAX_ORIGINS as MAX_ORIGIN_CODES } from './lib/apiParams'
 import { HOME_AIRPORTS } from './homeAirports'
+import { openJawFilterFor } from './openJawFilter'
+import { oldestSeen } from './lib/priceAge'
 
 // Bounds shown to the user ("checked the N cheapest-looking countries").
 export { mapWithLimit }
@@ -32,8 +39,8 @@ export { mapWithLimit }
 export const MAX_ORIGINS = MAX_ORIGIN_CODES
 export const TOP_N_COUNTRIES = 15
 export const MAX_CITIES_PER_COUNTRY = 10
-// A city is tried from at most this many home airports (cheapest first), and
-// only the next one is tried when the previous one has no matching day.
+// The quick ranking keeps this many home airports per city (cheapest first) for the rough price and the
+// "from X" example. The honest check below does NOT use this limit: it looks at every chosen airport.
 const MAX_ORIGINS_PER_CITY = 3
 
 export type AnywhereParams = {
@@ -97,30 +104,24 @@ type CountryGroup = {
   roughPrice: number
 }
 
-async function fetchCityDirections(origin: string, token: string | undefined) {
-  try {
-    const url = `https://api.travelpayouts.com/v1/city-directions?origin=${origin}&currency=eur&token=${token}`
-    const res = await fetch(url, { next: { revalidate: 3600 } })
-    if (!res.ok) return []
-    const json = await res.json()
-    const data: Record<string, CheapEntry> = json.data || {}
-    const results: { cityCode: string; origin: string; roughPrice: number; example: Flight | null }[] = []
-    for (const [cityCode, entry] of Object.entries(data)) {
-      if (typeof entry?.price === 'number') {
-        results.push({ cityCode, origin, roughPrice: entry.price, example: normalizeFromCheap(entry, origin, cityCode) })
-      }
-    }
-    return results
-  } catch {
-    return []
-  }
+/** The months (YYYY-MM) an Anywhere search looks at: the searched month, the month of the exact date, or the months of
+ * the range (at most 4). */
+export function anywhereMonths(params: AnywhereParams): string[] {
+  const covered = coveredMonths()
+  if (params.dateMode === 'month') return [params.month ?? covered[0]]
+  if (params.dateMode === 'range') return monthsBetween(params.rangeStart ?? `${covered[0]}-01`, params.rangeEnd ?? `${covered[covered.length - 1]}-28`)
+  return [params.departDate ? params.departDate.slice(0, 7) : covered[0]]
 }
 
-/** Rough ranking of every country reachable from the chosen airports, cheapest first. */
-export async function rankCountries(origins: string[], token: string | undefined) {
-  const perOrigin = await Promise.all(origins.map((o) => fetchCityDirections(o, token)))
+/** Rough ranking of every destination the store knows from the chosen airports in the given months, cheapest first:
+ * one real ticket per airport and destination (its cheapest of the month, one way or round trip as searched). */
+export async function rankCountries(origins: string[], months: string[], oneWay: boolean, token: string | undefined) {
+  const perMonth = await Promise.all(months.map((m) => overviewTickets(origins, m, oneWay, token)))
   // A home airport is never a destination (e.g. Vienna when searching from Vienna + Budapest).
-  const all = perOrigin.flat().filter((c) => !origins.includes(c.cityCode))
+  const all = perMonth
+    .flat()
+    .filter((t) => !origins.includes(t.destination))
+    .map((t) => ({ cityCode: t.destination, origin: t.origin, roughPrice: t.price, example: ticketToFlight(t) as Flight | null }))
 
   const cityCodes = Array.from(new Set(all.map((c) => c.cityCode)))
   const info = await getCityInfoForCodes(cityCodes)
@@ -164,7 +165,7 @@ export type RankedCountry = Awaited<ReturnType<typeof rankCountries>>['countries
 type RankedCity = RankedCountry['cities'][number]
 
 // ---------------------------------------------------------------------------
-// Phase 2: honest check of one city from one home airport
+// Phase 2: honest check of one city from every chosen home airport
 // ---------------------------------------------------------------------------
 
 function tripFromFare(fare: Fare): AnywhereTrip {
@@ -173,93 +174,154 @@ function tripFromFare(fare: Fare): AnywhereTrip {
     kind: 'fare',
     outbound: { ...fare.outbound, price: null },
     inbound: fare.inbound ? { ...fare.inbound, price: null } : null,
+    seenAt: fare.seenAt,
   }
 }
 
-async function checkCityFromOrigin(
-  origin: string,
-  cityCode: string,
-  params: AnywhereParams,
-  token: string | undefined
-): Promise<AnywhereTrip | null> {
+/** A month-calendar entry of one home airport, in the shape the day-pair code works with. */
+function withOrigin(days: Record<string, CalendarDayDetail> | undefined, origin: string): Record<string, CalendarDay> {
+  const result: Record<string, CalendarDay> = {}
+  for (const [date, e] of Object.entries(days ?? {})) result[date] = { ...e, origin, airlineName: null }
+  return result
+}
+
+/** Exact dates and date range: the cheapest fare of EACH home airport that fits the filters (one store read for all of them).
+ * Lists are cheapest first, so the first usable one is the winner. Uses the same data as the city page (`/api/compare`). */
+async function cheapestUsableFlights(origins: string[], cityCode: string, params: AnywhereParams, token: string | undefined): Promise<(Flight | null)[]> {
   if (params.dateMode === 'range') {
-    const flights = await getRangeFlights(
-      origin, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
+    const byOrigin = await getRangeFlightsFrom(
+      origins, cityCode, params.rangeStart || undefined, params.rangeEnd || undefined,
       params.minDays, params.maxDays, token, { enrich: false, oneWay: params.oneWay }
     )
-    // Only fares on the chosen weekdays count (cheapest first, so the first one left is the winner).
-    const matching = flights.filter((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay))
-    if (matching.length === 0) return null
-    const [winner] = await completeFlights([matching[0]], token)
-    return tripFromFare(flightToFare(winner))
-  }
-
-  if (params.dateMode === 'month') {
-    if (!params.month) return null
-    const outDetailed = await fetchMonthCalendarDetailed(origin, cityCode, params.month, token)
-    const outDays: Record<string, CalendarDay> = {}
-    for (const [date, e] of Object.entries(outDetailed)) {
-      outDays[date] = { ...e, origin, airlineName: null }
-    }
-
-    if (params.oneWay) {
-      const matching = Object.entries(outDays).filter(([date]) => {
-        const [y, m, d] = date.split('-').map(Number)
-        return params.outDays.includes(new Date(y, m - 1, d).getDay())
-      })
-      if (matching.length === 0) return null
-      const [date, day] = matching.reduce((min, cur) => (cur[1].price < min[1].price ? cur : min))
-      const leg = calendarDayToFare(day, date, origin, cityCode).outbound
-      return { price: day.price, kind: 'legs', outbound: { ...leg, price: day.price }, inbound: null }
-    }
-
-    if (!params.returnMonth) return null
-    const backDetailed = await fetchMonthCalendarDetailed(cityCode, origin, params.returnMonth, token)
-    const backDays: Record<string, CalendarDay> = {}
-    for (const [date, e] of Object.entries(backDetailed)) {
-      backDays[date] = { ...e, origin, airlineName: null }
-    }
-    const [best] = findBestCombinations(
-      outDays, backDays, params.outDays, params.backDays, params.minNights, params.maxNights, 1
-    )
-    if (!best) return null
-    const outLeg = calendarDayToFare(best.out, best.outDate, origin, cityCode).outbound
-    const backLeg = calendarDayToFare(best.back, best.backDate, cityCode, origin).outbound
-    return {
-      price: best.total,
-      kind: 'legs',
-      outbound: { ...outLeg, price: best.outPrice },
-      inbound: { ...backLeg, price: best.backPrice },
-    }
+    // Only fares on the chosen weekdays count. A one-way search never takes a fare with a return date: that is a
+    // round-trip price.
+    return origins.map((o) => (byOrigin[o] ?? []).find((f) => matchesWeekdays(f, params.outDays, params.backDays, params.oneWay) && (!params.oneWay || f.returnDate === null)) ?? null)
   }
 
   // exact dates
-  if (!params.departDate) return null
-  const flights = await getDayFlights(origin, cityCode, params.departDate, token, {
+  if (!params.departDate) return origins.map(() => null)
+  const byOrigin = await getDayFlightsFrom(origins, cityCode, params.departDate, token, {
     enrich: false,
     oneWay: params.oneWay,
     returnDate: params.oneWay ? null : params.returnDate,
   })
-  // A round trip asked for an exact return date: only a fare with that return counts.
-  const usable =
-    !params.oneWay && params.returnDate ? flights.filter((f) => f.returnDate === params.returnDate) : flights
-  if (usable.length === 0) return null
-  const [winner] = await completeFlights([usable[0]], token)
-  return tripFromFare(flightToFare(winner, params.returnDate))
+  // A round trip asked for an exact return date: only a fare with that return counts. A one-way search never takes a
+  // fare with a return date.
+  return origins.map(
+    (o) =>
+      (byOrigin[o] ?? []).find((f) => (params.oneWay ? f.returnDate === null : params.returnDate ? f.returnDate === params.returnDate : true)) ?? null
+  )
 }
 
-/** Checks one city against the filters, trying its next-best home airport when
- * the first one has no matching day. */
+/** Whole month: the best trip from the month calendars of every chosen airport (the data the city page's calendar shows). */
+async function checkCityMonth(
+  cityCode: string,
+  params: AnywhereParams,
+  origins: string[],
+  token: string | undefined
+): Promise<{ origin: string; trip: AnywhereTrip } | null> {
+  if (!params.month) return null
+
+  if (params.oneWay) {
+    // One-way prices only: a calendar entry with a return date is a round-trip price (see fetchMonthOneWayDays).
+    // For every day the cheapest fare among the airports, exactly as the city page's calendar shows it.
+    const perDay = cheapestPerDay(await getMonthDaysByOrigin(origins, cityCode, params.month, 'outbound', true, token))
+    const matching = Object.entries(perDay).filter(([date]) => params.outDays.includes(dayOfWeek(date)))
+    if (matching.length === 0) return null
+    // Cheapest day first; the earlier day wins a tie.
+    const [date, day] = matching.reduce((min, cur) => (cur[1].price < min[1].price || (cur[1].price === min[1].price && cur[0] < min[0]) ? cur : min))
+    const leg = calendarDayToFare({ ...day, airlineName: null }, date, day.origin, cityCode).outbound
+    return { origin: day.origin, trip: { price: day.price, kind: 'legs', outbound: { ...leg, price: day.price }, inbound: null, seenAt: day.foundAt ?? null } }
+  }
+
+  if (!params.returnMonth) return null
+  const returnMonth = params.returnMonth
+  // The same three inputs as the city page's "Best combinations": round-trip fares out, one-way tickets out, one-way tickets back.
+  const [outRoundTrip, outOneWay, backOneWay] = await Promise.all([
+    getMonthDaysByOrigin(origins, cityCode, params.month, 'outbound', false, token),
+    getMonthDaysByOrigin(origins, cityCode, params.month, 'outbound', true, token),
+    getMonthDaysByOrigin(origins, cityCode, returnMonth, 'inbound', true, token),
+  ])
+
+  // A round-trip fare (one price for both flights) or two one-way tickets, whichever is cheaper. A round trip comes back to
+  // the airport it left from, so pairs are made inside each airport's own calendars. The trip must leave in the departure
+  // month and come back in the return month. The cheapest airport wins (the first listed one on a tie).
+  const months = { out: params.month, back: returnMonth }
+  const none: Record<string, CalendarDay> = {}
+  let best: { origin: string; combo: Combination<CalendarDay> } | null = null
+  for (const origin of origins) {
+    const [fare] = findBestCombinations(withOrigin(outRoundTrip[origin], origin), none, params.outDays, params.backDays, params.minNights, params.maxNights, 1, months)
+    const [legs] = findBestCombinations(withOrigin(outOneWay[origin], origin), withOrigin(backOneWay[origin], origin), params.outDays, params.backDays, params.minNights, params.maxNights, 1, months)
+    for (const combo of [fare, legs]) if (combo && (!best || combo.total < best.combo.total)) best = { origin, combo }
+  }
+  if (!best) return null
+
+  const { origin, combo } = best
+  if (combo.kind === 'fare' || !combo.back) {
+    // One round-trip fare covers both flights: one price, not split.
+    return { origin, trip: tripFromFare(calendarDayToFare(combo.out, combo.outDate, origin, cityCode)) }
+  }
+  const outLeg = calendarDayToFare(combo.out, combo.outDate, origin, cityCode).outbound
+  const backLeg = calendarDayToFare(combo.back, combo.backDate, cityCode, origin).outbound
+  return {
+    origin,
+    trip: {
+      price: combo.total,
+      kind: 'legs',
+      outbound: { ...outLeg, price: combo.outPrice },
+      inbound: { ...backLeg, price: combo.backPrice },
+      seenAt: oldestSeen(combo.out.foundAt, combo.back.foundAt),
+    },
+  }
+}
+
+/** The best trip to this city that comes back to a DIFFERENT home airport: a one-way fare out plus a one-way fare back,
+ * paired and filtered by exactly the same code as the destination results (findOpenJawPairs). It may leave from any of
+ * the chosen home airports and return to any of BTS/VIE/BUD/KSC/PRG or the chosen ones.
+ * null when no pair of cached one-way fares fits the filters. */
+export async function checkCityOpenJaw(
+  cityCode: string,
+  origins: string[],
+  params: AnywhereParams,
+  token: string | undefined
+): Promise<AnywhereTrip | null> {
+  if (params.oneWay) return null
+  const returnTo = Array.from(new Set([...origins, ...HOME_AIRPORTS]))
+  const { pairs } = await findOpenJawPairs(origins, returnTo, cityCode, token, openJawFilterFor(params), 1)
+  const best = pairs[0]
+  if (!best) return null
+  // The older of the two prices decides what "seen" says.
+  const oldest = oldestSeen(best.out.foundAt, best.back.foundAt)
+  return {
+    price: best.total,
+    kind: 'legs',
+    outbound: { ...flightToLeg(best.out), price: best.out.price },
+    inbound: { ...flightToLeg(best.back), price: best.back.price },
+    seenAt: oldest,
+  }
+}
+
+/** Checks one city against the filters from EVERY chosen home airport and keeps the cheapest trip that fits. This reads the
+ * same data as the city page (the month calendars of `/api/calendar`, the fare lists of `/api/compare`) for the same
+ * airports, so the country screen and the city's own calendar agree: a city is only "no matching day" when none of the
+ * chosen airports has a fare on a matching day. */
 export async function checkCity(
   city: RankedCity,
   params: AnywhereParams,
+  origins: string[],
   token: string | undefined
 ): Promise<{ origin: string; trip: AnywhereTrip } | null> {
-  for (const option of city.options) {
-    const trip = await checkCityFromOrigin(option.origin, city.cityCode, params, token)
-    if (trip) return { origin: option.origin, trip }
-  }
-  return null
+  if (params.dateMode === 'month') return checkCityMonth(city.cityCode, params, origins, token)
+
+  const flights = await cheapestUsableFlights(origins, city.cityCode, params, token)
+  // The cheapest of all airports (the first listed one on a tie).
+  let winner: Flight | null = null
+  for (const f of flights) if (f && (!winner || f.price < winner.price)) winner = f
+  if (!winner) return null
+
+  // Airline and time are looked up for the winner only (at most one calendar request).
+  const [done] = await completeFlights([winner])
+  return { origin: done.origin, trip: tripFromFare(flightToFare(done, params.dateMode === 'range' ? undefined : params.returnDate)) }
 }
 
 // ---------------------------------------------------------------------------

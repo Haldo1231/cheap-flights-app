@@ -3,6 +3,8 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import SiteHeader from './components/SiteHeader'
 import SiteFooter from './components/SiteFooter'
+import { Analytics } from '@vercel/analytics/next'
+import SiteEvents from './components/SiteEvents'
 
 const plexSans = IBM_Plex_Sans({
   variable: '--font-sans',
@@ -41,7 +43,7 @@ export const viewport: Viewport = {
   // The colour of the browser bar on phones follows the theme.
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#14213D' },
-    { media: '(prefers-color-scheme: dark)', color: '#0E172D' },
+    { media: '(prefers-color-scheme: dark)', color: '#141F38' },
   ],
   colorScheme: 'light dark',
 }
@@ -67,6 +69,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        <SiteEvents />
+        <Analytics />
       </body>
     </html>
   )

@@ -1,3 +1,5 @@
+import { withSubId } from './lib/subId'
+
 // Travelpayouts affiliate link for this site's Aviasales account.
 // campaign_id/p/trs are fixed values generated for this project in the Travelpayouts dashboard.
 const TP_MARKER = '765816'
@@ -23,13 +25,19 @@ function searchPath(origin: string, destination: string, departDate?: string, re
   return path
 }
 
+/** The affiliate booking link. With `link` (the price service's deep link to one exact ticket, a path that starts with
+ * /search/) the user lands on that very ticket, with the price we showed as the expected price. With `subId` (see
+ * lib/subId.ts: where the click came from) Travelpayouts' statistics can be grouped by it. Screens usually add the SubID
+ * when they show the link (`withSubId`), because the shared price code that builds the link does not know the screen. */
 export function buildBookingLink(
   origin: string,
   destination: string,
   departDate?: string,
-  returnDate?: string
+  returnDate?: string,
+  link?: string,
+  subId?: string
 ) {
-  const searchUrl = `https://www.aviasales.com/search/${searchPath(origin, destination, departDate, returnDate)}`
+  const searchUrl = link && link.startsWith('/search/') ? `https://www.aviasales.com${link}` : `https://www.aviasales.com/search/${searchPath(origin, destination, departDate, returnDate)}`
   const u = encodeURIComponent(searchUrl)
-  return `https://tp.media/r?campaign_id=${TP_CAMPAIGN_ID}&marker=${TP_MARKER}&p=${TP_P}&trs=${TP_TRS}&u=${u}`
+  return withSubId(`https://tp.media/r?campaign_id=${TP_CAMPAIGN_ID}&marker=${TP_MARKER}&p=${TP_P}&trs=${TP_TRS}&u=${u}`, subId)
 }

@@ -3,6 +3,8 @@ import { formatNights, nightsBetweenDates } from '../lib/format'
 import FlightLeg from './FlightLeg'
 import DrillLink from './DrillLink'
 import ShareButton from './ShareButton'
+import PriceAge from './PriceAge'
+import { makeSubId, withSubId, type LinkPage } from '../lib/subId'
 
 type Props = {
   fare: Fare
@@ -11,6 +13,8 @@ type Props = {
   detailsHref?: string
   /** Called when the card is hovered or focused (lets the page preview its cost). */
   onPreview?: () => void
+  /** One-way flight: where "Find a flight back" opens (searches return flights to all home airports). */
+  findBackHref?: string
   /** Highlight this card (e.g. it is the one the cost panel is showing). */
   isPreviewed?: boolean
   /** One line with the fare plus the stay, e.g. "≈ €328 with 5 days of stay costs". */
@@ -23,14 +27,18 @@ type Props = {
   shareHref?: string
   /** Name used in the share sheet, e.g. "Rome". */
   shareTitle?: string
+  /** The screen this card is on: becomes the Travelpayouts SubID of its booking links (lib/subId.ts). */
+  linkPage?: LinkPage
 }
 
 /** One cached fare. A round-trip fare shows BOTH flights; its single price
  * covers them together, which the card says plainly. */
-export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, heading, shareHref, shareTitle }: Props) {
+export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, findBackHref, heading, shareHref, shareTitle, linkPage }: Props) {
   const shareTarget = shareHref ?? detailsHref
   const isRoundTrip = fare.kind === 'round-trip' && fare.inbound
   const nights = fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 0
+  const bookHref = linkPage ? withSubId(fare.bookingUrl, makeSubId(linkPage, isRoundTrip ? 'rt' : 'ow', fare.outbound.origin)) : fare.bookingUrl
+  const returnOnlyHref = fare.inbound && linkPage ? withSubId(fare.inbound.bookingUrl, makeSubId(linkPage, 'ow', fare.inbound.destination)) : fare.inbound?.bookingUrl
   // Nothing about the flights themselves is known: say it once for the whole fare.
   const detailsUnknown = [fare.outbound, fare.inbound].every(
     (leg) => !leg || (!leg.time && !leg.airlineName && !leg.airlineCode)
@@ -70,6 +78,9 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
 
       <div className="mt-1 space-y-1 text-xs text-slate">
         {notes.length > 0 && <p>{notes.join(' · ')}.</p>}
+        <p className="first-letter:uppercase">
+          <PriceAge seenAt={fare.seenAt} />
+        </p>
         {stayLine && <p className="font-medium text-ink">{stayLine}</p>}
         {budgetNote}
       </div>
@@ -101,7 +112,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
       )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pb-4 pt-1 sm:px-5">
         <a
-          href={fare.bookingUrl}
+          href={bookHref}
           target="_blank"
           rel="noopener noreferrer sponsored"
           className="btn btn-amber"
@@ -116,6 +127,11 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
             Trip details →
           </DrillLink>
         )}
+        {findBackHref && (
+          <DrillLink href={findBackHref} className="btn btn-outline">
+            Find a flight back →
+          </DrillLink>
+        )}
         {shareTarget && (
           <ShareButton
             href={shareTarget}
@@ -125,7 +141,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
         )}
         {fare.inbound && (
           <a
-            href={fare.inbound.bookingUrl}
+            href={returnOnlyHref}
             target="_blank"
             rel="noopener noreferrer sponsored"
             className="inline-flex min-h-10 items-center rounded-sm text-xs font-medium text-slate underline decoration-line decoration-2 underline-offset-4 hover:text-ink hover:decoration-amber focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"

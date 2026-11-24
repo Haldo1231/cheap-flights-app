@@ -5,22 +5,34 @@ import CalendarGrid from '../../components/CalendarGrid'
 import DayFlightRow from '../../components/DayFlightRow'
 import Drawer from '../../components/Drawer'
 import FlightLeg from '../../components/FlightLeg'
+import ReturnAirportSwitch from '../../components/ReturnAirportSwitch'
 import WeekdayFilterBox from '../WeekdayFilterBox'
 import BudgetBox from '../BudgetBox'
 import BudgetEmpty from '../BudgetEmpty'
 import BudgetBadge from '../../components/BudgetBadge'
+import PriceAge from '../../components/PriceAge'
 import type { DestInfo } from '../../components/CostOfStay'
 import { affordableText, levelLabel, type TripEstimate } from '../../lib/budget'
 import { useMonthBudget } from './useMonthBudget'
 import { CalendarSkeleton, FareListSkeleton } from '../../components/Skeleton'
 import { calendarDayToFare } from '../../lib/trip'
+import { returnCalendar } from '../../lib/returnMonth'
+import { airportCity } from '../../airportsList'
 import { formatDay, formatMonth, formatNights, shiftMonth } from '../../lib/format'
 import { todayString } from '../../lib/searchValidation'
-import type { Fare } from '../../tripTypes'
+import type { CalendarDayMap, Fare } from '../../tripTypes'
 import type { ResultsParams } from '../useResultsParams'
 import type { MonthTrip } from './useMonthTrip'
 
 type Combo = MonthTrip['bestCombinations'][number]
+
+/** The airport of each one-way price of a calendar: shown on hover (and read out), never written on the calendar. Where the ticket
+ * leaves from (Departing) or flies back to (Returning). */
+function airportHints(data: CalendarDayMap, leg: 'out' | 'back'): Record<string, string> {
+  const hints: Record<string, string> = {}
+  for (const [date, day] of Object.entries(data)) hints[date] = leg === 'out' ? `one-way flight from ${day.origin}` : `one-way flight back to ${day.origin}`
+  return hints
+}
 
 export default function MonthContent({ p, m, info, infoReady }: { p: ResultsParams; m: MonthTrip; info: DestInfo | null; infoReady: boolean }) {
   const [drawer, setDrawer] = useState<'out' | 'back' | null>(null)
@@ -34,10 +46,20 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   const { budget, level } = p
   const loading = m.calOut.loading || m.calBack.loading || (budget !== null && !infoReady)
   const place = info?.name ?? destination
+  // The day pairs also wait for the list of round-trip fares.
+  const combosPending = loading || m.combosLoading
   const failed = m.calOut.error || m.calBack.error
 
+  // With the switch "Fly back to a different airport" ON (and an outbound flight picked) the Returning calendar shows, for every day,
+  // the cheapest flight back to ANY home airport (including the one you leave from), named under the price with how much cheaper it
+  // is than flying back to the airport you leave from. Before an outbound is picked it still shows the normal calendar.
+  const jawOn = m.jawMode
+  const leaveFrom = m.selectedOutFare?.outbound.origin ?? null
+  const jawCalendar = jawOn && leaveFrom ? returnCalendar(m.returnByDate, { after: m.outDate, sameAirport: leaveFrom }) : null
+  const jawFailed = jawOn && m.returnError
+
   function pickDay(leg: 'out' | 'back', date: string) {
-    p.setParams(leg === 'out' ? { out: date, of: null } : { back: date, bf: null })
+    p.setParams(leg === 'out' ? { out: date, of: null, via: null } : { back: date, bf: null, via: null })
     setDrawer(leg)
   }
 
@@ -45,13 +67,18 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
   // (the calendar's cheapest cached fare for each day), not another flight of that day.
   function pickCombo(combo: Combo) {
     const out = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
-    const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
-    p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id })
+    if (combo.kind === 'fare' || !combo.back) {
+      // One round-trip fare covers both flights: only the outbound fare is picked, the return comes with it.
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: null, via: 'combo' })
+    } else {
+      const back = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin)
+      p.setParams({ out: combo.outDate, back: combo.backDate, of: out.id, bf: back.id, via: 'combo' })
+    }
     setDrawer(null)
   }
 
   function pickFlight(leg: 'out' | 'back', fare: Fare) {
-    p.setParams(leg === 'out' ? { of: fare.id } : { bf: fare.id })
+    p.setParams(leg === 'out' ? { of: fare.id, via: null } : { bf: fare.id, via: null })
     setDrawer(null)
   }
 
@@ -67,6 +94,14 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
 
   return (
     <div>
+      {p.openJawAllowed && (
+        <ReturnAirportSwitch
+          className="mb-4"
+          on={p.openJaw}
+          onChange={(on) => p.setParams({ openJaw: on ? 'true' : null })}
+          description="After you pick a departure day, the Returning calendar shows the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day, and how much cheaper it is than flying back to the airport you left from (two one-way tickets)."
+        />
+      )}
       <WeekdayFilterBox p={p} />
       <BudgetBox p={p} />
 
@@ -76,13 +111,117 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
         </div>
       )}
 
+      <p className="mb-3 text-sm text-slate">
+        {oneWay
+          ? 'Tap a day to see its flights. Each price is the cheapest cached fare for that day.'
+          : 'Tap a day to see its flights. Each price is the cheapest cached ONE-WAY ticket for that day; hover or tap a day to see its airport. Round-trip fares are in the combinations below.'}
+      </p>
+
+      {loading ? (
+        <CalendarSkeleton />
+      ) : (
+        <div className="mb-4 flex flex-col gap-6 sm:flex-row">
+          <CalendarGrid
+            title="Departing"
+            data={m.outboundData}
+            hints={!oneWay ? airportHints(m.outboundData, 'out') : undefined}
+            month={departMonth}
+            onPrev={() => p.setParams({ month: shiftMonth(departMonth, -1) })}
+            onNext={() => p.setParams({ month: shiftMonth(departMonth, 1) })}
+            selectedDate={m.outDate ?? undefined}
+            onSelectDay={(date: string) => pickDay('out', date)}
+            allowedDays={p.outDays}
+            marks={mb?.outMarks}
+            minMonth={minMonth}
+            maxMonth={maxMonth}
+          />
+          {!oneWay && jawCalendar && m.returnLoading && <CalendarSkeleton label="Loading the flights back to every airport" />}
+          {!oneWay && jawCalendar && !m.returnLoading && (
+            <div className="min-w-0 flex-1">
+              <CalendarGrid
+                title="Returning, any airport"
+                data={jawFailed ? {} : jawCalendar.days}
+                notes={jawCalendar.notes}
+                month={returnMonth}
+                onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
+                onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
+                selectedDate={m.backDate ?? undefined}
+                onSelectDay={(date: string) => pickDay('back', date)}
+                allowedDays={p.backDays}
+                minMonth={minMonth}
+                maxMonth={maxMonth}
+              />
+              {jawFailed && (
+                <p role="alert" className="mt-2 rounded-sm border border-danger-line bg-danger-bg px-3 py-2 text-sm text-ink">
+                  Something went wrong loading the flights back to every airport. Reload the page to try again.
+                </p>
+              )}
+            </div>
+          )}
+          {!oneWay && !jawCalendar && (
+            <div className="min-w-0 flex-1">
+              <CalendarGrid
+                title="Returning"
+                data={m.inboundData}
+                hints={!oneWay ? airportHints(m.inboundData, 'back') : undefined}
+                month={returnMonth}
+                onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
+                onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
+                selectedDate={m.backDate ?? undefined}
+                onSelectDay={(date: string) => pickDay('back', date)}
+                allowedDays={p.backDays}
+                marks={mb?.backMarks}
+                minMonth={minMonth}
+                maxMonth={maxMonth}
+              />
+              {jawOn && (
+                <p className="mt-2 text-xs text-slate" role="status">
+                  Pick a departure day first. Then this calendar shows the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate" aria-label="Calendar colours">
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm border border-ok-line bg-ok-bg" /> Below average
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm border border-danger-line bg-danger-bg" /> Above average
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm border-2 border-amber" /> Cheapest day
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm bg-sand" /> Not one of your weekdays / no price
+        </li>
+        {jawCalendar && leaveFrom && (
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="font-mono text-slate">PRG</span> Airport you fly back to. The small <span aria-hidden="true" className="font-mono font-semibold text-ink">−4</span> in the corner: €4 cheaper than flying back to {airportCity(leaveFrom)} ({leaveFrom})
+          </li>
+        )}
+        {mb && mb.dataOk && (
+          <>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="font-bold text-ink">✓</span> The whole trip fits your €{budget} budget
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="font-mono text-slate">€12</span> Grey price: over budget
+            </li>
+          </>
+        )}
+      </ul>
+
       {!oneWay && (
         <section className="mb-6" aria-labelledby="best-combos">
-          <h2 id="best-combos" className="mb-2 text-base font-semibold">
+          <h2 id="best-combos" className="mb-1 text-base font-semibold">
             Best combinations
           </h2>
-          {loading && <FareListSkeleton count={2} label="Finding the best day pairs" />}
-          {!loading && mb && mb.rows.length > 0 && (
+          <p className="mb-2 text-xs text-slate">Round-trip fares and two one-way tickets, mixed, cheapest total first.</p>
+          {combosPending && <FareListSkeleton count={2} label="Finding the best day pairs" />}
+          {!combosPending && mb && mb.rows.length > 0 && (
             <p className="mb-3 text-sm text-slate" aria-live="polite">
               {!mb.dataOk ? (
                 <>No cost data for {place}: flight prices only, nothing is counted as within your €{budget} budget.</>
@@ -96,7 +235,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
               )}
             </p>
           )}
-          {!loading && m.bestCombinations.length === 0 && (
+          {!combosPending && m.bestCombinations.length === 0 && (
             <p className="rounded-sm border border-line bg-surface px-4 py-3 text-sm text-slate">
               {Object.keys(m.outboundData).length > 0 && Object.keys(m.inboundData).length > 0
                 ? 'No pair of days fits your weekday and nights filters in these months. A trip needs a cached price on both the outbound and the return day. Loosen the filters, or browse other months with the arrows below.'
@@ -107,7 +246,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                   }.`}
             </p>
           )}
-          {!loading && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
+          {!combosPending && mb && mb.rows.length > 0 && mb.shown.length === 0 && (
             <BudgetEmpty
               p={p}
               cheapestTotal={mb.cheapestTotal}
@@ -116,15 +255,17 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
               noun="day pairs"
             />
           )}
-          {!loading && listRows.length > 0 && (
+          {!combosPending && listRows.length > 0 && (
             <ul className="space-y-2">
               {listRows.map(({ combo, estimate }, i) => {
-                const outLeg = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination).outbound
-                const backLeg = calendarDayToFare(combo.back, combo.backDate, destination, combo.back.origin).outbound
+                const outFare = calendarDayToFare(combo.out, combo.outDate, combo.out.origin, destination)
+                const outLeg = outFare.outbound
+                const isFare = combo.kind === 'fare' || !combo.back
+                const backLeg = isFare && outFare.inbound ? outFare.inbound : calendarDayToFare(combo.back ?? combo.out, combo.backDate, destination, (combo.back ?? combo.out).origin).outbound
                 const picked = m.outDate === combo.outDate && m.backDate === combo.backDate
                 const hint = estimate ? affordableText(estimate, place, false, budget) : null
                 return (
-                  <li key={`${combo.outDate}-${combo.backDate}`}>
+                  <li key={`${combo.outOrigin}-${combo.outDate}-${combo.backDate}-${combo.total}`}>
                     <button
                       type="button"
                       onClick={() => pickCombo(combo)}
@@ -135,6 +276,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-line px-2 py-0.5 text-xs font-medium text-ink">{isFare ? 'round-trip fare' : '2 one-way tickets'}</span>
                           {i === 0 && (
                             <span className="rounded-full bg-amber px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-deep">
                               {estimate && estimate.status === 'within' ? 'Best for your budget' : 'Cheapest'}
@@ -143,8 +285,12 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                           <span className="font-mono text-xs text-slate">{formatNights(combo.nights)}</span>
                           {estimate && <BudgetBadge estimate={estimate} />}
                         </div>
-                        <FlightLeg compact label="Out" leg={outLeg} price={combo.outPrice} />
-                        <FlightLeg compact label="Back" leg={backLeg} price={combo.backPrice} />
+                        <FlightLeg compact label="Out" leg={outLeg} price={isFare ? null : combo.outPrice} />
+                        <FlightLeg compact label="Back" leg={backLeg} price={isFare ? null : combo.backPrice} />
+                        <p className="text-xs text-slate">
+                          {isFare ? 'One price for both flights, not split. ' : 'Two one-way prices added, each with its own booking link. '}
+                          <PriceAge seenAt={combo.out.foundAt} />
+                        </p>
                         {estimate && (estimate.total !== null || hint) && (
                           <p className="mt-1 text-xs text-slate">
                             {estimate.total !== null && <span className="font-medium text-ink">≈ €{estimate.total} with {estimate.days} day{estimate.days === 1 ? '' : 's'} of stay</span>}
@@ -163,70 +309,6 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
         </section>
       )}
 
-      <p className="mb-3 text-sm text-slate">
-        Tap a day to see its flights. Each price is the cheapest cached fare for that day.
-      </p>
-
-      {loading ? (
-        <CalendarSkeleton />
-      ) : (
-        <div className="mb-4 flex flex-col gap-6 sm:flex-row">
-          <CalendarGrid
-            title="Departing"
-            data={m.outboundData}
-            month={departMonth}
-            onPrev={() => p.setParams({ month: shiftMonth(departMonth, -1) })}
-            onNext={() => p.setParams({ month: shiftMonth(departMonth, 1) })}
-            selectedDate={m.outDate ?? undefined}
-            onSelectDay={(date: string) => pickDay('out', date)}
-            allowedDays={p.outDays}
-            marks={mb?.outMarks}
-            minMonth={minMonth}
-            maxMonth={maxMonth}
-          />
-          {!oneWay && (
-            <CalendarGrid
-              title="Returning"
-              data={m.inboundData}
-              month={returnMonth}
-              onPrev={() => p.setParams({ returnMonth: shiftMonth(returnMonth, -1) })}
-              onNext={() => p.setParams({ returnMonth: shiftMonth(returnMonth, 1) })}
-              selectedDate={m.backDate ?? undefined}
-              onSelectDay={(date: string) => pickDay('back', date)}
-              allowedDays={p.backDays}
-              marks={mb?.backMarks}
-              minMonth={minMonth}
-              maxMonth={maxMonth}
-            />
-          )}
-        </div>
-      )}
-
-      <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate" aria-label="Calendar colours">
-        <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border border-ok-line bg-ok-bg" /> Below average
-        </li>
-        <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border border-danger-line bg-danger-bg" /> Above average
-        </li>
-        <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border-2 border-amber" /> Cheapest day
-        </li>
-        <li className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-sand" /> Not one of your weekdays / no price
-        </li>
-        {mb && mb.dataOk && (
-          <>
-            <li className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="font-bold text-ink">✓</span> The whole trip fits your €{budget} budget
-            </li>
-            <li className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="font-mono text-slate">€12</span> Grey price: over budget
-            </li>
-          </>
-        )}
-      </ul>
-
       <Drawer
         open={drawer !== null}
         onClose={() => setDrawer(null)}
@@ -234,6 +316,8 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
         subtitle={
           drawer === 'out'
             ? `Cached flights from ${p.originList.join(', ')} to ${destination}`
+            : jawOn
+            ? `Cached one-way flights from ${destination} to BTS, VIE, BUD, KSC or PRG, cheapest first`
             : `Cached flights from ${destination} to ${p.originList.join(', ')}`
         }
       >
@@ -252,6 +336,7 @@ export default function MonthContent({ p, m, info, infoReady }: { p: ResultsPara
                 rank={i}
                 isSelected={fare.id === drawerSelected?.id}
                 onSelect={() => pickFlight(drawer ?? 'out', fare)}
+                showDestinationCity={drawer === 'back' && jawOn}
               />
             ))}
             <p className="pt-2 text-xs text-slate">

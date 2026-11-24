@@ -5,6 +5,8 @@ import { cache } from 'react'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import Flag from '../../components/Flag'
 import PriceAge from '../../components/PriceAge'
+import SaveButton from '../../components/SaveButton'
+import { cleanSearch } from '../../lib/saved/search'
 import RouteMonthCalendar from '../../components/route/RouteMonthCalendar'
 import { buildBookingLink } from '../../aviasalesLink'
 import { formatDay, formatMonth, formatShortDate, formatStops, nightsBetweenDates } from '../../lib/format'
@@ -204,9 +206,12 @@ export default async function RoutePageView({ params }: { params: Promise<{ rout
             <FareBlock route={route} fare={facts.cheapestRoundTrip} heading="Round trip" />
             <FareBlock route={route} fare={facts.cheapestOneWay} heading="One way" />
           </div>
-          <Link href={`/search?from=${route.origin}&to=${route.destination}`} className="btn btn-outline mt-4">
-            Search {route.destinationCity} with my own dates →
-          </Link>
+          <div className="mt-4 flex flex-wrap items-start gap-2">
+            <Link href={`/search?from=${route.origin}&to=${route.destination}`} className="btn btn-outline">
+              Search {route.destinationCity} with my own dates →
+            </Link>
+            <SaveButton search={cleanSearch({ origins: [route.origin], destination: route.destination, oneWay: false, dateMode: 'any' })} />
+          </div>
         </section>
 
         <section className="mb-10" aria-labelledby="by-month">

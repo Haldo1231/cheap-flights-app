@@ -87,3 +87,21 @@ export function MoonIcon({ className }: IconProps) {
     </Svg>
   )
 }
+
+/** The "save this route" heart; `filled` when it is saved. */
+export function HeartIcon({ className, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className ?? 'h-5 w-5'}
+    >
+      <path d="M12 20.5s-7.5-4.4-9.2-9.3C1.6 7.8 3.9 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.7 1.1-1.6 2.7-2.7 4.7-2.7 3.4 0 5.7 3.3 4.5 6.7-1.7 4.9-9.2 9.3-9.2 9.3Z" />
+    </svg>
+  )
+}

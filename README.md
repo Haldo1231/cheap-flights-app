@@ -23,7 +23,7 @@ Then open http://localhost:3000. The keys the site needs live in a file called `
 | `UNSPLASH_ACCESS_KEY` | only for `npm run images` (country photos) |
 | `PEXELS_API_KEY` | optional: only used by `npm run images` when Unsplash is unavailable |
 | `DEBUG_PRICES_KEY` | optional: turns on `/api/debug-prices` (price checks) |
-| `PRICE_REFRESH_BUDGET_MS` | optional: how long one slice of the nightly price job may run (default 50000 = 50 s; set 250000 when the project's functions may run 300 s) |
+| `PRICE_REFRESH_BUDGET_MS` | optional: how long one slice of the nightly price job may run (default 180000 = 180 s). Leave it alone unless the project's function limit changes: the job caps it so the hand-over to the next slice still fits inside the 300 s limit |
 | `PRICE_REFRESH_SELF_URL` | optional: the address the nightly job calls for its next slice (default: the production address Vercel gives) |
 | `PRICE_RUN_STUCK_MINUTES` | optional, for tests only: after how many minutes without progress a running price run counts as stuck (default 30) |
 
@@ -45,7 +45,7 @@ screen reads from it:
   out, one-way tickets out, one-way tickets back from the city). Departed days and old log rows are removed. About 2,700 requests a
   night, paced under 190 per minute (the service allows about 300 per minute per method).
   Vercel's Hobby plan runs a cron once a day and limits how long a function may run, so the job works in **slices**: each function call
-  works for 50 s (`PRICE_REFRESH_BUDGET_MS`), writes what it has, and calls itself for the next slice. Each call first answers
+  works for 180 s (`PRICE_REFRESH_BUDGET_MS`), writes what it has, and calls itself for the next slice. A slice is this long on purpose: Vercel refuses a chain's later self-calls with HTTP 508, so a whole night has to fit in about 5 of them (see "Known limitations" in AGENTS.md). Each call first answers
   "accepted" (202) and then works, so the slice before it knows the hand-over arrived; a hand-over that gets no 202 is tried again
   (3 tries). A run that still stops (no finished job for 30 minutes) is started again by the **deals job at 06:00 UTC**, which doubles
   as the watchdog (the Hobby plan allows only two cron jobs), or by the next nightly call. Jobs that failed three times get two more

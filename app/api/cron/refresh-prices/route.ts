@@ -48,9 +48,27 @@ const CLAIM = 12
 const MAX_SLICES = 60
 const MAX_ATTEMPTS = 3 // tries inside the slices; failed jobs then get TOTAL_ATTEMPTS - MAX_ATTEMPTS more at the end of the run
 const RETRY_PAUSE_MS = 10_000
-const DEFAULT_BUDGET_MS = 50_000
+// How long one slice may work before it hands over. Kept well under `maxDuration` (300 s): after the budget is used up a
+// slice still has to write its counters, may pause RETRY_PAUSE_MS for a round of failed jobs, and then wait for the next
+// slice to confirm it started (`startSlice`: 3 tries, up to ~73 s all told). 180 s + that tail stays inside 300 s.
+// WHY SO BIG: Vercel answers a slice's call to the next slice with HTTP 508 (`INFINITE_LOOP_DETECTED`, "an infinite loop is
+// detected within the application") once a chain has made roughly 8 of them, so every night from 18 to 24 Nov 2026 the run
+// stopped after 9 slices with ~1,100 jobs never done (runs 5-11 in `price_runs`). Vercel documents no count for when 508
+// starts, so the fix is to need far fewer calls: ~2,250 requests paced at MIN_GAP_MS take about 12 min, which is ~5 slices
+// of 180 s instead of ~20 of 50 s.
+const DEFAULT_BUDGET_MS = 180_000
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** What a slice still has to do after its budget is used up: write the counters, maybe pause for a round of failed jobs, and
+ * wait for the next slice to confirm it started (3 tries). The function is killed at `maxDuration`, so the budget must leave
+ * room for all of it -- a budget set too high would cut a slice off mid-hand-over and stall the run. */
+const HANDOVER_TAIL_MS = RETRY_PAUSE_MS + 75_000
+
+/** The budget a slice may use, never so much that the hand-over cannot finish inside `maxDuration`. */
+function sliceBudget(wanted: number, maxMs = maxDuration * 1000): number {
+  return Math.max(10_000, Math.min(wanted, maxMs - HANDOVER_TAIL_MS))
+}
 
 function summaryJobs(months: string[]): NewJob[] {
   const jobs: NewJob[] = []
@@ -118,7 +136,7 @@ export async function GET(request: Request) {
 async function runSlice(runId: number, base: string): Promise<void> {
   const token = process.env.TRAVELPAYOUTS_TOKEN
   const started = Date.now()
-  const budget = Number(process.env.PRICE_REFRESH_BUDGET_MS) || DEFAULT_BUDGET_MS
+  const budget = sliceBudget(Number(process.env.PRICE_REFRESH_BUDGET_MS) || DEFAULT_BUDGET_MS)
   const timeLeft = () => budget - (Date.now() - started)
   const now = new Date()
   const months = coveredMonths(now)

@@ -643,3 +643,52 @@ detail (trip_rt_bud, trip_ow_bud), flights back (back_two_bts), the old Anywhere
 with marker 765816. Without the table, /api/event answers 204 and logs one warning.
 **Owner:** run `supabase/site_events.sql`; switch on Vercel → Analytics → Enable. Three test clicks from 17 Nov show in Travelpayouts
 (SubIDs `citycal_rt_bts`, `deals_rt_bud` and one without a SubID).
+
+# Nightly price run: the HTTP 508 that killed 7 nights (branch `claude/epic-cerf-7a1z6z`, 24 Nov 2026)
+**Found by looking at `price_runs`, not by guessing:** runs 1–4 (15–17 Nov) finished `done` in 16–23 slices. Every run since
+then failed the same way — runs 5–10 (18–23 Nov) are `failed` and run 11 (today) hung in `running`. Each one stopped after
+**exactly 9 slices**, with the hand-over to the next slice refused three tries in a row:
+`hand-over failed: try 1: HTTP 508; try 2: HTTP 508; try 3: HTTP 508`. Roughly **1,100 of ~2,250 route jobs never ran each
+night** (run 11: 1,173 done, 1,084 pending, 0 failed).
+
+| run | night | status | slices | jobs left undone |
+|---|---|---|---|---|
+| 4 | 17 Nov | done | 23 | 0 |
+| 5–10 | 18–23 Nov | failed | 9 | ~1,100 each |
+| 11 | 24 Nov | running (hung) | 9 | 1,084 |
+
+**Checked in the documentation, not assumed:** Vercel's error page for 508 (`INFINITE_LOOP_DETECTED`, "Loop Detected", last
+updated 9 Feb 2026) says the error "occurs when an infinite loop is detected within the application" and lists an application
+"making an infinite number of requests to itself" as a cause. That is exactly what a slice does — it calls its own production
+address for the next slice. Vercel documents **no number** for when 508 starts, and no recursion limit on its functions-limits
+page, so the rule behind it is unknown; what the run log shows is that about the first 8 self-calls of a chain go through and
+then 508 stays (the 06:00 watchdog got one more slice, and that slice's hand-over was refused at once).
+
+**Why the long tail went stale while "Anywhere" looked fine:** the 40 summary jobs are planned first and always finished, so the
+month summaries stayed fresh. The route jobs behind them — the 12 named destinations and the 25 cheapest per summary — are the
+ones that were cut off.
+
+**Fixed by needing far fewer self-calls, not more retries:** a slice now works **180 s instead of 50 s** (`DEFAULT_BUDGET_MS`).
+About 2,250 requests paced at `MIN_GAP_MS` (320 ms, ≤ ~190/min) take roughly 12 minutes, which is **~5 slices instead of ~20** —
+under the ~8 where 508 appeared. Added `sliceBudget()`: the budget is capped so that whatever `PRICE_REFRESH_BUDGET_MS` is set
+to, a slice still has room (10 s retry pause + ~75 s of hand-over tries) to finish its hand-over inside `maxDuration` of 300 s.
+Before, the README suggested 250000, which would have left no room and could have killed a slice mid-hand-over.
+
+**Not changed on purpose:** the pacing (`MIN_GAP_MS`) stays — the price service allows about 300 requests/min per method and
+lowering it would risk 429s, and even at the limit a night needs more than 300 s, so self-chaining cannot be avoided on Hobby.
+
+**What is verified and what is not:** type-check, lint and build are clean. The 180 s arithmetic comes from the real request
+counts in `price_runs`. The fix **cannot be proved from a development machine** — it needs the code on Vercel, because the 508
+comes from Vercel answering the site's call to itself. So this is to be confirmed on the first night after the merge.
+
+**Nothing to do about the hung run 11:** tonight's job sees it `running` with no progress and older than 20 h (`RESUME_WITHIN_MS`),
+marks it given up and starts a fresh run. No manual database change needed.
+
+**What to check the morning after the merge:** the newest `price_runs` row should be `status = done`, `slices` about 5, and
+`jobs_pending = 0`. If it is `failed` after ~8 slices again, the slice has to get bigger or the work smaller — more retries
+will not help.
+**Still waiting on the owner (unchanged from 17 Nov):** run `supabase/site_events.sql`; Vercel → Analytics → Enable; delete the
+Supabase access token that was shared for reading logs.
+**Note:** Next.js 16.4.2 again printed the security notice for agent-run builds (advisory for `use cache` / `unstable_cache`,
+fixed in 16.4.5). This site uses neither; the build finishes on a retry, as the notice itself says. Updating Next.js stays a
+separate, optional change.

@@ -11,6 +11,7 @@ import Breadcrumbs from '../../components/Breadcrumbs'
 import HostelList, { type Hostel } from '../../components/HostelList'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/CostOfStay'
 import { pageMetadata } from '../../lib/seo'
+import { routesToDestination } from '../../lib/routePages'
 import type { OgCard } from '../../lib/ogCard'
 import { formatShortDate } from '../../lib/format'
 
@@ -75,6 +76,8 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
     )
   }
 
+  const routePages = routesToDestination(slug)
+
   const { data: hostelRows } = await supabase.from('hostels').select('*').eq('destination_slug', slug)
   const hostels = (hostelRows as Hostel[] | null) ?? []
 
@@ -124,6 +127,24 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
               Search {destination.name} with my dates →
             </Link>
           </section>
+
+          {routePages.length > 0 && (
+            <section className="mb-10">
+              <h2 className="h-section mb-1">Prices from each airport</h2>
+              <p className="mb-3 text-sm text-slate">
+                One page per route: the cheapest cached fare, month by month prices, the airlines and the cheapest day of the week.
+              </p>
+              <ul className="flex flex-wrap gap-2">
+                {routePages.map((r) => (
+                  <li key={r.slug}>
+                    <Link href={`/flights/${r.slug}`} className="btn btn-outline">
+                      {r.originCity} → {r.destinationCity}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section>
             <h2 className="h-section mb-3">Recommended hostels</h2>

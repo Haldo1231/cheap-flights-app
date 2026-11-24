@@ -25,6 +25,7 @@ Then open http://localhost:3000. The keys the site needs live in a file called `
 | `DEBUG_PRICES_KEY` | optional: turns on `/api/debug-prices` (price checks) |
 | `PRICE_REFRESH_BUDGET_MS` | optional: how long one slice of the nightly price job may run (default 180000 = 180 s). Leave it alone unless the project's function limit changes: the job caps it so the hand-over to the next slice still fits inside the 300 s limit |
 | `PRICE_REFRESH_SELF_URL` | optional: the address the nightly job calls for its next slice (default: the production address Vercel gives) |
+| (none needed for `npm run routes`) | the route-page list uses the two Supabase variables above |
 | `PRICE_RUN_STUCK_MINUTES` | optional, for tests only: after how many minutes without progress a running price run counts as stuck (default 30) |
 
 Before you publish a change, run `npm run build` and `npm run lint`. Both should finish without errors.
@@ -375,3 +376,27 @@ many of the cheapest come back, 60 by default and up to 400 for a whole month). 
 ## Where things are
 
 See `AGENTS.md` for the map of the code, and `PROGRESS.md` for what was changed and why.
+
+## Route pages (/flights)
+
+One page per route, for search engines: `/flights/bratislava-milan` shows the cheapest cached fare, prices month by month,
+a price calendar, the airlines on the route, whether it is flown non-stop and the cheapest day of the week to fly out.
+
+Which routes have a page is **not** decided while a page is drawn — it is the committed list `data/routes.json`. An address
+a search engine has seen must not appear and disappear with the contents of the price store, so the list is built ahead of
+time and committed:
+
+```bash
+npm run routes
+```
+
+It reads `price_tickets` (nothing is written), keeps a route only when the store really holds enough about it, prints what
+it kept and what it left out with the reason, and writes `data/routes.json`. Commit that file. A route that is not in the
+list answers 404.
+
+"Enough" means: at least 30 tickets, 20 different departure days, 3 of the 4 months the store covers, 8 one-way and 8
+round-trip departure days, and a newest price no older than 72 h. On 24 November 2026 that was 47 of the 60 routes to the
+12 named destinations (Bratislava 11, Vienna 12, Budapest 12, Košice 1, Prague 11) — Košice has almost no cached data, which
+is a limit of the free price data rather than a fault.
+
+The pages themselves read the price store only, never the live price service, and every price says how old it is.

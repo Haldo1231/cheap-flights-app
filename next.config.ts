@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Asked for by `next upgrade --agent=security`: it records that this app takes the
+  // security updates of its Next.js major and nothing more, so the upgrade tool knows
+  // what to offer next. Nothing about the site's behaviour changes.
+  experimental: {
+    agentUpgrade: 'security',
+  },
   // The trip reports and guides are Markdown files read from disk. This makes sure they travel
   // with the pages that read them when the site is deployed.
   outputFileTracingIncludes: {

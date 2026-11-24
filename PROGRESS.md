@@ -841,3 +841,29 @@ build, which had no opinion about it. The sentence is reflowed, and `load.ts` no
 content file starts with a number of three or more digits and a full stop. A real numbered list never starts that
 high, so the check only catches the mistake, and it names the file and the line. Verified both ways: the build is
 clean now, and putting the mistake back makes it fail with that message.
+
+## Next.js 16.4.2 → 16.4.6 (security update)
+
+Every build in this project printed a security notice for agent-run builds and failed on the first attempt, passing
+only on a retry. The advisory behind it (GHSA-mfr8-8qww-v76h, moderate) is about `use cache` and `unstable_cache`,
+which this site does not use, so the site was never exposed — but the notice cost a wasted build every time and would
+have kept doing so.
+
+`npx next upgrade --agent=security` picked the smallest fix: 16.4.6, the patch inside the same major, with no codemod
+and no migration guide. Before changing anything, local and remote branches and the open pull requests were checked
+for an upgrade already in flight; the only branch with "upgrade" in its name (`upgrade-1`) is an old feature branch
+from the first weeks and has nothing to do with Next.js.
+
+Changed: `next` and `eslint-config-next` to 16.4.6, the lockfile, and one new option in `next.config.ts` —
+`experimental.agentUpgrade: 'security'`, which records that this app takes security patches of its major and nothing
+else, so the upgrade tool never offers a version that needs a migration. Nothing about the site's behaviour changes.
+
+Verified: `npx tsc --noEmit` and `npm run lint` clean, `npm run build` clean **on the first attempt** with no security
+notice in the log at all, 47 route pages and 3 guides still prerendered. Checked in the browser at desktop and at
+375 px: home, a guide (its table still scrolls sideways rather than breaking words), a route page and the deals page.
+The local dev server has no `.env.local` on this machine, so prices and deals come back empty there and the pages show
+their proper "nothing cached" and "couldn't load" states — the only console errors are the 401s and failed Supabase
+fetches that follow from the missing keys, not from the update.
+
+`npm audit` still reports 7 moderate issues, all of them the same `minimatch` advisory reached through
+`@typescript-eslint`. That is lint tooling, it never runs on the site, and the fix is not ours to make: left alone.

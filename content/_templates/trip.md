@@ -34,4 +34,4 @@ draft: true                      # true = hidden on the live site. Change to fal
 language: en                     # two-letter code: en, sk, de ...
 ---
 
-Write your story here in Markdown. Use ## for section headings.
+Write your story here in Markdown. Use # for section headings (the title above is already the page heading).

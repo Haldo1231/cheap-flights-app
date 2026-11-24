@@ -787,3 +787,48 @@ job index per airport 0/2/4/6/8, a different airport last in each month). `npx t
 with all 47 route pages, and Bratislava→Milan shows "from €32 round trip" with "price seen 9 h ago".
 **Note:** the Next.js 16.4.2 security notice for agent-run builds appeared again; the build finished on the retry, as the
 notice says.
+
+# Three guides, written from our own data (branch `feature/guides-from-our-data`, 24 Nov 2026)
+Priority 4 in AGENTS.md (Hostelworld approval) needs travel content, and the content section held nothing: zero
+guides, zero trip reports. These three guides fill it. **All three are `draft: true`** — they show only on the
+owner's own machine and are kept out of the live site, the listings and the sitemap until he has read them and set
+`draft: false`. The text goes out under his name, so publishing is his decision.
+
+| Guide | What it is built from |
+|---|---|
+| `five-airports-one-search` | Why the site compares five airports, when the travel to Vienna or Budapest pays off, the different-airport return, how to search all five |
+| `what-a-city-break-costs` | Our own day-cost table for the 12 cities, the three spending styles and their multipliers, the trip-total formula, what the estimate leaves out |
+| `cheapest-day-to-fly` | Our own price store: which weekday was cheapest on 50 routes, how big the gap is, the median cheapest return per month |
+
+**Every number in them was measured, not remembered.** The day-cost table is the `destinations` table. The weekday
+piece counted, over fares seen in the previous 14 days from the five airports to the 12 cities, the cheapest fare per
+weekday per route, keeping the 50 routes that had a price on all seven days: Saturday cheapest on 14 routes, Friday
+13, Thursday 11, Wednesday 8, Monday 7, **Tuesday 2**, Sunday 2 — so the "fly on a Tuesday" rule does not hold in our
+data. Cheapest weekday averaged €29.60 one way against €54.80 for the dearest, a €20 median gap, 44% on average. The
+guide states its own limits (50 routes, one snapshot, one-way fares only, part of the spread is the date not the day).
+The month table is the median cheapest return per route-month: Nov €148, Dec €130, Jan €104, Feb €97.
+
+**What was deliberately left out.** Coach and bus fares: we checked, and published prices for the same journey differ
+between sources and change through the year. Even the Prague airport bus number is contested (119 was renumbered in
+2024 and sources disagree on what replaced it). So the guides name operators, give times in round terms, and carry no
+outside fares and no outside links at all — a guessed official link for Budapest Airport was already a 404, which is
+exactly the failure mode we avoided.
+
+**A real UI bug found while checking.** `.article` sets `overflow-wrap: anywhere` so long links do not overflow; in a
+table cell on a phone that broke words and prices in half ("Barcelo na", "€1 4"). A 6-column table was technically
+inside the page but unreadable. `.article table` now scrolls sideways (`display: block; width: max-content;
+overflow-x: auto`) and cells keep their text on one line. This was fixed in the CSS rather than by simplifying the
+table, because it would hit any table the owner writes.
+
+**Also:** both content templates now say to use `#` for section headings. The renderer turns `#` into an h2 directly
+under the page's h1; the templates said `##`, which skips a heading level.
+
+**Checked in a browser** (drafts only exist in `npm run dev`): all three guides and the guides listing at 1440 px and
+at 375/390 px, light and dark. No sideways scrolling of the page on any of them, the tables scroll inside themselves,
+headings come out as h2, and the "Related destinations" box degrades to "No cached fare right now" without a database
+(there is no `.env.local` on this machine, which is also why the dev console shows price 401s — neither is caused by
+these changes). The sample trip page is unaffected. `npx tsc --noEmit`, `npm run lint` and `npm run build` clean, and
+the production build leaves all three drafts out of the sitemap and renders no page for them.
+
+**For the owner:** read the three files in `content/guides/`, change anything that does not sound like you, and set
+`draft: false` on the ones you want live. They are deliberately plain and do not pretend to be anyone's travel story.

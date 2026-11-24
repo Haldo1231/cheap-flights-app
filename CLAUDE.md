@@ -9,8 +9,8 @@ Live: https://cheap-flights-app.vercel.app
 Repo: github.com/Haldo1231/cheap-flights-app
 
 ## About the owner
-- Lukas is non-technical. He wants results, not lessons: do not explain how things work unless he asks.
-- Talk to him in Slovak, short and plain.
+- Lukas is non-technical and learning while building.
+- Explain everything in short, plain language. No jargon without a one-line explanation.
 
 ## Stack
 - Next.js 16 (App Router, TypeScript)
@@ -39,14 +39,12 @@ Airport departure-board look. Keep it consistent.
 - Fonts: IBM Plex Sans + IBM Plex Mono
 
 ## Rules: how to work on this project
-1. Work autonomously and go all the way: plan, build, test and finish the task without asking for OK on steps or explaining as you go.
-2. When something is unclear, make a sensible decision yourself and note it under "Decisions" at the end of this file.
-3. Ask only when truly blocked: a missing login or access, a decision only Lukas can make (money, accounts, anything public under his name), or something that would delete data or cost money.
-4. Read the relevant files before changing anything. Never remove or break existing features.
-5. After every change, run `npm run build` (and tests, if any) and fix errors before calling it done. Check UI changes in a browser at desktop and iPhone width.
-6. Commit with a clear message after each working change and push, so Vercel deploys it.
-7. New libraries are fine when they clearly help; prefer none. Mention any you added in the final report.
-8. Final report: 3–5 short lines in Slovak — what changed, the live link, and anything Lukas must do himself.
+1. Read the relevant files before changing anything.
+2. Explain what you will change and why BEFORE changing it. Wait for OK on anything big.
+3. Never remove or break existing features.
+4. After every change, run `npm run build` and fix any errors before saying it's done.
+5. Commit with a clear message after each working change.
+6. Don't add new libraries or services without asking first.
 
 ## Known limitations (not bugs)
 - Travelpayouts free data is cached: small routes (e.g. KSC → Prague) can return no results.
@@ -57,6 +55,3 @@ Airport departure-board look. Keep it consistent.
 2. Replace the fake hostel data with real listings.
 3. Design pass on `/anywhere`, `/deals` and destination pages.
 4. Mobile / responsive testing.
-
-## Decisions
-- (Claude adds decisions made on its own here.)

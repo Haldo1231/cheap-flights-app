@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { siteVerification } from './lib/seo'
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import SiteHeader from './components/SiteHeader'
@@ -22,6 +23,7 @@ const DESCRIPTION =
   'Compare cheap flights from Bratislava, Vienna, Budapest, Košice and Prague in one search — exact dates, a whole month, or anywhere — with airlines, times and the total trip cost.'
 
 export const metadata: Metadata = {
+  ...(siteVerification() ? { verification: siteVerification() } : {}),
   metadataBase: new URL('https://cheap-flights-app.vercel.app'),
   title: {
     default: 'cheapflights — compare cheap flights from 5 Central European airports',

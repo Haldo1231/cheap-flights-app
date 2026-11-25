@@ -58,6 +58,7 @@ These live in `.env.local` and Vercel. Never print, commit or log their values.
 - TRAVELPAYOUTS_TOKEN
 - CRON_SECRET
 - UNSPLASH_ACCESS_KEY, PEXELS_API_KEY (optional) (only for `npm run images` on your own computer; not needed on Vercel)
+- GOOGLE_SITE_VERIFICATION (optional): the Search Console HTML-tag code; when set, `siteVerification()` (`lib/seo.ts`) adds `google-site-verification` to every page; the home page is static, so a redeploy is needed after setting it
 - OG_SECRET (optional): signs the link-preview pictures; when it is missing, `CRON_SECRET` is used
 
 ## Design
@@ -109,3 +110,5 @@ Airport departure-board look. Keep it consistent.
 - A guide written here is `draft: true` and stays unpublished until the owner has read it and says to publish: the text goes out under his name, so publishing is his call, not ours. The first three were approved and published on 24 Nov 2026. Trip reports stay his alone (24 Nov 2026).
 - A table in an article scrolls sideways instead of squeezing: `.article` sets `overflow-wrap: anywhere` for long links, which inside a narrow table cell split city names and prices in half on a phone (24 Nov 2026).
 - Next.js is kept on the security updates of its own major (16.4.2 → 16.4.6, 24 Nov 2026) and nothing more: `experimental.agentUpgrade` is set to `security` in `next.config.ts`, so `next upgrade` offers the patch that closes an advisory and never a version that would need a migration. The advisory that prompted it (GHSA-mfr8-8qww-v76h, `use cache` / `unstable_cache`) did not affect this site, but the notice stopped every agent-run build until it was taken.
+- robots.txt blocks only `/api/`: `/results`, `/trip` and `/back` carry noindex, and a blocked page's noindex is never seen, so Google could list the bare address (24 Nov 2026).
+- `pageMetadata` drops " — cheapflights" when title + site name would pass 60 characters, so Google does not cut the meaningful words (24 Nov 2026).

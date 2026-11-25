@@ -23,11 +23,22 @@ type Input = {
   publishedTime?: string
 }
 
+// Google cuts a result's title at roughly 60 characters. When the page's own title plus
+// " — cheapflights" would be longer, the site name is left off so the words that matter stay visible.
+const TITLE_LIMIT = 60
+const SUFFIX = ' — cheapflights'
+
+/** Google Search Console's ownership tag, only when GOOGLE_SITE_VERIFICATION is set. */
+export function siteVerification(): Metadata['verification'] | undefined {
+  const google = process.env.GOOGLE_SITE_VERIFICATION?.trim()
+  return google ? { google } : undefined
+}
+
 export function pageMetadata({ title, description, path, card, previewTitle, noindex, image: given, type = 'website', publishedTime }: Input): Metadata {
   const image = given ? { url: given.url, alt: given.alt } : { url: ogImagePath(card ?? null), width: 1200, height: 630, alt: previewTitle ?? title }
-  const shown = `${previewTitle ?? title} — cheapflights`
+  const shown = `${previewTitle ?? title}${SUFFIX}`
   return {
-    title,
+    title: title.length + SUFFIX.length > TITLE_LIMIT ? { absolute: title } : title,
     description,
     ...(noindex ? { robots: { index: false } } : {}),
     // The canonical address tells search engines which one address is "the" page.

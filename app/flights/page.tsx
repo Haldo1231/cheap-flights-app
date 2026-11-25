@@ -9,7 +9,7 @@ import { pageMetadata } from '../lib/seo'
 // The list of route pages, grouped by home airport. It is built from the committed route list, so this page needs no
 // database and never disagrees with which routes actually have a page.
 export const metadata = pageMetadata({
-  title: 'Flight routes from Bratislava, Vienna, Budapest, Košice and Prague',
+  title: 'Flight routes from 5 Central European airports',
   description: `Cached prices, month by month, for ${ROUTE_PAGES.length} routes from the five home airports: the cheapest fare, a price calendar, the airlines that fly it and the cheapest day of the week.`,
   path: '/flights',
 })

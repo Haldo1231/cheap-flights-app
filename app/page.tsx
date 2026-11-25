@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import PageHero from './components/PageHero'
 import Flag from './components/Flag'
@@ -5,6 +6,9 @@ import ContentPreview from './components/content/ContentPreview'
 import { HOME_AIRPORTS } from './homeAirports'
 import { AIRPORTS } from './airportsList'
 import { DESTINATIONS } from './destinationsList'
+
+// Title and description come from the layout; the home page only adds its canonical address.
+export const metadata: Metadata = { alternates: { canonical: '/' } }
 
 const STEPS = [
   { n: '01', title: 'Say where and when', text: 'Pick a city or "anywhere", then exact dates, a whole month, or a date range.' },

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import Link from 'next/link'
 import { AUTH_ENABLED } from '../lib/auth/config'
 import { signInWithGoogle } from '../lib/auth/browser'
 import { useAuthUser } from '../lib/auth/useAuthUser'
@@ -151,6 +152,9 @@ function Heart({ search, className = '' }: Props & { search: SavedSearch }) {
           <span className="mb-3 block text-slate">
             We keep the route and dates, and show you how the price moved since. After signing in, it is saved for you.
           </span>
+          <Link href="/privacy" className="mb-3 -mt-2 block text-xs text-slate underline decoration-amber underline-offset-4">
+            What we keep when you sign in
+          </Link>
           <button type="button" onClick={signIn} className="btn btn-primary w-full">
             Continue with Google
           </button>

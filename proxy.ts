@@ -1,4 +1,4 @@
-// Keeps a signed-in visitor's session fresh on the few addresses that read it on the server (/saved, its API and the sign-in
+// Keeps a signed-in visitor's session fresh on the few addresses that read it on the server (/saved, its API, account deletion and the sign-in
 // return). It runs NOWHERE else, so every other page is served exactly as before. Off when sign-in is off.
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -25,5 +25,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/saved', '/api/saved'],
+  matcher: ['/saved', '/api/saved', '/api/account'],
 }

@@ -357,6 +357,8 @@ export default function SearchForm() {
               }}
               className="pill min-h-11 border-amber bg-amber-soft text-ink hover:bg-amber-soft-hover"
             >
+              {/* No aria-label on purpose: the name is the words on screen (so it can never leave one out,
+                  like the airport code), then the hidden words say what the button does. */}
               {isAnywhere ? (
                 <>
                   <PlaneIcon className="h-4 w-4 text-amber-ink" />

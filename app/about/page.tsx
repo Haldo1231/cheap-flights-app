@@ -3,6 +3,7 @@ import Link from 'next/link'
 import PageHero from '../components/PageHero'
 import { pageMetadata } from '../lib/seo'
 import { ABOUT_HAS_TODO } from '../lib/aboutStatus'
+import OwnerTodo from '../components/OwnerTodo'
 
 
 export const metadata: Metadata = pageMetadata({
@@ -11,16 +12,6 @@ export const metadata: Metadata = pageMetadata({
   path: '/about',
   noindex: ABOUT_HAS_TODO,
 })
-
-/** A clearly marked gap for text only the site's owner can write. */
-function Todo({ children }: { children: React.ReactNode }) {
-  return (
-    <div role="note" className="rounded-sm border-2 border-dashed border-amber bg-amber-soft px-4 py-3 text-sm">
-      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-amber-ink">TODO (to be written by the site owner)</p>
-      <p className="mt-1 text-ink">{children}</p>
-    </div>
-  )
-}
 
 export default function AboutPage() {
   return (
@@ -34,14 +25,14 @@ export default function AboutPage() {
           <h2 id="who" className="h-section mb-3">
             Who builds this site
           </h2>
-          <Todo>A few honest sentences about you: your name (or the name you want to use), where you travel from and what you do. Write it in your own words.</Todo>
+          <OwnerTodo>A few honest sentences about you: your name (or the name you want to use), where you travel from and what you do. Write it in your own words.</OwnerTodo>
         </section>
 
         <section aria-labelledby="why">
           <h2 id="why" className="h-section mb-3">
             Why it exists
           </h2>
-          <Todo>Why you built it, for example what annoyed you about comparing flights from several airports. One short paragraph is enough.</Todo>
+          <OwnerTodo>Why you built it, for example what annoyed you about comparing flights from several airports. One short paragraph is enough.</OwnerTodo>
         </section>
 
         <section aria-labelledby="prices">
@@ -79,7 +70,7 @@ export default function AboutPage() {
           <h2 id="contact" className="h-section mb-3">
             Contact
           </h2>
-          <Todo>How people can reach you (an email address you are happy to publish). Leave this out if you prefer not to be contacted.</Todo>
+          <OwnerTodo>How people can reach you (an email address you are happy to publish). Leave this out if you prefer not to be contacted.</OwnerTodo>
         </section>
       </div>
     </div>

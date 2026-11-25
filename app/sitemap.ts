@@ -9,7 +9,7 @@ import { ABOUT_HAS_TODO } from './lib/aboutStatus'
 // published (getTrips/getGuides leave drafts out in production builds). The About page is left
 // out while it still has TODO text (see lib/aboutStatus.ts). Search results and trip detail pages are not listed on purpose.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const fixed = ['/', '/search', '/anywhere', '/deals', '/flights', '/trips', '/guides', '/disclosure', ...(ABOUT_HAS_TODO ? [] : ['/about'])].map((path) => ({
+  const fixed = ['/', '/search', '/anywhere', '/deals', '/flights', '/trips', '/guides', '/disclosure', '/privacy', '/terms', ...(ABOUT_HAS_TODO ? [] : ['/about'])].map((path) => ({
     url: absoluteUrl(path),
     changeFrequency: 'weekly' as const,
     priority: path === '/' ? 1 : 0.7,

@@ -61,6 +61,18 @@ export default function SiteFooter() {
               Affiliate disclosure
             </Link>
           </p>
+          <ul className="mt-3 flex flex-wrap gap-x-5">
+            <li>
+              <Link href="/privacy" className="inline-flex min-h-9 items-center underline decoration-amber underline-offset-4 hover:text-amber">
+                Privacy policy
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms" className="inline-flex min-h-9 items-center underline decoration-amber underline-offset-4 hover:text-amber">
+                Terms of use
+              </Link>
+            </li>
+          </ul>
         </div>
       </div>
     </footer>

@@ -89,6 +89,9 @@ function Bar() {
           <Link href="/saved" onClick={() => setOpen(false)} className="flex min-h-10 items-center gap-2 rounded-md px-3 hover:bg-paper">
             <HeartIcon className="h-4 w-4 text-amber" /> Saved routes
           </Link>
+          <Link href="/saved#delete-account" onClick={() => setOpen(false)} className="flex min-h-10 items-center rounded-md px-3 text-slate hover:bg-paper">
+            Delete account
+          </Link>
           <button
             type="button"
             onClick={() => {
@@ -133,6 +136,11 @@ function Items({ rowClass }: { rowClass: string }) {
       <li>
         <Link href="/saved" className={`${rowClass} border-transparent text-white/85`}>
           Saved routes
+        </Link>
+      </li>
+      <li>
+        <Link href="/saved#delete-account" className={`${rowClass} border-transparent text-white/70`}>
+          Delete account
         </Link>
       </li>
       <li>

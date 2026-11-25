@@ -13,6 +13,7 @@ import { mapWithLimit } from '../lib/pool'
 import { formatShortDate } from '../lib/format'
 import SignInPanel from './SignInPanel'
 import RemoveSaved from './RemoveSaved'
+import DeleteAccount from './DeleteAccount'
 
 // Personal page: never in search engines (noindex here, and it is not in app/sitemap.ts).
 export const metadata: Metadata = pageMetadata({
@@ -88,6 +89,11 @@ export default async function SavedPage({ searchParams }: { searchParams: Promis
       <div>
         {hero}
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+          {query.deleted === '1' && (
+            <p role="status" className="mb-6 rounded-sm border border-ok-line bg-ok-bg px-4 py-3 text-sm text-ink">
+              Your account and saved routes are deleted.
+            </p>
+          )}
           <SignInPanel failed={signInFailed} />
         </div>
       </div>
@@ -145,6 +151,7 @@ export default async function SavedPage({ searchParams }: { searchParams: Promis
             </ul>
           </>
         )}
+        {!problem && <DeleteAccount count={rows.length} />}
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import ThemeToggle from './ThemeToggle'
+import { AccountBar, AccountMenuItems } from './AccountMenu'
 import { PlaneIcon } from './Icons'
 
 const LINKS = [
@@ -79,6 +80,7 @@ export default function SiteHeader() {
           </button>
 
           <ThemeToggle />
+          <AccountBar />
         </div>
       </nav>
 
@@ -101,6 +103,7 @@ export default function SiteHeader() {
                 </li>
               )
             })}
+            <AccountMenuItems rowClass="flex min-h-12 items-center border-l-2 px-3 text-base transition-colors hover:text-amber focus-visible:outline-white" />
           </ul>
         </div>
       )}

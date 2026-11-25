@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Flag from '../../components/Flag'
 import { airportCountryCode } from '../../airportsList'
 import Breadcrumbs, { type Crumb } from '../../components/Breadcrumbs'
@@ -27,6 +27,8 @@ import MonthContent from './MonthContent'
 import FareListContent, { arrangeFares } from './FareListContent'
 import OpenJawContent, { arrangeCombos } from './OpenJawContent'
 import BudgetBox from '../BudgetBox'
+import SaveButton from '../../components/SaveButton'
+import { searchFromResults } from '../../lib/saved/search'
 
 type PlaceResponse = { city: { code: string; name: string } | null; country: { code: string; name: string } | null }
 type InfoResponse = { destination: DestInfo | null }
@@ -52,6 +54,9 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
     (dateMode === 'exact' && !p.departDate && 'a departure date') ||
     (dateMode === 'range' && !p.searchParams.get('rangeStart') && 'a start date') ||
     null
+
+  // The heart saves the route and dates of this search (never a ticket); the address is the whole truth about them.
+  const saveable = useMemo(() => searchFromResults(new URLSearchParams(p.searchString)), [p.searchString])
 
   // Ordinary round-trip fares (back to the airport you left from) ...
   const listParams = new URLSearchParams(p.dataString)
@@ -230,6 +235,7 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
         <span className="ml-2 font-mono text-base font-normal text-slate">{destination}</span>
       </h1>
       <SearchSummary params={new URLSearchParams(p.filterString)} />
+      {!missing && <SaveButton search={saveable} className="mb-5" />}
 
       {missing && (
         <div className="surface px-5 py-6">

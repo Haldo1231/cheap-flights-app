@@ -7,6 +7,8 @@ import { supabase } from '../../supabase'
 import { getCheapestFare } from '../../flightSources'
 import { HOME_AIRPORTS } from '../../homeAirports'
 import FareCard from '../../components/FareCard'
+import SaveButton from '../../components/SaveButton'
+import { cleanSearch } from '../../lib/saved/search'
 import Breadcrumbs from '../../components/Breadcrumbs'
 import HostelList, { type Hostel } from '../../components/HostelList'
 import { CostSidebar, CostMobileBar, type DestInfo } from '../../components/CostOfStay'
@@ -120,12 +122,17 @@ export default async function DestinationPage({ params }: { params: Promise<{ sl
                 search with your own dates.
               </div>
             )}
-            <Link
-              href={destination.airport_code ? `/search?to=${destination.airport_code}` : '/search'}
-              className="btn btn-outline mt-4"
-            >
-              Search {destination.name} with my dates →
-            </Link>
+            <div className="mt-4 flex flex-wrap items-start gap-2">
+              <Link
+                href={destination.airport_code ? `/search?to=${destination.airport_code}` : '/search'}
+                className="btn btn-outline"
+              >
+                Search {destination.name} with my dates →
+              </Link>
+              <SaveButton
+                search={cleanSearch({ origins: HOME_AIRPORTS, destination: destination.airport_code, oneWay: false, dateMode: 'any' })}
+              />
+            </div>
           </section>
 
           {routePages.length > 0 && (

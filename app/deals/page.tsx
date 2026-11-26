@@ -1,14 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { supabase } from '../supabase'
-import { buildBookingLink } from '../aviasalesLink'
-import { getDayFlights, flightToFare } from '../flightSources'
-import { mapWithLimit } from '../lib/pool'
-import { byTrust, cheapestIndex } from '../lib/trustOrder'
+import { loadDeals } from '../lib/deals'
+import { cheapestIndex } from '../lib/trustOrder'
 import FareCard from '../components/FareCard'
 import PageHero from '../components/PageHero'
 import { pageMetadata } from '../lib/seo'
-import type { Fare } from '../tripTypes'
 
 // The daily job refreshes the table, so rebuild this page at least hourly
 // instead of freezing whatever was in the table when the site was last deployed.
@@ -21,49 +17,10 @@ export const metadata: Metadata = pageMetadata({
   path: '/deals',
 })
 
-type Deal = {
-  id: number
-  origin: string
-  destination: string
-  destination_city: string
-  destination_slug: string
-  price: number
-  departure_date: string
-  return_date: string | null
-}
-
-/** The deal as a fare. When the cached data for that exact day has the very same
- * fare (same return day, same price) we also get its airline and times. */
-async function dealToFare(deal: Deal): Promise<Fare> {
-  const base = {
-    origin: deal.origin,
-    destination: deal.destination,
-    price: deal.price,
-    departureDate: deal.departure_date,
-    departureTime: null,
-    returnDate: deal.return_date,
-    returnTime: null,
-    stops: null,
-    airlineCode: null,
-    airlineName: null,
-    gate: null,
-    bookingUrl: buildBookingLink(deal.origin, deal.destination, deal.departure_date, deal.return_date ?? undefined),
-    foundAt: null, // the stored deal has no seen-at time
-    expiresAt: null,
-  }
-  try {
-    const flights = await getDayFlights(deal.origin, deal.destination, deal.departure_date, process.env.TRAVELPAYOUTS_TOKEN)
-    const same = flights.find((f) => f.returnDate === deal.return_date && Math.abs(f.price - deal.price) <= 1)
-    return flightToFare(same ?? base)
-  } catch {
-    return flightToFare(base)
-  }
-}
-
 export default async function DealsPage() {
-  const { data, error } = await supabase.from('weekly_deals').select('*').order('price', { ascending: true })
+  const loaded = await loadDeals()
 
-  if (error) {
+  if (!loaded) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
         <h1 className="h-page mb-2">We couldn&apos;t load the deals</h1>
@@ -75,13 +32,9 @@ export default async function DealsPage() {
     )
   }
 
-  const rows = (data as Deal[] | null) ?? []
-  const looked = await mapWithLimit(rows, 3, dealToFare)
   // Fresh, complete fares first (lib/trustOrder.ts): a price older than 72 h, or one without its age or airline, moves down
   // but stays on the page with its own age next to it. The "Cheapest" badge stays on the real cheapest one.
-  const order = rows
-    .map((deal, i) => ({ deal, fare: looked[i] }))
-    .sort(byTrust(({ fare }) => ({ price: fare.price, seenAt: fare.seenAt, airline: fare.outbound.airlineCode ?? fare.outbound.airlineName })))
+  const order = loaded
   const deals = order.map((o) => o.deal)
   const fares = order.map((o) => o.fare)
   const cheapest = cheapestIndex(fares.map((f) => f.price))

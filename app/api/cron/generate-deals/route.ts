@@ -58,5 +58,6 @@ async function refreshDeals(): Promise<{ ok: boolean; status: number; count: num
 
   // The page is rebuilt from the new rows on its next visit (otherwise it could keep showing the old list for an hour or more).
   revalidatePath('/deals')
-  return { ok: true, status: 200, count: newIds.length, detail: `${newIds.length} deals stored, ${removedNote}, /deals refreshed` }
+  revalidatePath('/') // the home page shows the cheapest fresh deals too
+  return { ok: true, status: 200, count: newIds.length, detail: `${newIds.length} deals stored, ${removedNote}, /deals and / refreshed` }
 }

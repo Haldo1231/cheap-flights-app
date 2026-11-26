@@ -9,10 +9,10 @@ import WeekdayFilterPanel from '../components/WeekdayFilterPanel'
 import BudgetPanel from '../components/BudgetPanel'
 import ReturnAirportSwitch from '../components/ReturnAirportSwitch'
 import { DEFAULT_LEVEL, type LevelKey } from '../budgetConfig'
-import { budgetParams } from '../lib/budget'
+import { budgetParams, parseBudget, parseLevel } from '../lib/budget'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { HOME_AIRPORTS } from '../homeAirports'
-import { ALL_WEEKDAYS, serializeDays } from '../weekdays'
+import { ALL_WEEKDAYS, parseDays, serializeDays } from '../weekdays'
 import { formatMonth } from '../lib/format'
 import { validateSearch, todayString, MAX_NIGHTS, MAX_RANGE_DAYS, type SearchErrors } from '../lib/searchValidation'
 import { trackEvent } from '../lib/siteEvents'
@@ -157,39 +157,104 @@ function NumberField({
   )
 }
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+const MONTH = /^\d{4}-\d{2}$/
+
+/** A whole number from the address within [min, max], or the fallback. */
+function intParam(raw: string | null, fallback: number, min: number, max: number): number {
+  const n = raw === null ? NaN : Number(raw)
+  return Number.isInteger(n) && n >= min && n <= max ? n : fallback
+}
+
+/** What a link to the form already sets (the same keys as /results): the form starts from it, so nothing chosen in the
+ * link is lost. Anything missing or malformed falls back to the usual empty form. */
+function readPrefill(q: URLSearchParams) {
+  const toParam = (q.get('to') || q.get('destination') || '').toUpperCase()
+  const anywhere = toParam === 'ANYWHERE' || q.get('anywhere') === 'true'
+  const dest = AIRPORTS.find((a) => a.code === toParam)
+  const origins = (q.get('origins') || q.get('from') || '')
+    .toUpperCase()
+    .split(',')
+    .filter((c, i, all) => /^[A-Z]{3}$/.test(c) && all.indexOf(c) === i)
+  const oneWay = q.get('oneWay') === 'true'
+  const mode = q.get('dateMode')
+  const day = (key: string) => (DAY.test(q.get(key) ?? '') ? (q.get(key) as string) : '')
+  const month = (key: string) => (MONTH.test(q.get(key) ?? '') ? (q.get(key) as string) : '')
+  return {
+    destinationCode: anywhere ? 'ANYWHERE' : dest?.code ?? '',
+    destinationCity: anywhere ? 'Anywhere' : dest?.city ?? '',
+    homeOrigins: origins.length > 0 ? HOME_AIRPORTS.filter((c) => origins.includes(c)) : HOME_AIRPORTS,
+    extraOrigins: origins
+      .filter((c) => !HOME_AIRPORTS.includes(c))
+      .map((c) => AIRPORTS.find((a) => a.code === c))
+      .filter((a): a is (typeof AIRPORTS)[number] => !!a)
+      .map((a) => ({ code: a.code, city: a.city })),
+    oneWay,
+    openJaw: !oneWay && q.get('openJaw') === 'true',
+    dateMode: (mode === 'month' || mode === 'range' ? mode : 'exact') as 'exact' | 'month' | 'range',
+    departDate: day('departDate'),
+    returnDate: day('returnDate'),
+    month: month('month'),
+    returnMonth: month('returnMonth'),
+    rangeStart: day('rangeStart'),
+    rangeEnd: day('rangeEnd'),
+    minDays: intParam(q.get('minDays'), 2, 1, MAX_RANGE_DAYS),
+    maxDays: intParam(q.get('maxDays'), 8, 1, MAX_RANGE_DAYS),
+    outDays: parseDays(q.get('outDays')),
+    backDays: parseDays(q.get('backDays')),
+    minNights: intParam(q.get('minNights'), 1, 1, MAX_NIGHTS),
+    maxNights: intParam(q.get('maxNights'), 14, 1, MAX_NIGHTS),
+    budget: oneWay ? null : parseBudget(q.get('budget')),
+    level: oneWay ? DEFAULT_LEVEL : parseLevel(q.get('level')),
+  }
+}
+
 export default function SearchForm() {
   const router = useRouter()
-  const toParam = (useSearchParams().get('to') || '').toUpperCase()
-  const prefill = AIRPORTS.find((a) => a.code === toParam)
+  const searchParams = useSearchParams()
+  // Read once: the form owns its state after the first render.
+  const [prefill] = useState(() => readPrefill(new URLSearchParams(searchParams.toString())))
 
-  const [selectedAirports, setSelectedAirports] = useState<string[]>(HOME_AIRPORTS)
-  const [extraOrigins, setExtraOrigins] = useState<{ code: string; city: string }[]>([])
+  const [selectedAirports, setSelectedAirports] = useState<string[]>(prefill.homeOrigins)
+  const [extraOrigins, setExtraOrigins] = useState<{ code: string; city: string }[]>(prefill.extraOrigins)
 
-  const [destinationCode, setDestinationCode] = useState(toParam === 'ANYWHERE' ? 'ANYWHERE' : prefill?.code ?? '')
-  const [destinationCity, setDestinationCity] = useState(toParam === 'ANYWHERE' ? 'Anywhere' : prefill?.city ?? '')
+  const [destinationCode, setDestinationCode] = useState(prefill.destinationCode)
+  const [destinationCity, setDestinationCity] = useState(prefill.destinationCity)
 
-  const [oneWay, setOneWay] = useState(false)
+  const [oneWay, setOneWay] = useState(prefill.oneWay)
   // Off by default (the normal round trips are what most people want first); the switch turns on trips that come back
   // to a different one of the home airports.
-  const [openJaw, setOpenJaw] = useState(false)
-  const [dateMode, setDateMode] = useState<'exact' | 'month' | 'range'>('exact')
+  const [openJaw, setOpenJaw] = useState(prefill.openJaw)
+  const [dateMode, setDateMode] = useState<'exact' | 'month' | 'range'>(prefill.dateMode)
 
-  const [departDate, setDepartDate] = useState('')
-  const [returnDate, setReturnDate] = useState('')
-  const [month, setMonth] = useState('')
-  const [returnMonth, setReturnMonth] = useState('')
-  const [rangeStart, setRangeStart] = useState('')
-  const [rangeEnd, setRangeEnd] = useState('')
-  const [minDays, setMinDays] = useState(2)
-  const [maxDays, setMaxDays] = useState(8)
+  const [departDate, setDepartDate] = useState(prefill.departDate)
+  const [returnDate, setReturnDate] = useState(prefill.returnDate)
+  const [month, setMonth] = useState(prefill.month)
+  const [returnMonth, setReturnMonth] = useState(prefill.returnMonth)
+  const [rangeStart, setRangeStart] = useState(prefill.rangeStart)
+  const [rangeEnd, setRangeEnd] = useState(prefill.rangeEnd)
+  const [minDays, setMinDays] = useState(prefill.minDays)
+  const [maxDays, setMaxDays] = useState(prefill.maxDays)
 
-  const [outDays, setOutDays] = useState<number[]>(ALL_WEEKDAYS)
-  const [backDays, setBackDays] = useState<number[]>(ALL_WEEKDAYS)
-  const [minNights, setMinNights] = useState(1)
-  const [maxNights, setMaxNights] = useState(14)
+  const [outDays, setOutDays] = useState<number[]>(prefill.outDays)
+  const [backDays, setBackDays] = useState<number[]>(prefill.backDays)
+  const [minNights, setMinNights] = useState(prefill.minNights)
+  const [maxNights, setMaxNights] = useState(prefill.maxNights)
 
-  const [budget, setBudget] = useState<number | null>(null)
-  const [level, setLevel] = useState<LevelKey>(DEFAULT_LEVEL)
+  const [budget, setBudget] = useState<number | null>(prefill.budget)
+  const [level, setLevel] = useState<LevelKey>(prefill.level)
+
+  // "More options" (different airport back, weekdays, budget, spending style): folded away so a first-time visitor sees
+  // only From, To and Dates; open from the start when the link already sets one of them, so nothing set is hidden.
+  const [moreOpen, setMoreOpen] = useState(
+    () =>
+      prefill.openJaw ||
+      prefill.budget !== null ||
+      prefill.level !== DEFAULT_LEVEL ||
+      prefill.outDays.length < ALL_WEEKDAYS.length ||
+      prefill.backDays.length < ALL_WEEKDAYS.length ||
+      (prefill.dateMode === 'month' && (prefill.minNights !== 1 || prefill.maxNights !== 14))
+  )
 
   const [errors, setErrors] = useState<SearchErrors>({})
   const summaryRef = useRef<HTMLDivElement>(null)
@@ -198,6 +263,14 @@ export default function SearchForm() {
   const months = getNext12Months()
   const isAnywhere = destinationCode === 'ANYWHERE'
   const errorList = Object.values(errors)
+
+  const moreSet = [
+    !oneWay && openJaw && !(isAnywhere && dateMode === 'month') ? 'different airport back' : null,
+    dateMode !== 'exact' && (outDays.length < ALL_WEEKDAYS.length || (!oneWay && backDays.length < ALL_WEEKDAYS.length)) ? 'weekdays' : null,
+    !oneWay && budget !== null ? `budget €${budget}` : null,
+    !oneWay && level !== DEFAULT_LEVEL ? 'spending style' : null,
+  ].filter(Boolean)
+  const moreSummary = moreSet.length > 0 ? moreSet.join(', ') : 'Return airport, weekdays, budget'
 
   function toggleAirport(code: string) {
     setSelectedAirports((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
@@ -238,6 +311,7 @@ export default function SearchForm() {
       today,
     })
     setErrors(found)
+    if (found.outDays || found.backDays || found.nights) setMoreOpen(true)
     if (Object.keys(found).length > 0) {
       requestAnimationFrame(() => {
         summaryRef.current?.focus()
@@ -394,11 +468,11 @@ export default function SearchForm() {
           <FieldError id="destination-error" message={errors.destination} />
         </section>
 
-        <section className={CARD} aria-labelledby="h-trip">
-          <Heading n={3} id="h-trip">
-            Trip type
+        <section className={CARD} aria-labelledby="h-dates">
+          <Heading n={3} id="h-dates">
+            Dates
           </Heading>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="h-trip">
+          <div className="mb-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Trip type">
             <Chip type="radio" name="trip" checked={!oneWay} onChange={() => setOneWay(false)}>
               Round trip
             </Chip>
@@ -417,32 +491,7 @@ export default function SearchForm() {
               One way
             </Chip>
           </div>
-          {!oneWay && !(isAnywhere && dateMode === 'month') && (
-            <ReturnAirportSwitch
-              className="mt-4"
-              on={openJaw}
-              onChange={setOpenJaw}
-              description={
-                dateMode === 'month'
-                  ? 'In the return calendar, show the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day (two one-way tickets), with the price difference.'
-                  : isAnywhere
-                  ? 'Also look at trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Each country and city shows its cheaper trip, round trip or not, and says which it is. These trips load after the round trips.'
-                  : 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets).'
-              }
-            />
-          )}
-          {!oneWay && isAnywhere && dateMode === 'month' && (
-            <p className="mt-4 text-sm text-slate">
-              Anywhere with a whole month looks at round trips from the same airport. Once you pick a trip, a button lets you fly back to a different airport.
-            </p>
-          )}
-        </section>
-
-        <section className={CARD} aria-labelledby="h-dates">
-          <Heading n={4} id="h-dates">
-            Dates
-          </Heading>
-          <div className="mb-5 flex flex-wrap gap-2" role="radiogroup" aria-labelledby="h-dates">
+          <div className="mb-5 flex flex-wrap gap-2" role="radiogroup" aria-label="Date mode">
             <Chip type="radio" name="mode" checked={dateMode === 'exact'} onChange={() => setDateMode('exact')}>
               Exact dates
             </Chip>
@@ -499,7 +548,76 @@ export default function SearchForm() {
                 </div>
               )}
 
-              <div className="mt-5">
+            </div>
+          )}
+
+          {dateMode === 'range' && (
+            <div>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                <DateField id="rangeStart" label="Leave from" value={rangeStart} onChange={setRangeStart} min={today} error={errors.rangeStart} />
+                <DateField id="rangeEnd" label="Leave until" value={rangeEnd} onChange={setRangeEnd} min={rangeStart || today} error={errors.rangeEnd} />
+              </div>
+              {!oneWay && (
+                <div className="flex flex-wrap items-end gap-3">
+                  <NumberField id="minDays" label="Min days away" value={minDays} onChange={setMinDays} min={1} max={MAX_RANGE_DAYS} />
+                  <NumberField id="maxDays" label="Max days away" value={maxDays} onChange={setMaxDays} min={1} max={MAX_RANGE_DAYS} />
+                </div>
+              )}
+              <FieldError id="days-error" message={errors.days} />
+              <p className="mt-3 text-xs text-slate">
+                Experimental — fewer cached results may be available than the other two modes.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section className="surface mb-5" aria-labelledby="h-more">
+          <h2 id="h-more" className="text-base font-semibold">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              aria-controls="more-options"
+              onClick={() => setMoreOpen((v) => !v)}
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left sm:px-5"
+            >
+              <span className="min-w-0">
+                More options
+                <span className="ml-2 text-sm font-normal text-slate">{moreSummary}</span>
+              </span>
+              <span aria-hidden="true" className={`shrink-0 text-slate transition-transform motion-reduce:transition-none ${moreOpen ? 'rotate-180' : ''}`}>
+                ▾
+              </span>
+            </button>
+          </h2>
+          <div id="more-options" hidden={!moreOpen} className="space-y-6 border-t border-line px-4 pb-5 pt-4 sm:px-5">
+            {!oneWay && !(isAnywhere && dateMode === 'month') && (
+              <ReturnAirportSwitch
+                on={openJaw}
+                onChange={setOpenJaw}
+                description={
+                  dateMode === 'month'
+                    ? 'In the return calendar, show the cheapest flight back to any of BTS, VIE, BUD, KSC or PRG for every day (two one-way tickets), with the price difference.'
+                    : isAnywhere
+                    ? 'Also look at trips that come back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets). Each country and city shows its cheaper trip, round trip or not, and says which it is. These trips load after the round trips.'
+                    : 'Keep the normal round-trip price, and add a line with the cheapest trip that comes back to another of BTS, VIE, BUD, KSC or PRG (two one-way tickets).'
+                }
+              />
+            )}
+            {!oneWay && isAnywhere && dateMode === 'month' && (
+              <p className="text-sm text-slate">
+                Anywhere with a whole month looks at round trips from the same airport. Once you pick a trip, a button lets you fly back to a different airport.
+              </p>
+            )}
+
+            {dateMode === 'exact' && (
+              <div>
+                <p className="mb-1 font-semibold">Weekdays</p>
+                <p className="text-sm text-slate">With exact dates you already picked the days. Weekday filters work with Whole month and Date range.</p>
+              </div>
+            )}
+            {dateMode === 'month' && (
+              <div>
+                <p className="mb-1 font-semibold">Weekdays and nights</p>
                 <p className="mb-1 text-sm text-slate">Optional: only look at certain weekdays.</p>
                 <WeekdayFilterPanel
                   outDays={outDays}
@@ -517,23 +635,10 @@ export default function SearchForm() {
                 <FieldError id="nights-error" message={errors.nights} />
                 <p className="mt-1 text-xs text-slate">Nights can be 1 to {MAX_NIGHTS}.</p>
               </div>
-            </div>
-          )}
-
-          {dateMode === 'range' && (
-            <div>
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-                <DateField id="rangeStart" label="Leave from" value={rangeStart} onChange={setRangeStart} min={today} error={errors.rangeStart} />
-                <DateField id="rangeEnd" label="Leave until" value={rangeEnd} onChange={setRangeEnd} min={rangeStart || today} error={errors.rangeEnd} />
-              </div>
-              {!oneWay && (
-                <div className="flex flex-wrap items-end gap-3">
-                  <NumberField id="minDays" label="Min days away" value={minDays} onChange={setMinDays} min={1} max={MAX_RANGE_DAYS} />
-                  <NumberField id="maxDays" label="Max days away" value={maxDays} onChange={setMaxDays} min={1} max={MAX_RANGE_DAYS} />
-                </div>
-              )}
-              <FieldError id="days-error" message={errors.days} />
-              <div className="mt-5">
+            )}
+            {dateMode === 'range' && (
+              <div>
+                <p className="mb-1 font-semibold">Weekdays</p>
                 <p className="mb-1 text-sm text-slate">Optional: only fly on certain weekdays.</p>
                 <WeekdayFilterPanel
                   bare
@@ -551,18 +656,13 @@ export default function SearchForm() {
                 <FieldError id="range-outDays-error" message={errors.outDays} />
                 <FieldError id="range-backDays-error" message={errors.backDays} />
               </div>
-              <p className="mt-3 text-xs text-slate">
-                Experimental — fewer cached results may be available than the other two modes.
-              </p>
-            </div>
-          )}
-        </section>
+            )}
 
-        {!oneWay && (
-          <section className={CARD} aria-labelledby="h-budget">
-            <Heading n={5} id="h-budget">
-              Budget <span className="text-sm font-normal text-slate">(optional)</span>
-            </Heading>
+            {!oneWay && (
+              <div>
+                <p className="mb-3 font-semibold">
+                  Budget and spending style <span className="text-sm font-normal text-slate">(optional)</span>
+                </p>
             <BudgetPanel
               bare
               delay={0}
@@ -577,8 +677,10 @@ export default function SearchForm() {
               With a budget, results show an estimated total (flight plus what you spend there) and which trips fit. Flight prices are
               cached; the rest are estimates.
             </p>
-          </section>
-        )}
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* On phones the main button stays at the bottom of the screen while you scroll the form. */}
         <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-paper/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">

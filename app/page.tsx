@@ -6,6 +6,13 @@ import ContentPreview from './components/content/ContentPreview'
 import { HOME_AIRPORTS } from './homeAirports'
 import { AIRPORTS } from './airportsList'
 import { DESTINATIONS } from './destinationsList'
+import PriceAge from './components/PriceAge'
+import { freshDeals, dealResultsHref, type DealFare } from './lib/deals'
+import { airportCity } from './airportsList'
+import { formatShortDate } from './lib/format'
+
+// The cheapest fresh deals sit in the hero: rebuild hourly (and right after the daily deals job, which revalidates '/').
+export const revalidate = 3600
 
 // Title and description come from the layout; the home page only adds its canonical address.
 export const metadata: Metadata = { alternates: { canonical: '/' } }
@@ -75,6 +82,56 @@ function Icon({ name }: { name: IconName }) {
   }
 }
 
+/** The 3–4 cheapest deals whose price was seen in the last 72 h, right under the title: someone who lands here
+ * sees real prices before anything else. Nothing fresh = no section at all. Each row opens that exact search. */
+function CheapestNow({ deals }: { deals: DealFare[] }) {
+  if (deals.length === 0) return null
+  return (
+    <section className="mt-6 max-w-xl rounded-lg border border-white/10 bg-white/[0.06] text-white" aria-labelledby="cheapest-now">
+      <div className="flex items-center justify-between gap-3 border-b border-white/15 px-4 py-2.5">
+        <h2 id="cheapest-now" className="num text-xs font-semibold uppercase tracking-widest text-amber">
+          Cheapest right now
+        </h2>
+        <Link href="/deals" className="num inline-flex min-h-9 items-center text-xs text-white/70 underline-offset-4 hover:text-amber hover:underline">
+          All deals →
+        </Link>
+      </div>
+      <ul className="divide-y divide-white/10">
+        {deals.map(({ deal, fare }) => {
+          const dates = deal.return_date
+            ? `${formatShortDate(deal.departure_date)} – ${formatShortDate(deal.return_date)}`
+            : `${formatShortDate(deal.departure_date)}, one way`
+          return (
+            <li key={deal.id}>
+              <Link
+                href={dealResultsHref(deal)}
+                className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-amber"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-base font-semibold leading-snug">
+                    <span className="num text-amber">{deal.origin}</span>
+                    <span className="sr-only"> {airportCity(deal.origin)}</span>
+                    <span aria-hidden="true" className="mx-1.5 text-white/50">→</span>
+                    <span className="sr-only">to </span>
+                    {deal.destination_city}
+                  </span>
+                  <span className="block truncate text-xs leading-snug text-white/70">
+                    {dates} · <PriceAge seenAt={fare.seenAt} />
+                  </span>
+                </span>
+                <span className="shrink-0 text-right leading-none">
+                  <span className="block text-[11px] text-white/60">from</span>
+                  <span className="num text-xl font-semibold text-amber">€{Math.round(fare.price)}</span>
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 /** The airport codes as little flip tiles, like a departure board. */
 function DepartureBoard() {
   return (
@@ -118,7 +175,8 @@ function DepartureBoard() {
   )
 }
 
-export default function Home() {
+export default async function Home() {
+  const deals = await freshDeals(4)
   return (
     <div>
       <PageHero
@@ -137,6 +195,15 @@ export default function Home() {
             <Link href="/anywhere" className="btn btn-outline-light btn-lg">
               Surprise me
             </Link>
+            <p className="w-full text-sm text-white/70 sm:text-base">
+              Or{' '}
+              <Link
+                href="/search?to=ANYWHERE"
+                className="inline-block py-1 font-medium text-white underline decoration-amber decoration-2 underline-offset-4 transition-colors hover:text-amber"
+              >
+                search anywhere with your own dates →
+              </Link>
+            </p>
           </>
         }
         aside={<DepartureBoard />}
@@ -145,15 +212,7 @@ export default function Home() {
           <strong className="font-semibold text-white">Cheapest escape from your airports.</strong> One search compares
           Vienna, Bratislava, Budapest, Košice and Prague, so you stop checking five sites.
         </p>
-        <p className="mt-4 text-sm text-white/70 sm:text-base">
-          Or{' '}
-          <Link
-            href="/search?to=ANYWHERE"
-            className="inline-block py-1 font-medium text-white underline decoration-amber decoration-2 underline-offset-4 transition-colors hover:text-amber"
-          >
-            search anywhere with your own dates →
-          </Link>
-        </p>
+        <CheapestNow deals={deals} />
       </PageHero>
 
       <section className="mx-auto max-w-5xl px-4 py-14 sm:px-6" aria-labelledby="how">

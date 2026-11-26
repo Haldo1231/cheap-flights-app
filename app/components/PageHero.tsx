@@ -20,7 +20,7 @@ export default function PageHero({ eyebrow, title, children, actions, aside, siz
   return (
     <section className="hero-surface border-t border-white/10 text-white">
       <div
-        className={`mx-auto grid max-w-5xl items-center gap-10 px-4 sm:px-6 ${big ? 'py-14 sm:py-20' : 'py-10 sm:py-14'} ${
+        className={`mx-auto grid max-w-5xl items-center gap-10 px-4 sm:px-6 ${big ? 'py-8 sm:py-20' : 'py-10 sm:py-14'} ${
           aside ? 'lg:grid-cols-[1.25fr_1fr]' : ''
         }`}
       >
@@ -34,11 +34,11 @@ export default function PageHero({ eyebrow, title, children, actions, aside, siz
             {title}
           </h1>
           {children && (
-            <div className={`mt-5 max-w-xl leading-relaxed text-white/80 ${big ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'}`}>
+            <div className={`mt-5 max-w-xl leading-relaxed text-white/80 ${big ? 'text-base sm:text-xl' : 'text-base sm:text-lg'}`}>
               {children}
             </div>
           )}
-          {actions && <div className="mt-8 flex flex-wrap items-center gap-3">{actions}</div>}
+          {actions && <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3">{actions}</div>}
         </div>
         {aside}
       </div>

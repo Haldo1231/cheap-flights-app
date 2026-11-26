@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-24",
+  "generated": "2026-11-26",
   "threshold": {
     "tickets": 30,
     "departureDays": 20,
@@ -468,6 +468,16 @@
       "destinationCountry": "Poland",
       "countryCode": "PL",
       "destinationSlug": "warsaw"
+    },
+    {
+      "slug": "prague-krakow",
+      "origin": "PRG",
+      "destination": "KRK",
+      "originCity": "Prague",
+      "destinationCity": "Krakow",
+      "destinationCountry": "Poland",
+      "countryCode": "PL",
+      "destinationSlug": "krakow"
     },
     {
       "slug": "prague-madrid",

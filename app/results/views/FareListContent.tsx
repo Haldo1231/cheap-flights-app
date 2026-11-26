@@ -63,6 +63,12 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
   const shownId = previewedId && [...shownPrimary, ...shownSecondary].some((f) => f.id === previewedId) ? previewedId : defaultFare?.id ?? null
   const nothingVisible = shownPrimary.length === 0 && shownSecondary.length === 0
 
+  // Exact dates, round trip: the top card is the cheapest fare that returns on the asked day, so it says exactly that; fares
+  // with another return day (possibly cheaper) get their own heading below, with their own "from" price.
+  const exactReturn = !oneWay && dateMode === 'exact' && !!requestedReturn
+  const cheapestLabel = exactReturn ? (primaryCount > 0 ? 'Cheapest on your dates' : 'Cheapest, different return date') : undefined
+  const otherReturnFrom = shownSecondary.length > 0 ? Math.min(...shownSecondary.map((f) => f.price)) : null
+
   function card(fare: Fare) {
     const stay = estimates.get(fare.id) as TripEstimate
     const days = stay.days
@@ -73,6 +79,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
         linkPage="results"
         fare={fare}
         isCheapest={fare.id === cheapestId}
+        cheapestLabel={cheapestLabel}
         isPreviewed={fare.id === shownId}
         onPreview={() => onPreview(fare.id)}
         detailsHref={tripHref(p.searchString, p.destination, snapshotFromFare(fare))}
@@ -156,7 +163,9 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
         <section className={shownPrimary.length > 0 ? 'mt-8' : ''}>
           {primaryCount > 0 && (
             <>
-              <h2 className="mb-1 text-sm font-semibold">{oneWay ? 'Round-trip fares (include a return flight)' : 'Other return dates'}</h2>
+              <h2 className="mb-1 text-base font-semibold">
+                {oneWay ? 'Round-trip fares (include a return flight)' : `Different return date, from €${otherReturnFrom}`}
+              </h2>
               <p className="mb-3 text-xs text-slate">
                 {oneWay
                   ? 'There is no one-way price for these — the price covers a return flight too.'

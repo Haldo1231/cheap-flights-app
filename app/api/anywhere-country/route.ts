@@ -1,3 +1,4 @@
+import { byTrust, cityTrust } from '../../lib/trustOrder'
 import { badRequest, cachedJson, cleanCode } from '../../lib/apiParams'
 import { getCountryImage } from '../../lib/countryImagesData'
 import {
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
   const all = shown.map((city, i) => toAnywhereCity(city, checked[i]))
   await nameAirlines(all)
 
-  const matched = all.filter((c) => c.trip).sort((a, b) => (a.trip?.price ?? Infinity) - (b.trip?.price ?? Infinity))
+  const matched = all.filter((c) => c.trip).sort(byTrust(cityTrust))
   const unmatched = all.filter((c) => !c.trip)
 
   return cachedJson({

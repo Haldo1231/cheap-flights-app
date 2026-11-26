@@ -7,6 +7,7 @@
 // ("round trip, back to BTS" / "two one-way tickets, back to PRG", see tripRouteLabel). Switch OFF = no second request
 // and no change at all.
 
+import { byTrust, cityTrust, countryTrust } from './trustOrder'
 import { useJson } from './useJson'
 import { cheaperTrip } from './tripRoute'
 import type { AnywhereJawResponse } from '../api/anywhere-jaw/route'
@@ -49,7 +50,7 @@ export function mixJawIntoCountries(
     return { ...country, verifiedCity: next, price: next.trip?.price ?? country.price }
   }
   const all = [...countries, ...unmatched].map(mixed)
-  const matched = all.filter((c) => c.price !== null).sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
+  const matched = all.filter((c) => c.price !== null).sort(byTrust(countryTrust))
   return { countries: matched, unmatched: all.filter((c) => c.price === null), used }
 }
 
@@ -66,6 +67,6 @@ export function mixJawIntoCities(
     if (next !== city) used += 1
     return next
   })
-  const matched = mixed.filter((c) => c.trip).sort((a, b) => (a.trip?.price ?? Infinity) - (b.trip?.price ?? Infinity))
+  const matched = mixed.filter((c) => c.trip).sort(byTrust(cityTrust))
   return { cities: matched, unmatched: mixed.filter((c) => !c.trip), used }
 }

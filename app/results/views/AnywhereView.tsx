@@ -1,5 +1,6 @@
 'use client'
 
+import { cheapestIndex } from '../../lib/trustOrder'
 import { useMemo, useState } from 'react'
 import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
@@ -84,7 +85,9 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
       country={country}
       href={withParams(p.searchString, { country: country.code })}
       cheapest={cheapest}
-      eager={i < 3}
+      // Only the first photo is fetched first: on a phone it is the only one on screen, and the others no longer compete with
+      // it for the connection (they load as they come near the screen).
+      eager={i === 0}
       index={i}
       estimate={budget !== null ? estimateOf(country) : null}
       routeLabel={jawOn}
@@ -177,7 +180,7 @@ export default function AnywhereView({ p }: { p: ResultsParams }) {
               <h2 id="country-grid-title" className="sr-only">
                 Countries, cheapest first
               </h2>
-              <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{countries.map((country, i) => card(country, i, i === 0))}</ol>
+              <ol className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">{countries.map((country, i) => card(country, i, i === cheapestIndex(countries.map((c) => c.price))))}</ol>
             </section>
           )}
 

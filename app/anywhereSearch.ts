@@ -32,6 +32,7 @@ import { cleanCodes, cleanDate, cleanInt, cleanMonth, MAX_ORIGINS as MAX_ORIGIN_
 import { HOME_AIRPORTS } from './homeAirports'
 import { openJawFilterFor } from './openJawFilter'
 import { oldestSeen } from './lib/priceAge'
+import { isDomestic } from './lib/trustOrder'
 
 // Bounds shown to the user ("checked the N cheapest-looking countries").
 export { mapWithLimit }
@@ -100,7 +101,7 @@ type CountryGroup = {
   code: string
   name: string
   /** One entry per city, best (cheapest) home airport first inside `originsFor`. */
-  cities: { cityCode: string; cityName: string; options: RoughCandidate[] }[]
+  cities: { cityCode: string; cityName: string; countryCode: string; options: RoughCandidate[] }[]
   roughPrice: number
 }
 
@@ -132,6 +133,8 @@ export async function rankCountries(origins: string[], months: string[], oneWay:
   for (const c of all) {
     const city = info.get(c.cityCode)
     if (!city) continue // can't place it on a country -- left out, not guessed
+    // A flight inside the home airport's own country (Košice → Bratislava) is never a tip.
+    if (isDomestic(c.origin, city.country.code)) continue
     const candidate: RoughCandidate = { ...c, cityName: city.name }
     const list = byCity.get(c.cityCode) || []
     list.push(candidate)
@@ -147,7 +150,7 @@ export async function rankCountries(origins: string[], months: string[], oneWay:
       cities: [],
       roughPrice: Infinity,
     }
-    group.cities.push({ cityCode, cityName: city.name, options: options.slice(0, MAX_ORIGINS_PER_CITY) })
+    group.cities.push({ cityCode, cityName: city.name, countryCode: city.country.code, options: options.slice(0, MAX_ORIGINS_PER_CITY) })
     group.roughPrice = Math.min(group.roughPrice, options[0].roughPrice)
     byCountry.set(city.country.code, group)
   }
@@ -283,11 +286,16 @@ export async function checkCityOpenJaw(
   cityCode: string,
   origins: string[],
   params: AnywhereParams,
-  token: string | undefined
+  token: string | undefined,
+  /** The city's country: home airports in it are left out both ways (no domestic flights). */
+  countryCode?: string
 ): Promise<AnywhereTrip | null> {
   if (params.oneWay) return null
-  const returnTo = Array.from(new Set([...origins, ...HOME_AIRPORTS]))
-  const { pairs } = await findOpenJawPairs(origins, returnTo, cityCode, token, openJawFilterFor(params), 1)
+  const abroad = (list: string[]) => list.filter((o) => !isDomestic(o, countryCode))
+  const from = abroad(origins)
+  const returnTo = abroad(Array.from(new Set([...origins, ...HOME_AIRPORTS])))
+  if (from.length === 0 || returnTo.length === 0) return null
+  const { pairs } = await findOpenJawPairs(from, returnTo, cityCode, token, openJawFilterFor(params), 1)
   const best = pairs[0]
   if (!best) return null
   // The older of the two prices decides what "seen" says.
@@ -311,9 +319,12 @@ export async function checkCity(
   origins: string[],
   token: string | undefined
 ): Promise<{ origin: string; trip: AnywhereTrip } | null> {
-  if (params.dateMode === 'month') return checkCityMonth(city.cityCode, params, origins, token)
+  // Home airports in the city's own country are left out: a domestic flight is never offered (Košice → Bratislava).
+  const abroad = origins.filter((o) => !isDomestic(o, city.countryCode))
+  if (abroad.length === 0) return null
+  if (params.dateMode === 'month') return checkCityMonth(city.cityCode, params, abroad, token)
 
-  const flights = await cheapestUsableFlights(origins, city.cityCode, params, token)
+  const flights = await cheapestUsableFlights(abroad, city.cityCode, params, token)
   // The cheapest of all airports (the first listed one on a tie).
   let winner: Flight | null = null
   for (const f of flights) if (f && (!winner || f.price < winner.price)) winner = f

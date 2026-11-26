@@ -29,7 +29,8 @@ type Props = {
   routeLabel?: boolean
 }
 
-const PHOTO_SIZES = '(min-width: 1024px) 320px, (min-width: 640px) 45vw, 100vw'
+// On a phone the card is the screen minus the page's side padding (24 px each side), so the phone downloads that width.
+const PHOTO_SIZES = '(min-width: 1024px) 320px, (min-width: 640px) 45vw, calc(100vw - 48px)'
 
 /** One country as a photo card: picture, name, "from €X", how many destinations,
  * and (under the picture) the cheapest trip that matches the filters. */

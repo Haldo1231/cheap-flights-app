@@ -1,3 +1,4 @@
+import { byTrust, countryTrust } from '../../lib/trustOrder'
 import { cachedJson } from '../../lib/apiParams'
 import { getCountryImage } from '../../lib/countryImagesData'
 import {
@@ -65,7 +66,8 @@ export async function GET(request: Request) {
     else unmatched.push(base)
   }
 
-  matched.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
+  // Fresh, complete prices first (lib/trustOrder.ts); an old or undated price moves down, it is never hidden.
+  matched.sort(byTrust(countryTrust))
   await nameAirlines(allCities)
 
   return cachedJson({

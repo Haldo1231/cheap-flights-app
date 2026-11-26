@@ -142,9 +142,13 @@ export default function DestinationView({ p }: { p: ResultsParams }) {
             : snapshotFromLegs(
                 // The outbound ticket the total is made of (with the switch "Fly back to a different airport" ON this is the one-way
                 // fare standing in for a round-trip fare).
-                { ...(month.selection.outFare ?? month.selectedOutFare).outbound, price: (month.selection.outFare ?? month.selectedOutFare).price },
+                {
+                  ...(month.selection.outFare ?? month.selectedOutFare).outbound,
+                  price: (month.selection.outFare ?? month.selectedOutFare).price,
+                  seenAt: (month.selection.outFare ?? month.selectedOutFare).seenAt,
+                },
                 !oneWay && month.selectedBackFare
-                  ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price }
+                  ? { ...month.selectedBackFare.outbound, price: month.selectedBackFare.price, seenAt: month.selectedBackFare.seenAt }
                   : null
               )
         )

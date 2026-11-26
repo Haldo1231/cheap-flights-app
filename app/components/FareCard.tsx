@@ -9,6 +9,8 @@ import { makeSubId, withSubId, type LinkPage } from '../lib/subId'
 type Props = {
   fare: Fare
   isCheapest?: boolean
+  /** The words on the cheapest badge, when plain "Cheapest" would claim more than is true (e.g. "Cheapest on your dates"). */
+  cheapestLabel?: string
   /** Opens the full trip detail screen. When set, the whole card is a link to it. */
   detailsHref?: string
   /** Called when the card is hovered or focused (lets the page preview its cost). */
@@ -33,7 +35,7 @@ type Props = {
 
 /** One cached fare. A round-trip fare shows BOTH flights; its single price
  * covers them together, which the card says plainly. */
-export default function FareCard({ fare, isCheapest = false, detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, findBackHref, heading, shareHref, shareTitle, linkPage }: Props) {
+export default function FareCard({ fare, isCheapest = false, cheapestLabel = 'Cheapest', detailsHref, onPreview, isPreviewed = false, stayLine, budgetNote, findBackHref, heading, shareHref, shareTitle, linkPage }: Props) {
   const shareTarget = shareHref ?? detailsHref
   const isRoundTrip = fare.kind === 'round-trip' && fare.inbound
   const nights = fare.inbound ? nightsBetweenDates(fare.outbound.date, fare.inbound.date) : 0
@@ -58,7 +60,7 @@ export default function FareCard({ fare, isCheapest = false, detailsHref, onPrev
         <div className="flex flex-wrap items-center gap-2">
           {isCheapest && (
             <span className="rounded-full bg-amber px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-deep">
-              Cheapest
+              {cheapestLabel}
             </span>
           )}
           <span className="rounded-full border border-line bg-paper px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-slate">

@@ -1,6 +1,7 @@
 // Client-safe helpers for turning cached data into the shapes the pages show.
 
 import { buildBookingLink } from '../aviasalesLink'
+import { oldestSeen } from './priceAge'
 import type { CalendarDay, Fare, Leg } from '../tripTypes'
 import type { TripLegSnapshot, TripSnapshot } from './tripUrl'
 
@@ -83,8 +84,8 @@ export function snapshotFromFare(fare: Fare): TripSnapshot {
 
 /** What the trip page needs for two separately priced flights (Whole Month, open-jaw). */
 export function snapshotFromLegs(
-  outbound: Leg & { price: number },
-  inbound: (Leg & { price: number }) | null
+  outbound: Leg & { price: number; seenAt?: string | null },
+  inbound: (Leg & { price: number; seenAt?: string | null }) | null
 ): TripSnapshot {
   return {
     kind: 'legs',
@@ -92,7 +93,8 @@ export function snapshotFromLegs(
     inbound: inbound ? legSnapshot(inbound, inbound.price) : null,
     price: outbound.price + (inbound?.price ?? 0),
     gate: null,
-    seenAt: null,
+    // Two prices: the trip is as old as the older of them (the same age the card showed).
+    seenAt: oldestSeen(outbound.seenAt, inbound?.seenAt),
   }
 }
 

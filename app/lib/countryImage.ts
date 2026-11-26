@@ -58,7 +58,9 @@ export function photoLoader({ src, width, quality }: { src: string; width: numbe
     const u = new URL(src)
     if (u.hostname === PHOTO_SITES.unsplash.imageHost) {
       u.searchParams.set('w', String(width))
-      u.searchParams.set('q', String(quality ?? 75))
+      // 60 instead of the usual 75: on a phone the card photo looks the same and is about a third smaller (Unsplash sends
+      // WebP/AVIF with auto=format).
+      u.searchParams.set('q', String(quality ?? 60))
       u.searchParams.set('fit', 'max')
       u.searchParams.set('auto', 'format')
       return u.toString()

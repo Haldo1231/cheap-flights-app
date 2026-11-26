@@ -245,7 +245,7 @@ export default function BackClient() {
   const baseForTrip = new URLSearchParams(sp.toString())
   for (const key of BACK_KEYS) baseForTrip.delete(key)
   const detailsHref = picked
-    ? tripHref(baseForTrip, dest, snapshotFromLegs({ ...outLeg, price: outPrice }, { ...picked.outbound, price: picked.price }))
+    ? tripHref(baseForTrip, dest, snapshotFromLegs({ ...outLeg, price: outPrice, seenAt: trip.seenAt }, { ...picked.outbound, price: picked.price, seenAt: picked.seenAt }))
     : ''
 
   function search(next: Days) {

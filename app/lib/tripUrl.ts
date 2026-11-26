@@ -141,7 +141,9 @@ export function parseTrip(get: (key: string) => string | null | undefined): Trip
   const gate = (get('tg') || '').slice(0, 40)
   // The time a traveller saw the price: only a plain date-time is kept (the address can be edited by anyone).
   const seen = get('ts')
-  const seenAt = seen && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z?$/.test(seen) ? seen : null
+  // The store writes times with an offset ("2026-11-25T02:30:30.899+00:00"), the old data with "Z"; both are kept, so the
+  // trip page shows the same price age as the card it was opened from.
+  const seenAt = seen && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/.test(seen) && !Number.isNaN(Date.parse(seen)) ? seen : null
   return { kind: kindParam, outbound, inbound, price, gate: gate || null, seenAt }
 }
 

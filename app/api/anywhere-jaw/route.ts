@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
   const found = await mapWithLimit(cities, 4, async (city) => ({
     city,
-    trip: await checkCityOpenJaw(city.cityCode, origins, params, token),
+    trip: await checkCityOpenJaw(city.cityCode, origins, params, token, city.countryCode),
   }))
 
   const trips: Record<string, AnywhereTrip> = {}

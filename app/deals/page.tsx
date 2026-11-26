@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import { buildBookingLink } from '../aviasalesLink'
 import { getDayFlights, flightToFare } from '../flightSources'
 import { mapWithLimit } from '../lib/pool'
+import { byTrust, cheapestIndex } from '../lib/trustOrder'
 import FareCard from '../components/FareCard'
 import PageHero from '../components/PageHero'
 import { pageMetadata } from '../lib/seo'
@@ -74,8 +75,16 @@ export default async function DealsPage() {
     )
   }
 
-  const deals = (data as Deal[] | null) ?? []
-  const fares = await mapWithLimit(deals, 3, dealToFare)
+  const rows = (data as Deal[] | null) ?? []
+  const looked = await mapWithLimit(rows, 3, dealToFare)
+  // Fresh, complete fares first (lib/trustOrder.ts): a price older than 72 h, or one without its age or airline, moves down
+  // but stays on the page with its own age next to it. The "Cheapest" badge stays on the real cheapest one.
+  const order = rows
+    .map((deal, i) => ({ deal, fare: looked[i] }))
+    .sort(byTrust(({ fare }) => ({ price: fare.price, seenAt: fare.seenAt, airline: fare.outbound.airlineCode ?? fare.outbound.airlineName })))
+  const deals = order.map((o) => o.deal)
+  const fares = order.map((o) => o.fare)
+  const cheapest = cheapestIndex(fares.map((f) => f.price))
 
   return (
     <div>
@@ -103,7 +112,7 @@ export default async function DealsPage() {
                 key={deal.id}
                 linkPage="deals"
                 fare={fares[i]}
-                isCheapest={i === 0}
+                isCheapest={i === cheapest}
                 shareHref={`/destinations/${deal.destination_slug}`}
                 shareTitle={deal.destination_city}
                 heading={

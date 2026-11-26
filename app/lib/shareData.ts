@@ -3,12 +3,13 @@
 // caller falls back to the plain brand picture. Server code only.
 
 import { parseAnywhereParams, rankCountries, anywhereMonths, checkCity, checkCityOpenJaw } from '../anywhereSearch'
-import { getCheapestFare } from '../flightSources'
 import { getCityInfo } from '../geoData'
 import { AIRPORTS, airportCountryCode } from '../airportsList'
 import { cleanCode } from './apiParams'
 import { cheaperTrip, returnsToOtherAirport } from './tripRoute'
-import { formatShortDate } from './format'
+import { formatMonth, formatShortDate } from './format'
+import { searchFromResults, type SavedSearch } from './saved/search'
+import { priceNow } from './saved/price'
 import type { OgCard } from './ogCard'
 import type { TripSnapshot } from './tripUrl'
 
@@ -37,7 +38,7 @@ export async function countryShareCard(sp: URLSearchParams): Promise<OgCard | nu
   const withJaw = sp.get('openJaw') === 'true' && !params.oneWay && params.dateMode !== 'month'
   const [checked, jawTrip] = await Promise.all([
     checkCity(country.cities[0], params, origins, token),
-    withJaw ? checkCityOpenJaw(country.cities[0].cityCode, origins, params, token) : null,
+    withJaw ? checkCityOpenJaw(country.cities[0].cityCode, origins, params, token, country.cities[0].countryCode) : null,
   ])
   const trip = cheaperTrip(checked?.trip, jawTrip)
   return {
@@ -50,24 +51,37 @@ export async function countryShareCard(sp: URLSearchParams): Promise<OgCard | nu
   }
 }
 
-/** The card for a city's results: its cheapest cached fare from the chosen airports. */
+/** The card for a city's results: the price of THIS search (its dates, one way or round trip), worked out like the top of the
+ * results list (lib/saved/price.ts: exact dates count only fares returning on the asked day). No price when the screen's
+ * headline price is not one number that could be repeated here honestly: a whole month (the calendars mix one-way days and
+ * combinations), a date range with weekday limits, or nothing cached. Never the city's cheapest fare on other dates. */
 export async function destinationShareCard(sp: URLSearchParams): Promise<OgCard | null> {
   const destination = cleanCode(sp.get('destination'))
   if (!destination) return null
   const { origins } = parseAnywhereParams(sp)
-  const [place, fare] = await Promise.all([
-    getCityInfo(destination),
-    getCheapestFare(origins, destination, process.env.TRAVELPAYOUTS_TOKEN),
-  ])
+  const search = searchFromResults(sp)
+  const weekdayLimits = !!(sp.get('outDays') || sp.get('backDays'))
+  const priced = search && search.dateMode !== 'month' && !(search.dateMode === 'range' && weekdayLimits)
+  const [place, now] = await Promise.all([getCityInfo(destination), priced && search ? priceNow(search) : null])
   const name = place?.name ?? AIRPORTS.find((a) => a.code === destination)?.city ?? destination
+  const price = now?.kind === 'price' ? now.price : null
+  const oneWay = sp.get('oneWay') === 'true'
   return {
     title: name,
     eyebrow: fromLabel(origins),
-    price: fare ? fare.price : null,
-    note: fare ? (fare.inbound ? 'round trip' : 'one way') : '',
-    line: fare ? datesLine(fare.outbound.date, fare.inbound?.date) : '',
+    price,
+    note: price !== null ? (oneWay ? 'one way' : 'round trip') : '',
+    line: search ? searchDatesLine(search) : '',
     cc: place?.country.code ?? airportCountryCode(destination) ?? '',
   }
+}
+
+/** The dates of a search as the card shows them: "11 Dec → 14 Dec", "11 Dec – 20 Dec", "Jan 2027". */
+function searchDatesLine(s: SavedSearch): string {
+  if (s.dateMode === 'exact') return datesLine(s.dateFrom, s.dateTo)
+  if (s.dateMode === 'range') return `${formatShortDate(s.dateFrom)} – ${formatShortDate(s.dateTo)}`
+  if (s.dateMode === 'month') return formatMonth(s.dateFrom)
+  return ''
 }
 
 /** The card for a trip page (the trip is read from the address, like the page does). */

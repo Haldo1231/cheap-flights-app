@@ -1,5 +1,6 @@
 'use client'
 
+import { cheapestIndex } from '../../lib/trustOrder'
 import { useMemo, useState } from 'react'
 import { preconnect } from 'react-dom'
 import Breadcrumbs from '../../components/Breadcrumbs'
@@ -167,7 +168,7 @@ export default function CountryView({ p }: { p: ResultsParams }) {
             <ol className="space-y-3">
               {cities.map((city, i) => (
                 <li key={city.code}>
-                  <AnywhereCityRow city={city} href={cityHref(city.code)} highlight={i === 0} routeLabel={jawOn} />
+                  <AnywhereCityRow city={city} href={cityHref(city.code)} highlight={i === cheapestIndex(cities.map((c) => c.trip?.price))} routeLabel={jawOn} />
                 </li>
               ))}
             </ol>

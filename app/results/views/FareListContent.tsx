@@ -169,7 +169,7 @@ export default function FareListContent({ fares, total, p, requestedReturn, info
               <p className="mb-3 text-xs text-slate">
                 {oneWay
                   ? 'There is no one-way price for these — the price covers a return flight too.'
-                  : `No cached fare for ${requestedReturn ? formatDay(requestedReturn) : 'your return date'} — these leave on your departure day with another return date.`}
+                  : `These leave on your departure day but come back on another day than ${requestedReturn ? formatDay(requestedReturn) : 'the one you picked'}.`}
               </p>
             </>
           )}
